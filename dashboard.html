@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,230 +25,233 @@
             </div>
         </header>
 
-        <!-- Sidebar -->
-        <nav id="sidebar" class="sidebar">
-            <div class="sidebar-header">
-                <img src="logo.png" alt="Logo" class="sidebar-logo">
-                <h3>INTIZARUL IMAMUL MUNTAZAR</h3>
-                <button id="closeSidebar" class="sidebar-close"><i class="fas fa-times"></i></button>
+        <!-- New wrapper for sidebar + main content -->
+        <div class="dashboard-body">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <img src="logo.png" alt="Logo" class="sidebar-logo">
+                    <h3>INTIZARUL IMAMUL MUNTAZAR</h3>
+                    <button id="closeSidebar" class="sidebar-close"><i class="fas fa-times"></i></button>
+                </div>
+                <ul class="sidebar-menu">
+                    <li><a href="#" id="navMembers"><i class="fas fa-users"></i> <span>Members</span></a></li>
+                    <li><a href="registration.html" id="navRegister"><i class="fas fa-user-plus"></i> <span>Register</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navMasulin"><i class="fas fa-user-tie"></i> <span>Mas'ulin</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navZones"><i class="fas fa-map-marker-alt"></i> <span>Zones</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navBranches"><i class="fas fa-code-branch"></i> <span>Branches</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navAudit"><i class="fas fa-history"></i> <span>Audit Log</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navConfig"><i class="fas fa-cog"></i> <span>Config</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navExport"><i class="fas fa-download"></i> <span>Export Data</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navZoneStats"><i class="fas fa-chart-pie"></i> <span>Zone Stats</span></a></li>
+                    <li class="admin-only" style="display: none;"><a href="#" id="navBranchStats"><i class="fas fa-chart-bar"></i> <span>Branch Stats</span></a></li>
+                    <li class="zonal-only" style="display: none;"><a href="#" id="navZoneMembers"><i class="fas fa-users"></i> <span>Zone Members</span></a></li>
+                    <li><a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+                </ul>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <div class="content" id="dashboardContent">
+                    <!-- Members Section (with stats and chart) -->
+                    <section id="membersSection">
+                        <h3>Members</h3>
+                        <!-- Search bar for members -->
+                        <div class="search-bar">
+                            <input type="text" id="memberSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
+                            <button onclick="searchMembers()">Search</button>
+                            <button onclick="clearMemberSearch()">Clear</button>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <h4>Total (Members + Mas'ulin)</h4>
+                                <p id="statTotalCombined">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Total Members</h4>
+                                <p id="statTotalMembers">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Total Mas'ulin</h4>
+                                <p id="statTotalMasuls">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>All Brothers</h4>
+                                <p id="statBrothers">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>All Sisters</h4>
+                                <p id="statSisters">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Brothers (Members)</h4>
+                                <p id="statBrothersMembers">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Sisters (Members)</h4>
+                                <p id="statSistersMembers">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Brothers (Mas'ulin)</h4>
+                                <p id="statBrothersMasuls">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Sisters (Mas'ulin)</h4>
+                                <p id="statSistersMasuls">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Bakiyatullah</h4>
+                                <p id="statBakiyatullah">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Ansarullah</h4>
+                                <p id="statAnsarullah">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Ghalibun</h4>
+                                <p id="statGhalibun">0</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>X-Ghalibun (Graduate)</h4>
+                                <p id="statXGhalibun">0</p>
+                            </div>
+                        </div>
+                        <canvas id="membersChart" width="400" height="200"></canvas>
+                        <div class="table-responsive">
+                            <table id="memberTable">
+                                <thead>
+                                    <tr>
+                                        <th>Intizar ID</th>
+                                        <th>Recruitment ID</th>
+                                        <th>Full Name</th>
+                                        <th>Level</th>
+                                        <th>Branch</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div id="memberPagination" class="pagination"></div>
+                    </section>
+
+                    <!-- Mas'ulin Section (Admin) -->
+                    <section id="masulSection" style="display: none;">
+                        <h3>Mas'ulin</h3>
+                        <!-- Search bar for mas'ulin -->
+                        <div class="search-bar">
+                            <input type="text" id="masulSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
+                            <button onclick="searchMasuls()">Search</button>
+                            <button onclick="clearMasulSearch()">Clear</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="masulTable">
+                                <thead>
+                                    <tr>
+                                        <th>Intizar ID</th>
+                                        <th>Mas'ul Recruitment ID</th>
+                                        <th>Full Name</th>
+                                        <th>Rank</th>
+                                        <th>Branch</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div id="masulPagination" class="pagination"></div>
+                    </section>
+
+                    <!-- Zones Section (Admin) -->
+                    <section id="zonesSection" style="display: none;">
+                        <h3>Zones</h3>
+                        <button onclick="showAddZoneModal()">Add Zone</button>
+                        <div class="table-responsive">
+                            <table id="zonesTable">
+                                <thead>
+                                    <tr><th>Zone Name</th><th>Status</th><th>Actions</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Branches Section (Admin) -->
+                    <section id="branchesSection" style="display: none;">
+                        <h3>Branches</h3>
+                        <button onclick="showAddBranchModal()">Add Branch</button>
+                        <div class="table-responsive">
+                            <table id="branchesTable">
+                                <thead>
+                                    <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Status</th><th>Actions</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Audit Log Section (Admin) -->
+                    <section id="auditSection" style="display: none;">
+                        <h3>Audit Log</h3>
+                        <div class="table-responsive">
+                            <table id="auditTable">
+                                <thead>
+                                    <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Details</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Config Section (Admin) -->
+                    <section id="configSection" style="display: none;">
+                        <h3>Configuration</h3>
+                        <form id="configForm">
+                            <label>Admin Code</label>
+                            <input type="text" name="admin_code" id="configAdminCode">
+                            <label>Access Code Prefix (e.g., Muntazir@)</label>
+                            <input type="text" name="access_prefix" id="configPrefix">
+                            <button type="submit">Update</button>
+                        </form>
+                    </section>
+
+                    <!-- Export Section (Admin) -->
+                    <section id="exportSection" style="display: none;">
+                        <h3>Export Data</h3>
+                        <button onclick="exportData('members')">Export Members CSV</button>
+                        <button onclick="exportData('masuls')">Export Mas'ulin CSV</button>
+                    </section>
+
+                    <!-- Zone Stats Section (Admin) -->
+                    <section id="zoneStatsSection" class="admin-only" style="display: none;">
+                        <h3>Zone Statistics</h3>
+                        <canvas id="zoneChart" width="400" height="200"></canvas>
+                        <div class="table-responsive">
+                            <table id="zoneStatsTable">
+                                <thead>
+                                    <tr><th>Zone</th><th>Total Members</th><th>Brothers</th><th>Sisters</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Branch Stats Section (Admin) -->
+                    <section id="branchStatsSection" class="admin-only" style="display: none;">
+                        <h3>Branch Statistics</h3>
+                        <canvas id="branchChart" width="400" height="200"></canvas>
+                        <div class="table-responsive">
+                            <table id="branchStatsTable">
+                                <thead>
+                                    <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Total</th><th>Brothers</th><th>Sisters</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
             </div>
-            <ul class="sidebar-menu">
-                <li><a href="#" id="navMembers"><i class="fas fa-users"></i> <span>Members</span></a></li>
-                <li><a href="registration.html" id="navRegister"><i class="fas fa-user-plus"></i> <span>Register</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navMasulin"><i class="fas fa-user-tie"></i> <span>Mas'ulin</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navZones"><i class="fas fa-map-marker-alt"></i> <span>Zones</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navBranches"><i class="fas fa-code-branch"></i> <span>Branches</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navAudit"><i class="fas fa-history"></i> <span>Audit Log</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navConfig"><i class="fas fa-cog"></i> <span>Config</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navExport"><i class="fas fa-download"></i> <span>Export Data</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navZoneStats"><i class="fas fa-chart-pie"></i> <span>Zone Stats</span></a></li>
-                <li class="admin-only" style="display: none;"><a href="#" id="navBranchStats"><i class="fas fa-chart-bar"></i> <span>Branch Stats</span></a></li>
-                <li class="zonal-only" style="display: none;"><a href="#" id="navZoneMembers"><i class="fas fa-users"></i> <span>Zone Members</span></a></li>
-                <li><a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
-            </ul>
-        </nav>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="content" id="dashboardContent">
-                <!-- Members Section (with stats and chart) -->
-                <section id="membersSection">
-                    <h3>Members</h3>
-                    <!-- Search bar for members -->
-                    <div class="search-bar">
-                        <input type="text" id="memberSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
-                        <button onclick="searchMembers()">Search</button>
-                        <button onclick="clearMemberSearch()">Clear</button>
-                    </div>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <h4>Total (Members + Mas'ulin)</h4>
-                            <p id="statTotalCombined">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Total Members</h4>
-                            <p id="statTotalMembers">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Total Mas'ulin</h4>
-                            <p id="statTotalMasuls">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>All Brothers</h4>
-                            <p id="statBrothers">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>All Sisters</h4>
-                            <p id="statSisters">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Brothers (Members)</h4>
-                            <p id="statBrothersMembers">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Sisters (Members)</h4>
-                            <p id="statSistersMembers">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Brothers (Mas'ulin)</h4>
-                            <p id="statBrothersMasuls">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Sisters (Mas'ulin)</h4>
-                            <p id="statSistersMasuls">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Bakiyatullah</h4>
-                            <p id="statBakiyatullah">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Ansarullah</h4>
-                            <p id="statAnsarullah">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>Ghalibun</h4>
-                            <p id="statGhalibun">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h4>X-Ghalibun (Graduate)</h4>
-                            <p id="statXGhalibun">0</p>
-                        </div>
-                    </div>
-                    <canvas id="membersChart" width="400" height="200"></canvas>
-                    <div class="table-responsive">
-                        <table id="memberTable">
-                            <thead>
-                                <tr>
-                                    <th>Intizar ID</th>
-                                    <th>Recruitment ID</th>
-                                    <th>Full Name</th>
-                                    <th>Level</th>
-                                    <th>Branch</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                    <div id="memberPagination" class="pagination"></div>
-                </section>
-
-                <!-- Mas'ulin Section (Admin) -->
-                <section id="masulSection" style="display: none;">
-                    <h3>Mas'ulin</h3>
-                    <!-- Search bar for mas'ulin -->
-                    <div class="search-bar">
-                        <input type="text" id="masulSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
-                        <button onclick="searchMasuls()">Search</button>
-                        <button onclick="clearMasulSearch()">Clear</button>
-                    </div>
-                    <div class="table-responsive">
-                        <table id="masulTable">
-                            <thead>
-                                <tr>
-                                    <th>Intizar ID</th>
-                                    <th>Mas'ul Recruitment ID</th>
-                                    <th>Full Name</th>
-                                    <th>Rank</th>
-                                    <th>Branch</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                    <div id="masulPagination" class="pagination"></div>
-                </section>
-
-                <!-- Zones Section (Admin) -->
-                <section id="zonesSection" style="display: none;">
-                    <h3>Zones</h3>
-                    <button onclick="showAddZoneModal()">Add Zone</button>
-                    <div class="table-responsive">
-                        <table id="zonesTable">
-                            <thead>
-                                <tr><th>Zone Name</th><th>Status</th><th>Actions</th></tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Branches Section (Admin) -->
-                <section id="branchesSection" style="display: none;">
-                    <h3>Branches</h3>
-                    <button onclick="showAddBranchModal()">Add Branch</button>
-                    <div class="table-responsive">
-                        <table id="branchesTable">
-                            <thead>
-                                <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Status</th><th>Actions</th></tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Audit Log Section (Admin) -->
-                <section id="auditSection" style="display: none;">
-                    <h3>Audit Log</h3>
-                    <div class="table-responsive">
-                        <table id="auditTable">
-                            <thead>
-                                <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Details</th></tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Config Section (Admin) -->
-                <section id="configSection" style="display: none;">
-                    <h3>Configuration</h3>
-                    <form id="configForm">
-                        <label>Admin Code</label>
-                        <input type="text" name="admin_code" id="configAdminCode">
-                        <label>Access Code Prefix (e.g., Muntazir@)</label>
-                        <input type="text" name="access_prefix" id="configPrefix">
-                        <button type="submit">Update</button>
-                    </form>
-                </section>
-
-                <!-- Export Section (Admin) -->
-                <section id="exportSection" style="display: none;">
-                    <h3>Export Data</h3>
-                    <button onclick="exportData('members')">Export Members CSV</button>
-                    <button onclick="exportData('masuls')">Export Mas'ulin CSV</button>
-                </section>
-
-                <!-- Zone Stats Section (Admin) -->
-                <section id="zoneStatsSection" class="admin-only" style="display: none;">
-                    <h3>Zone Statistics</h3>
-                    <canvas id="zoneChart" width="400" height="200"></canvas>
-                    <div class="table-responsive">
-                        <table id="zoneStatsTable">
-                            <thead>
-                                <tr><th>Zone</th><th>Total Members</th><th>Brothers</th><th>Sisters</th></tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Branch Stats Section (Admin) -->
-                <section id="branchStatsSection" class="admin-only" style="display: none;">
-                    <h3>Branch Statistics</h3>
-                    <canvas id="branchChart" width="400" height="200"></canvas>
-                    <div class="table-responsive">
-                        <table id="branchStatsTable">
-                            <thead>
-                                <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Total</th><th>Brothers</th><th>Sisters</th></tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-        </div>
+        </div> <!-- end dashboard-body -->
     </div>
 
     <!-- Modals -->
