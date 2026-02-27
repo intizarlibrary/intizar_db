@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration - INTIZARUL IMAMUL MUNTAZAR</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <img src="logo.png" alt="Logo" class="logo">
+        <div class="title">
+            <h1>INTIZARUL IMAMUL MUNTAZAR</h1>
+            <p class="ajami">إنتظار ٱلاإمام ٱلمنتظر<br>تربير رحي د غنغر جكى</p>
+        </div>
+    </header>
+
+    <nav class="navbar">
+        <a href="index.html">Home</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="#" id="logoutLink">Logout</a>
+    </nav>
+
+    <main>
+        <h2 class="page-title">Registration</h2>
+
+        <!-- Role Selector -->
+        <div class="role-selector" style="margin-bottom: 20px;">
+            <label for="roleSelector">Register as:</label>
+            <select id="roleSelector" onchange="toggleRegistrationForm()">
+                <option value="member">Member</option>
+                <option value="masul">Mas'ul</option>
+            </select>
+        </div>
+
+        <!-- Member Registration Form -->
+        <div id="memberFormContainer">
+            <section class="form-section">
+                <h3>Member Registration</h3>
+                <form id="memberForm" enctype="multipart/form-data">
+                    <fieldset>
+                        <legend>Cikakken Suna (Full Name)</legend>
+                        <input type="text" name="fullName" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Sunan Mahaifi (Father's Name)</legend>
+                        <input type="text" name="fatherName" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Gender</legend>
+                        <select name="gender" required>
+                            <option value="">Select</option>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Date of Birth (must be at least 7 years)</legend>
+                        <input type="date" name="dob" id="memberDob" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Wurin Haihuwa (Place of Birth)</legend>
+                        <input type="text" name="placeOfBirth">
+                    </fieldset>
+                    <fieldset>
+                        <legend>Lambar Waya (Phone Number)</legend>
+                        <input type="tel" name="phone" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Email Address (optional)</legend>
+                        <input type="email" name="email">
+                    </fieldset>
+                    <fieldset>
+                        <legend>Cikakken Adireshi (Full Address)</legend>
+                        <textarea name="address" required></textarea>
+                    </fieldset>
+                    <fieldset>
+                        <legend>State of Origin</legend>
+                        <input type="text" name="state" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Local Government Area (LGA)</legend>
+                        <input type="text" name="lga" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Sunan Uba/Uwar Kulawa (Guardian Name)</legend>
+                        <input type="text" name="guardianName" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Lambar Wayar Guardian (Guardian Phone)</legend>
+                        <input type="tel" name="guardianPhone" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Adireshin Guardian (Guardian Address)</legend>
+                        <textarea name="guardianAddress" required></textarea>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Zone</legend>
+                        <select name="zone" id="memberZone" required>
+                            <option value="">Select Zone</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Branch</legend>
+                        <select name="branch" id="memberBranch" required>
+                            <option value="">Select Branch</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Year of Recruitment</legend>
+                        <input type="number" name="year" min="2000" max="2100" value="2025" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Entry Level</legend>
+                        <select name="entryLevel" required>
+                            <option value="">Select</option>
+                            <option value="Bakiyatullah">Bakiyatullah</option>
+                            <option value="Ansarullah">Ansarullah</option>
+                            <option value="Ghalibun">Ghalibun</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Passport Photo (optional)</legend>
+                        <input type="file" name="photo" accept="image/*">
+                    </fieldset>
+                    <button type="submit">Register Member</button>
+                </form>
+            </section>
+        </div>
+
+        <!-- Mas'ul Registration Form -->
+        <div id="masulFormContainer" style="display: none;">
+            <section class="form-section">
+                <h3>Mas'ul Registration</h3>
+                <form id="masulForm">
+                    <fieldset>
+                        <legend>Cikakken Suna (Full Name)</legend>
+                        <input type="text" name="fullName" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Sunan Mahaifi (Father's Name)</legend>
+                        <input type="text" name="fatherName" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Gender</legend>
+                        <select name="gender" required>
+                            <option value="">Select</option>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Date of Birth (must be at least 18)</legend>
+                        <input type="date" name="dob" id="masulDob" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Wurin Haihuwa</legend>
+                        <input type="text" name="placeOfBirth">
+                    </fieldset>
+                    <fieldset>
+                        <legend>Lambar Waya</legend>
+                        <input type="tel" name="phone" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Email</legend>
+                        <input type="email" name="email">
+                    </fieldset>
+                    <fieldset>
+                        <legend>Cikakken Adireshi</legend>
+                        <textarea name="address" required></textarea>
+                    </fieldset>
+                    <fieldset>
+                        <legend>State</legend>
+                        <input type="text" name="state" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>LGA</legend>
+                        <input type="text" name="lga" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Zone</legend>
+                        <select name="zone" id="masulZone" required>
+                            <option value="">Select Zone</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Branch</legend>
+                        <select name="branch" id="masulBranch" required>
+                            <option value="">Select Branch</option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Year of Recruitment</legend>
+                        <input type="number" name="year" min="2000" max="2100" value="2025" required>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Current Rank</legend>
+                        <select name="currentRank" required>
+                            <option value="">Select</option>
+                            <optgroup label="Brother Ranks">
+                                <option value="Musa'id">Musa'id</option>
+                                <option value="Areef">Areef</option>
+                                <option value="Muqaddam">Muqaddam</option>
+                                <option value="Ra'id">Ra'id</option>
+                                <option value="Raqeeb">Raqeeb</option>
+                                <option value="Mulazim">Mulazim</option>
+                                <option value="Muhafiz">Muhafiz</option>
+                                <option value="Ameed">Ameed</option>
+                                <option value="Aqeeda">Aqeeda</option>
+                                <option value="Qaid">Qaid</option>
+                            </optgroup>
+                            <optgroup label="Sister Ranks">
+                                <option value="Musa'ida">Musa'ida</option>
+                                <option value="Areefa">Areefa</option>
+                                <option value="Muqadama">Muqadama</option>
+                                <option value="Ra'ida">Ra'ida</option>
+                                <option value="Raqeeba">Raqeeba</option>
+                                <option value="Mulazima">Mulazima</option>
+                                <option value="Muhafiza">Muhafiza</option>
+                                <option value="Ameeda">Ameeda</option>
+                                <option value="Aqeeda">Aqeeda</option>
+                                <option value="Qaida">Qaida</option>
+                            </optgroup>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Asalin Mas'ul (Source)</legend>
+                        <select name="source" id="source" required>
+                            <option value="">Select</option>
+                            <option value="proposed">Proposed Mas'ul</option>
+                            <option value="xghalibun">X-Ghalibun</option>
+                        </select>
+                    </fieldset>
+                    <fieldset id="intizarIdField" style="display: none;">
+                        <legend>Intizar ID (if X-Ghalibun)</legend>
+                        <input type="text" name="intizarId">
+                    </fieldset>
+                    <fieldset>
+                        <legend>Passport Photo (optional)</legend>
+                        <input type="file" name="photo" accept="image/*">
+                    </fieldset>
+                    <button type="submit">Register Mas'ul</button>
+                </form>
+            </section>
+        </div>
+
+        <!-- Success Modal -->
+        <div id="successModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" onclick="closeSuccessModal()">&times;</span>
+                <h3>Registration Successful</h3>
+                <p><strong>Generated ID:</strong> <span id="generatedId"></span></p>
+                <p><strong>Zone:</strong> <span id="generatedZone"></span></p>
+                <p><strong>Branch:</strong> <span id="generatedBranch"></span></p>
+                <button onclick="closeSuccessModal()">OK</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>INTIZARUL IMAMUL MUNTAZAR</p>
+    </footer>
+
+    <!-- Global Loader -->
+    <div id="globalLoader" class="loader-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

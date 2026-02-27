@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - INTIZARUL IMAMUL MUNTAZAR</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <button id="toggleSidebar" class="toggle-btn"><i class="fas fa-bars"></i></button>
+                <img src="logo.png" alt="Logo" class="header-logo">
+                <div class="header-title">
+                    <h1>INTIZARUL IMAMUL MUNTAZAR</h1>
+                    <p class="ajami">إنتظار ٱلاإمام ٱلمنتظر<br>تربير رحي د غنغر جكى</p>
+                </div>
+            </div>
+            <div class="user-info">
+                <span>Welcome, <span id="roleDisplay"></span>!</span>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <img src="logo.png" alt="Logo" class="sidebar-logo">
+                <h3>INTIZARUL IMAMUL MUNTAZAR</h3>
+                <button id="closeSidebar" class="sidebar-close"><i class="fas fa-times"></i></button>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="#" id="navMembers"><i class="fas fa-users"></i> <span>Members</span></a></li>
+                <li><a href="registration.html" id="navRegister"><i class="fas fa-user-plus"></i> <span>Register</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navMasulin"><i class="fas fa-user-tie"></i> <span>Mas'ulin</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navZones"><i class="fas fa-map-marker-alt"></i> <span>Zones</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navBranches"><i class="fas fa-code-branch"></i> <span>Branches</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navAudit"><i class="fas fa-history"></i> <span>Audit Log</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navConfig"><i class="fas fa-cog"></i> <span>Config</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navExport"><i class="fas fa-download"></i> <span>Export Data</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navZoneStats"><i class="fas fa-chart-pie"></i> <span>Zone Stats</span></a></li>
+                <li class="admin-only" style="display: none;"><a href="#" id="navBranchStats"><i class="fas fa-chart-bar"></i> <span>Branch Stats</span></a></li>
+                <li class="zonal-only" style="display: none;"><a href="#" id="navZoneMembers"><i class="fas fa-users"></i> <span>Zone Members</span></a></li>
+                <li><a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="content" id="dashboardContent">
+                <!-- Members Section (with stats and chart) -->
+                <section id="membersSection">
+                    <h3>Members</h3>
+                    <!-- Search bar for members -->
+                    <div class="search-bar">
+                        <input type="text" id="memberSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
+                        <button onclick="searchMembers()">Search</button>
+                        <button onclick="clearMemberSearch()">Clear</button>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h4>Total (Members + Mas'ulin)</h4>
+                            <p id="statTotalCombined">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Total Members</h4>
+                            <p id="statTotalMembers">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Total Mas'ulin</h4>
+                            <p id="statTotalMasuls">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>All Brothers</h4>
+                            <p id="statBrothers">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>All Sisters</h4>
+                            <p id="statSisters">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Brothers (Members)</h4>
+                            <p id="statBrothersMembers">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Sisters (Members)</h4>
+                            <p id="statSistersMembers">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Brothers (Mas'ulin)</h4>
+                            <p id="statBrothersMasuls">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Sisters (Mas'ulin)</h4>
+                            <p id="statSistersMasuls">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Bakiyatullah</h4>
+                            <p id="statBakiyatullah">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Ansarullah</h4>
+                            <p id="statAnsarullah">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Ghalibun</h4>
+                            <p id="statGhalibun">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>X-Ghalibun (Graduate)</h4>
+                            <p id="statXGhalibun">0</p>
+                        </div>
+                    </div>
+                    <canvas id="membersChart" width="400" height="200"></canvas>
+                    <div class="table-responsive">
+                        <table id="memberTable">
+                            <thead>
+                                <tr>
+                                    <th>Intizar ID</th>
+                                    <th>Recruitment ID</th>
+                                    <th>Full Name</th>
+                                    <th>Level</th>
+                                    <th>Branch</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="memberPagination" class="pagination"></div>
+                </section>
+
+                <!-- Mas'ulin Section (Admin) -->
+                <section id="masulSection" style="display: none;">
+                    <h3>Mas'ulin</h3>
+                    <!-- Search bar for mas'ulin -->
+                    <div class="search-bar">
+                        <input type="text" id="masulSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
+                        <button onclick="searchMasuls()">Search</button>
+                        <button onclick="clearMasulSearch()">Clear</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="masulTable">
+                            <thead>
+                                <tr>
+                                    <th>Intizar ID</th>
+                                    <th>Mas'ul Recruitment ID</th>
+                                    <th>Full Name</th>
+                                    <th>Rank</th>
+                                    <th>Branch</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="masulPagination" class="pagination"></div>
+                </section>
+
+                <!-- Zones Section (Admin) -->
+                <section id="zonesSection" style="display: none;">
+                    <h3>Zones</h3>
+                    <button onclick="showAddZoneModal()">Add Zone</button>
+                    <div class="table-responsive">
+                        <table id="zonesTable">
+                            <thead>
+                                <tr><th>Zone Name</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Branches Section (Admin) -->
+                <section id="branchesSection" style="display: none;">
+                    <h3>Branches</h3>
+                    <button onclick="showAddBranchModal()">Add Branch</button>
+                    <div class="table-responsive">
+                        <table id="branchesTable">
+                            <thead>
+                                <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Audit Log Section (Admin) -->
+                <section id="auditSection" style="display: none;">
+                    <h3>Audit Log</h3>
+                    <div class="table-responsive">
+                        <table id="auditTable">
+                            <thead>
+                                <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Details</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Config Section (Admin) -->
+                <section id="configSection" style="display: none;">
+                    <h3>Configuration</h3>
+                    <form id="configForm">
+                        <label>Admin Code</label>
+                        <input type="text" name="admin_code" id="configAdminCode">
+                        <label>Access Code Prefix (e.g., Muntazir@)</label>
+                        <input type="text" name="access_prefix" id="configPrefix">
+                        <button type="submit">Update</button>
+                    </form>
+                </section>
+
+                <!-- Export Section (Admin) -->
+                <section id="exportSection" style="display: none;">
+                    <h3>Export Data</h3>
+                    <button onclick="exportData('members')">Export Members CSV</button>
+                    <button onclick="exportData('masuls')">Export Mas'ulin CSV</button>
+                </section>
+
+                <!-- Zone Stats Section (Admin) -->
+                <section id="zoneStatsSection" class="admin-only" style="display: none;">
+                    <h3>Zone Statistics</h3>
+                    <canvas id="zoneChart" width="400" height="200"></canvas>
+                    <div class="table-responsive">
+                        <table id="zoneStatsTable">
+                            <thead>
+                                <tr><th>Zone</th><th>Total Members</th><th>Brothers</th><th>Sisters</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Branch Stats Section (Admin) -->
+                <section id="branchStatsSection" class="admin-only" style="display: none;">
+                    <h3>Branch Statistics</h3>
+                    <canvas id="branchChart" width="400" height="200"></canvas>
+                    <div class="table-responsive">
+                        <table id="branchStatsTable">
+                            <thead>
+                                <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Total</th><th>Brothers</th><th>Sisters</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="viewContent"></div>
+        </div>
+    </div>
+
+    <div id="zoneModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Add Zone</h3>
+            <form id="zoneForm">
+                <label>Zone Name</label>
+                <input type="text" name="zoneName" required>
+                <button type="submit">Add Zone</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="editZoneModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Edit Zone</h3>
+            <form id="editZoneForm">
+                <input type="hidden" name="zoneId" id="editZoneId">
+                <label>Zone Name</label>
+                <input type="text" name="zoneName" id="editZoneName" required>
+                <button type="submit">Update Zone</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="branchModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Add Branch</h3>
+            <form id="branchForm">
+                <label>Branch Name</label>
+                <input type="text" name="branchName" required>
+                <label>Zone</label>
+                <select name="zoneName" required>
+                    <option value="">Select Zone</option>
+                </select>
+                <button type="submit">Add Branch</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="editBranchModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Edit Branch</h3>
+            <form id="editBranchForm">
+                <input type="hidden" name="branchCode" id="editBranchCode">
+                <label>Branch Name</label>
+                <input type="text" name="branchName" id="editBranchName" required>
+                <label>Zone</label>
+                <select name="zoneName" id="editBranchZone" required>
+                    <option value="">Select Zone</option>
+                </select>
+                <button type="submit">Update Branch</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Success</h3>
+            <p id="successMessage"></p>
+        </div>
+    </div>
+
+    <!-- Global Loader -->
+    <div id="globalLoader" class="loader-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>tom: 1.5rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #E0E0E0;
+            border-radius: var(--border-radius);
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .page-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #E0E0E0;
+            background: var(--white);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .page-btn:hover,
+        .page-btn.active {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 250px;
+            }
+            
+            .main-content {
+                margin-left: 250px;
+            }
+            
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .menu-toggle {
+                display: block;
+            }
+            
+            .topbar-search input {
+                width: 200px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .topbar {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            
+            .topbar-left,
+            .topbar-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .topbar-search input {
+                width: 100%;
+            }
+            
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .filter-group {
+                min-width: 100%;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .quick-actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .table-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--gray);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: #E0E0E0;
+        }
+
+        /* Print Styles */
+        @media print {
+            .sidebar,
+            .topbar,
+            .btn,
+            .table-actions,
+            .filters,
+            .pagination {
+                display: none !important;
+            }
+            
+            .main-content {
+                margin-left: 0 !important;
+            }
+            
+            .content {
+                padding: 0 !important;
+            }
+            
+            .chart-card,
+            .recent-activity,
+            .quick-actions {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <img src="https://via.placeholder.com/50/228B22/FFFFFF?text=IIM" alt="IIM Logo" class="logo-img">
+                <div class="logo-text">Intizarul Imamul Muntazar</div>
+            </div>
+        </div>
+        
+        <div class="user-profile">
+            <div class="user-avatar">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="user-name" id="adminName">Administrator</div>
+            <div class="user-role">System Admin</div>
+        </div>
+        
+        <div class="sidebar-menu">
+            <a href="#" class="menu-item active" onclick="showSection('overview')">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard Overview</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('members')">
+                <i class="fas fa-users"></i>
+                <span>All Members</span>
+                <span class="menu-badge" id="membersCount">0</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('masul')">
+                <i class="fas fa-user-shield"></i>
+                <span>Mas'ul Leaders</span>
+                <span class="menu-badge" id="masulCount">0</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('addMember')">
+                <i class="fas fa-user-plus"></i>
+                <span>Add New Member</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('addMasul')">
+                <i class="fas fa-user-tie"></i>
+                <span>Add Mas'ul</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('promotions')">
+                <i class="fas fa-chart-line"></i>
+                <span>Promotions</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('transfers')">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Transfers</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('logs')">
+                <i class="fas fa-history"></i>
+                <span>System Logs</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('settings')">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('reports')">
+                <i class="fas fa-chart-pie"></i>
+                <span>Reports</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title" id="pageTitle">Dashboard Overview</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="globalSearch" placeholder="Search members, mas'ul, branches...">
+                </div>
+                <div class="topbar-actions">
+                    <button class="notification-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">3</span>
+                    </button>
+                    <button class="logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content">
+            <!-- Dashboard Overview Section -->
+            <div class="dashboard-section active" id="overviewSection">
+                <!-- Stats Grid -->
+                <div class="stats-grid" id="statsGrid">
+                    <!-- Stats will be loaded from backend -->
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <div class="action-btn" onclick="showSection('addMember')">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Add Member</span>
+                    </div>
+                    <div class="action-btn" onclick="showSection('addMasul')">
+                        <i class="fas fa-user-tie"></i>
+                        <span>Add Mas'ul</span>
+                    </div>
+                    <div class="action-btn" onclick="showSection('reports')">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Generate Reports</span>
+                    </div>
+                    <div class="action-btn" onclick="exportData()">
+                        <i class="fas fa-download"></i>
+                        <span>Export Data</span>
+                    </div>
+                    <div class="action-btn" onclick="showSection('settings')">
+                        <i class="fas fa-cog"></i>
+                        <span>System Settings</span>
+                    </div>
+                    <div class="action-btn" onclick="backupSystem()">
+                        <i class="fas fa-database"></i>
+                        <span>Backup System</span>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3><i class="fas fa-chart-pie"></i> Members per Zone</h3>
+                        <div class="chart-container">
+                            <canvas id="zoneChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3><i class="fas fa-chart-bar"></i> Members per Level</h3>
+                        <div class="chart-container">
+                            <canvas id="levelChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="recent-activity">
+                    <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                    <div class="activity-list" id="recentActivity">
+                        <!-- Activity will be loaded from backend -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Members Section -->
+            <div class="dashboard-section" id="membersSection">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Search</label>
+                        <input type="text" id="memberSearch" placeholder="Search by name, ID, or phone">
+                    </div>
+                    <div class="filter-group">
+                        <label>Zone</label>
+                        <select id="zoneFilter">
+                            <option value="">All Zones</option>
+                            <option value="SOKOTO">SOKOTO</option>
+                            <option value="KADUNA">KADUNA</option>
+                            <option value="ABUJA">ABUJA</option>
+                            <option value="ZARIA">ZARIA</option>
+                            <option value="KANO">KANO</option>
+                            <option value="BAUCHI">BAUCHI</option>
+                            <option value="MALUMFASHI">MALUMFASHI</option>
+                            <option value="NIGER">NIGER</option>
+                            <option value="QUM">QUM</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Branch</label>
+                        <select id="branchFilter">
+                            <option value="">All Branches</option>
+                            <!-- Branches will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Level</label>
+                        <select id="levelFilter">
+                            <option value="">All Levels</option>
+                            <option value="Bakiyatullah">Bakiyatullah</option>
+                            <option value="Ansarullah">Ansarullah</option>
+                            <option value="Ghalibun">Ghalibun</option>
+                            <option value="Graduate">Graduate</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Gender</label>
+                        <select id="genderFilter">
+                            <option value="">All Genders</option>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn btn-view" onclick="loadMembers()">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                        <button class="btn btn-export" onclick="exportMembers()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>All Members</h3>
+                        <div class="table-actions">
+                            <button class="btn btn-view" onclick="viewSelected()">
+                                <i class="fas fa-eye"></i> View Selected
+                            </button>
+                            <button class="btn btn-edit" onclick="editSelected()">
+                                <i class="fas fa-edit"></i> Edit Selected
+                            </button>
+                            <button class="btn btn-export" onclick="exportTable()">
+                                <i class="fas fa-file-export"></i> Export
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <table id="membersTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>Photo</th>
+                                <th>Global ID</th>
+                                <th>Recruitment ID</th>
+                                <th>Full Name</th>
+                                <th>Branch</th>
+                                <th>Level</th>
+                                <th>Phone</th>
+                                <th>Year</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="membersTableBody">
+                            <!-- Members will be loaded here -->
+                        </tbody>
+                    </table>
+                    
+                    <div class="pagination" id="membersPagination">
+                        <!-- Pagination will be generated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other sections would follow similar structure -->
+            <!-- Due to character limits, showing main structure only -->
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            const userRole = localStorage.getItem('userRole');
+            
+            if (!isLoggedIn || userRole !== 'admin') {
+                window.location.href = 'login.html?role=admin';
+                return;
+            }
+            
+            // Load dashboard data
+            loadDashboardData();
+            initializeCharts();
+            populateBranchFilters();
+        });
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            sidebar.classList.toggle('active');
+            if (sidebar.classList.contains('active')) {
+                mainContent.style.marginLeft = '280px';
+            } else {
+                mainContent.style.marginLeft = '0';
+            }
+        }
+
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('.dashboard-section').forEach(s => {
+                s.classList.remove('active');
+            });
+            
+            // Remove active class from all menu items
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected section
+            const sectionElement = document.getElementById(section + 'Section');
+            if (sectionElement) {
+                sectionElement.classList.add('active');
+            }
+            
+            // Set active menu item
+            document.querySelectorAll('.menu-item').forEach(item => {
+                const span = item.querySelector('span');
+                if (span && span.textContent.toLowerCase().includes(section)) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Update page title
+            const pageTitle = document.getElementById('pageTitle');
+            const titles = {
+                'overview': 'Dashboard Overview',
+                'members': 'All Members',
+                'masul': 'Mas\'ul Leaders',
+                'addMember': 'Add New Member',
+                'addMasul': 'Add Mas\'ul',
+                'promotions': 'Promotions',
+                'transfers': 'Transfers',
+                'logs': 'System Logs',
+                'settings': 'Settings',
+                'reports': 'Reports'
+            };
+            if (pageTitle) {
+                pageTitle.textContent = titles[section] || 'Dashboard';
+            }
+            
+            // Load section-specific data
+            if (section === 'members') {
+                loadMembers();
+            } else if (section === 'overview') {
+                loadDashboardData();
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                const response = await App.callBackend('getStatistics');
+                if (response.success) {
+                    // Update stats grid
+                    const statsGrid = document.getElementById('statsGrid');
+                    if (statsGrid) {
+                        statsGrid.innerHTML = `
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>${response.data.totalMembers || 0}</h3>
+                                    <p>Total Members</p>
+                                    <div class="stat-trend trend-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>12% increase</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-user-shield"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>${response.data.totalMasul || 0}</h3>
+                                    <p>Mas'ul Leaders</p>
+                                    <div class="stat-trend trend-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>5% increase</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-male"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>${response.data.totalBrothers || 0}</h3>
+                                    <p>Brothers</p>
+                                    <div class="stat-trend trend-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>8% increase</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-female"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>${response.data.totalSisters || 0}</h3>
+                                    <p>Sisters</p>
+                                    <div class="stat-trend trend-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>15% increase</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Update menu badges
+                    const membersCount = document.getElementById('membersCount');
+                    const masulCount = document.getElementById('masulCount');
+                    if (membersCount) membersCount.textContent = response.data.totalMembers || 0;
+                    if (masulCount) masulCount.textContent = response.data.totalMasul || 0;
+                    
+                    // Load recent activity
+                    loadRecentActivity();
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        function initializeCharts() {
+            // Zone Chart
+            const zoneCtx = document.getElementById('zoneChart')?.getContext('2d');
+            if (zoneCtx) {
+                new Chart(zoneCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['SOKOTO', 'KADUNA', 'ABUJA', 'ZARIA', 'KANO', 'BAUCHI', 'MALUMFASHI', 'NIGER', 'QUM'],
+                        datasets: [{
+                            data: [120, 85, 95, 70, 110, 65, 80, 45, 30],
+                            backgroundColor: [
+                                '#228B22', '#32CD32', '#2C3E50', '#E67E22', 
+                                '#9B59B6', '#3498DB', '#1ABC9C', '#F39C12', '#95A5A6'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Level Chart
+            const levelCtx = document.getElementById('levelChart')?.getContext('2d');
+            if (levelCtx) {
+                new Chart(levelCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Bakiyatullah', 'Ansarullah', 'Ghalibun', 'Graduate'],
+                        datasets: [{
+                            label: 'Members',
+                            data: [450, 320, 280, 197],
+                            backgroundColor: '#228B22',
+                            borderColor: '#1A6B1A',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 100
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function populateBranchFilters() {
+            const branchFilter = document.getElementById('branchFilter');
+            if (!branchFilter) return;
+            
+            const branches = [
+                'Sokoto', 'Mafara', 'Yaure', 'Illela', 'Zuru', 'Yabo',
+                'Kaduna', 'Jaji', 'Mjos',
+                'Maraba', 'Lafia', 'Keffi/Doma', 'Minna', 'Suleja',
+                'Zaria', 'Danja', 'Dutsen Wai', 'Kudan', 'Soba',
+                'Kano', 'Kazaure', 'Potiskum', 'Gashuwa',
+                'Bauchi', 'Gombe', 'Azare', 'Jos',
+                'Malumfashi', 'Bakori', 'Katsina',
+                'Niyame', 'Maradi',
+                'Qum'
+            ];
+            
+            branches.forEach(branch => {
+                const option = document.createElement('option');
+                option.value = branch;
+                option.textContent = branch;
+                branchFilter.appendChild(option);
+            });
+        }
+
+        async function loadMembers() {
+            try {
+                const tableBody = document.getElementById('membersTableBody');
+                if (!tableBody) return;
+                
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 3rem;">
+                            <div class="spinner"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
+                            <p style="margin-top: 1rem; color: var(--gray);">Loading members...</p>
+                        </td>
+                    </tr>
+                `;
+                
+                const filters = {
+                    search: document.getElementById('memberSearch')?.value || '',
+                    zone: document.getElementById('zoneFilter')?.value || '',
+                    branch: document.getElementById('branchFilter')?.value || '',
+                    level: document.getElementById('levelFilter')?.value || '',
+                    gender: document.getElementById('genderFilter')?.value || ''
+                };
+                
+                const response = await App.callBackend('getMembers', { filters: filters });
+                
+                if (response.success && response.data) {
+                    updateMembersTable(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading members:', error);
+                const tableBody = document.getElementById('membersTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="10" style="text-align: center; padding: 3rem; color: #E74C3C;">
+                                <i class="fas fa-exclamation-circle fa-2x"></i>
+                                <p style="margin-top: 1rem;">Error loading members. Please try again.</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+        }
+
+        function updateMembersTable(members) {
+            const tableBody = document.getElementById('membersTableBody');
+            if (!tableBody) return;
+            
+            if (!members || members.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 3rem;">
+                            <div class="empty-state">
+                                <i class="fas fa-users"></i>
+                                <p>No members found</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tableBody.innerHTML = '';
+            members.forEach((member, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><input type="checkbox" class="member-checkbox" data-id="${member.globalId}"></td>
+                    <td>
+                        <img src="${member.photoUrl || 'https://via.placeholder.com/40/228B22/FFFFFF?text=IIM'}" 
+                             alt="Photo" class="member-photo">
+                    </td>
+                    <td><strong>${member.globalId}</strong></td>
+                    <td><code>${member.recruitmentId}</code></td>
+                    <td>${member.fullName}</td>
+                    <td><span class="badge badge-secondary">${member.branch}</span></td>
+                    <td><span class="badge badge-primary">${member.memberLevel}</span></td>
+                    <td>${member.phone1}</td>
+                    <td>${member.recruitmentYear}</td>
+                    <td>
+                        <button class="btn btn-view btn-sm" onclick="viewMember('${member.globalId}')" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-edit btn-sm" onclick="editMember('${member.globalId}')" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-delete btn-sm" onclick="deleteMember('${member.globalId}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const response = await App.callBackend('getRecentActivity');
+                const activityList = document.getElementById('recentActivity');
+                
+                if (response.success && activityList) {
+                    const activities = response.data || [];
+                    
+                    if (activities.length === 0) {
+                        activityList.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-history"></i>
+                                <p>No recent activity</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    activityList.innerHTML = '';
+                    activities.forEach(activity => {
+                        const item = document.createElement('div');
+                        item.className = 'activity-item';
+                        item.innerHTML = `
+                            <div class="activity-icon">
+                                <i class="fas fa-${activity.icon || 'bell'}"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-title">${activity.title}</div>
+                                <div class="activity-time">${activity.time}</div>
+                            </div>
+                        `;
+                        activityList.appendChild(item);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+            }
+        }
+
+        function viewMember(memberId) {
+            // Implementation for viewing member details
+            console.log('View member:', memberId);
+            alert(`View member ${memberId} - This would open a detailed view modal`);
+        }
+
+        function editMember(memberId) {
+            // Implementation for editing member
+            console.log('Edit member:', memberId);
+            alert(`Edit member ${memberId} - This would open an edit form`);
+        }
+
+        function deleteMember(memberId) {
+            if (confirm(`Are you sure you want to delete member ${memberId}? This action cannot be undone.`)) {
+                console.log('Delete member:', memberId);
+                // Call backend to delete member
+                alert(`Member ${memberId} marked for deletion`);
+            }
+        }
+
+        function viewSelected() {
+            const checkboxes = document.querySelectorAll('.member-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one member');
+                return;
+            }
+            
+            const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.id);
+            console.log('View selected members:', selectedIds);
+            alert(`View ${selectedIds.length} selected member(s)`);
+        }
+
+        function editSelected() {
+            const checkboxes = document.querySelectorAll('.member-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one member');
+                return;
+            }
+            
+            const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.id);
+            console.log('Edit selected members:', selectedIds);
+            alert(`Edit ${selectedIds.length} selected member(s)`);
+        }
+
+        function exportTable() {
+            alert('Exporting table data...');
+            // Implementation for exporting table data
+        }
+
+        function exportMembers() {
+            alert('Exporting filtered members...');
+            // Implementation for exporting filtered members
+        }
+
+        function exportData() {
+            alert('Exporting system data...');
+            // Implementation for exporting all data
+        }
+
+        function backupSystem() {
+            if (confirm('Create a system backup? This may take a few moments.')) {
+                alert('Starting system backup...');
+                // Implementation for system backup
+            }
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.clear();
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Global search functionality
+        document.getElementById('globalSearch')?.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            if (searchTerm.length >= 2) {
+                // Implement global search
+                console.log('Searching for:', searchTerm);
+            }
+        });
+
+        // Select all checkbox
+        document.getElementById('selectAll')?.addEventListener('change', function(e) {
+            const checkboxes = document.querySelectorAll('.member-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+            });
+        });
+    </script>
+</body>
+</html>
