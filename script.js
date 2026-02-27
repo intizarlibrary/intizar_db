@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCoJyy-LFl7UVgUVvQ2w1ZZGcxDk9NKybXvh6Q9WT153O3DZCxa7Ry3AP__Z0fdpVH/exec'; // REPLACE WITH YOUR DEPLOYED URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx36cTxRsE8trVdKKXYs7X5GhDew6c94UzAegpUvLtV0FHPMedhjaYNxBjHkLR3AFha/exec'; // REPLACE WITH YOUR DEPLOYED URL
 const PAGE_SIZE = 50; // number of rows per page
 
 // ==================== GLOBAL STATE ====================
@@ -12,6 +12,9 @@ let totalMasuls = 0;
 // Search state
 let currentMemberSearch = '';
 let currentMasulSearch = '';
+
+// Branch -> Zone mapping (for Branch Mas'ul auto‑selection)
+let branchZoneMap = {};
 
 // ==================== SURAT AL-ASR TYPING ANIMATION ====================
 function typeSurahAsr() {
@@ -99,30 +102,55 @@ function fileToBase64(file) {
     });
 }
 
+// ==================== DEBOUNCE HELPER ====================
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
 // ==================== SIDEBAR TOGGLE ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleSidebar');
     const closeBtn = document.getElementById('closeSidebar');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            if (window.innerWidth <= 768) {
-                sidebar.classList.toggle('mobile-open');
-            } else {
-                sidebar.classList.toggle('collapsed');
-            }
-        });
-    }
+
+    if (!sidebar || !toggleBtn) return;
+
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.innerWidth <= 768) {
+            sidebar.classList.toggle('mobile-open');
+            document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
+    });
+
     if (closeBtn) {
         closeBtn.addEventListener('click', () => {
             sidebar.classList.remove('mobile-open');
+            document.body.style.overflow = '';
         });
     }
+
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
             if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
                 sidebar.classList.remove('mobile-open');
+                document.body.style.overflow = '';
             }
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('mobile-open');
+            document.body.style.overflow = '';
+        } else {
+            sidebar.classList.remove('collapsed');
         }
     });
 }
@@ -196,19 +224,50 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initializeDashboard() {
     if (!currentUser) return;
     document.getElementById('roleDisplay').innerText = currentUser.role;
-    if (currentUser.role === 'Admin') {
+
+    // Hide admin sections for non‑Admin users
+    if (currentUser.role !== 'Admin') {
+        const adminSections = [
+            'masulSection', 'zonesSection', 'branchesSection',
+            'auditSection', 'configSection', 'exportSection',
+            'zoneStatsSection', 'branchStatsSection'
+        ];
+        adminSections.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    } else {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-    } else if (currentUser.role === 'Zonal Mas\'ul') {
+    }
+
+    if (currentUser.role === 'Zonal Mas\'ul') {
         document.querySelectorAll('.zonal-only').forEach(el => el.style.display = 'block');
     } else if (currentUser.role === 'Branch Mas\'ul') {
         document.querySelectorAll('.branch-only').forEach(el => el.style.display = 'block');
     }
+
     setupNavigation();
     showSection('membersSection');
     await loadDashboardStats();
     await loadMembers(1, ''); // start with empty search
     loadZonesForDropdowns();
     loadChart();
+
+    // Live search for members
+    const memberSearch = document.getElementById('memberSearch');
+    if (memberSearch) {
+        memberSearch.addEventListener('input', debounce(function() {
+            loadMembers(1, this.value);
+        }, 300));
+    }
+
+    // Live search for mas'ulin
+    const masulSearch = document.getElementById('masulSearch');
+    if (masulSearch) {
+        masulSearch.addEventListener('input', debounce(function() {
+            loadMasuls(1, this.value);
+        }, 300));
+    }
 }
 
 function setupNavigation() {
@@ -608,28 +667,49 @@ function printMasul(intizarId) {
 // ==================== REGISTRATION PAGE ====================
 function initializeRegistrationPage() {
     if (!currentUser) return;
+
+    // Hide role selector and Mas'ul form for non‑Admin
+    if (currentUser.role !== 'Admin') {
+        document.querySelector('.role-selector').style.display = 'none';
+        document.getElementById('masulFormContainer').style.display = 'none';
+        document.getElementById('memberFormContainer').style.display = 'block';
+    } else {
+        document.getElementById('memberFormContainer').style.display = 'block';
+        document.getElementById('masulFormContainer').style.display = 'none';
+    }
+
     loadZonesForDropdowns();
     setDOBLimits();
 
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.querySelector('select[name="branch"]');
-        if (branchField) {
+        const zoneField = document.querySelector('select[name="zone"]');
+        if (branchField && zoneField) {
             setTimeout(() => {
-                const options = branchField.options;
-                for (let opt of options) {
-                    if (opt.value === currentUser.branchCode) {
-                        opt.selected = true;
-                        branchField.disabled = true;
-                        break;
+                const branchCode = currentUser.branchCode;
+                const zoneName = branchZoneMap[branchCode];
+                if (zoneName) {
+                    // Select and disable zone
+                    for (let opt of zoneField.options) {
+                        if (opt.value === zoneName) {
+                            opt.selected = true;
+                            zoneField.disabled = true;
+                            break;
+                        }
                     }
+                    zoneField.dispatchEvent(new Event('change'));
+                    setTimeout(() => {
+                        for (let opt of branchField.options) {
+                            if (opt.value === branchCode) {
+                                opt.selected = true;
+                                branchField.disabled = true;
+                                break;
+                            }
+                        }
+                    }, 500);
                 }
             }, 1000);
         }
-    }
-
-    // For Admin, both forms are visible; default show member form
-    if (currentUser.role === 'Admin') {
-        document.getElementById('masulFormContainer').style.display = 'none'; // start with member
     }
 
     document.getElementById('memberForm').addEventListener('submit', async (e) => {
@@ -647,10 +727,12 @@ function initializeRegistrationPage() {
         }
         try {
             const result = await apiRequest('registerMember', { data }, currentUser);
-            showSuccessModal(result.intizarId, data.zone, data.branch);
+            // result contains { intizarId, recruitmentId, zone, branch }
+            showSuccessModal(result.intizarId, result.recruitmentId, data.zone, data.branch);
             e.target.reset();
             if (currentUser.role === 'Branch Mas\'ul') {
                 document.querySelector('select[name="branch"]').disabled = false;
+                document.querySelector('select[name="zone"]').disabled = false;
             }
         } catch (err) {
             alert('Registration failed: ' + err.message);
@@ -672,7 +754,7 @@ function initializeRegistrationPage() {
         }
         try {
             const result = await apiRequest('registerMasul', { data }, currentUser);
-            showSuccessModal(result.intizarId, data.zone, data.branch);
+            showSuccessModal(result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
             e.target.reset();
         } catch (err) {
             alert('Registration failed: ' + err.message);
@@ -695,9 +777,10 @@ function toggleRegistrationForm() {
     document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
 }
 
-// Success modal for registration
-function showSuccessModal(id, zone, branch) {
-    document.getElementById('generatedId').innerText = id;
+// Success modal for registration (now shows Recruitment ID)
+function showSuccessModal(intizarId, recruitmentId, zone, branch) {
+    document.getElementById('generatedId').innerText = intizarId;
+    document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
     document.getElementById('generatedZone').innerText = zone;
     document.getElementById('generatedBranch').innerText = branch;
     document.getElementById('successModal').style.display = 'block';
@@ -731,6 +814,18 @@ async function loadZonesForDropdowns() {
                 select.innerHTML += `<option value="${zone.zoneName}">${zone.zoneName}</option>`;
             });
         });
+
+        // Build branchZoneMap for Branch Mas'ul auto‑selection
+        branchZoneMap = {};
+        for (let zone of zones) {
+            const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
+            branchRes.branches.forEach(b => {
+                if (b.status === 'Active') {
+                    branchZoneMap[b.branchCode] = zone.zoneName;
+                }
+            });
+        }
+
         document.querySelectorAll('select[name="zone"]').forEach(select => {
             select.addEventListener('change', async function() {
                 const zone = this.value;
