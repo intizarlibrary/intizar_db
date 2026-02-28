@@ -21,8 +21,8 @@
         <header>
             <img src="logo.png" alt="Logo" class="logo">
             <div class="title">
-                <h1>INTIZARUL IMAMUL MUNTAZAR</h1>
-                <p class="ajami">إنتظار ٱلاإمام ٱلمنتظر<br>تربير رحي د غنغر جكى</p>
+                <h1>إنتظار ٱلإمام ٱلمنتظر</h1>
+                <p class="ajami">تربير رحي د غنغر جكى</p>
             </div>
         </header>
 
@@ -53,15 +53,16 @@
             <section class="info-cards">
                 <div class="card">
                     <h3>About</h3>
-                    <p>We are devoted to the cause of Imam al-Mahdi (aj). Our database ensures accurate tracking of members and mas'ulin.</p>
-                </div>
-                <div class="card">
-                    <h3>Mission</h3>
-                    <p>To build a structured community based on tarbiyya and unity under the guidance of the righteous.</p>
+                    <p>Intizarul Imamul Muntazar motsi ne na tarbiyya ga yara ‘yan ƙasa da shekaru 17, ƙarƙashin Mu’assasatu Abul Fadlil Abbas, karkashin jagorancin Sheikh Ibraheem Zakzaky. An kafa shi ne domin gina ruhin yara, tunaninsu da halayensu bisa koyarwar Musulunci. Yana aiki tare da gida, makaranta da al’umma domin shirya su don taimakon Sahibul Asr Waz-Zaman (AJF).</p>
                 </div>
                 <div class="card">
                     <h3>Vision</h3>
-                    <p>To be a model society preparing for the reappearance of Imam al-Mahdi (aj).</p>
+                    <p>Samar wa Imam Mahdi (AJF) mataimaka nagartattu.</p>
+                </div>
+                <div class="card">
+                    <h3>Mission</h3>
+                    <p>Bai wa yara ‘yan ƙasa da shekara 17 tarbiyyar ruhi, jiki da tunani, domin su zama na gari kuma shiryayyu don taimakon Sahibul Asr Waz-Zaman (AJF) karkashin wilaya.</p>
+                    <p><strong>Motto:</strong> Inculcating Spiritual and Physical Discipline (Tarbiyyar Ruhi da Gangar Jiki)</p>
                 </div>
             </section>
         </main>
@@ -74,7 +75,6 @@
 
     <!-- Enhanced Login Modal -->
     <div id="loginModal" class="modal">
-        <div class="modal-overlay"></div>
         <div class="modal-content login-modal">
             <span class="close">&times;</span>
             <div class="login-header">
@@ -92,17 +92,46 @@
                         <option value="Branch Mas'ul">Branch Mas'ul</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label for="accessCode">Access Code</label>
                     <input type="password" id="accessCode" name="accessCode" placeholder="Enter your code" required>
                 </div>
-
                 <button type="submit" class="login-btn">Login</button>
             </form>
             <div class="login-footer">
                 <p>Authorized personnel only</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Custom Modals -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeMessageModal()">&times;</span>
+            <h3 id="messageModalTitle">Message</h3>
+            <p id="messageModalText"></p>
+            <button onclick="closeMessageModal()">OK</button>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmModal()">&times;</span>
+            <h3 id="confirmModalTitle">Confirm</h3>
+            <p id="confirmModalText"></p>
+            <button id="confirmOkBtn">Yes</button>
+            <button id="confirmCancelBtn">No</button>
+        </div>
+    </div>
+
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePromptModal()">&times;</span>
+            <h3 id="promptModalTitle">Input</h3>
+            <p id="promptModalText"></p>
+            <input type="text" id="promptInput">
+            <button id="promptOkBtn">OK</button>
+            <button id="promptCancelBtn">Cancel</button>
         </div>
     </div>
 
