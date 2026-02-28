@@ -14,11 +14,16 @@ let currentMemberFilters = {};
 let currentMasulFilters = {};
 let branchZoneMap = {};
 
-// ==================== SURAT AL-ASR TYPING ANIMATION ====================
+// Store the last viewed member/masul data for printing
+let lastViewedMember = null;
+let lastViewedMasul = null;
+
+// ==================== SURAT AL-ASR TYPING ANIMATION (with Arabic numerals) ====================
 function typeSurahAsr() {
     const surahElement = document.getElementById('surahText');
     if (!surahElement) return;
-    const fullText = "وَٱلْعَصْرِ (1) إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ (2) إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ (3)";
+    // Arabic text with Arabic-Indic numerals (١, ٢, ٣)
+    const fullText = "وَٱلْعَصْرِ (١) إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ (٢) إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ (٣)";
     let index = 0;
     surahElement.innerHTML = '';
     function typeNext() {
@@ -512,7 +517,7 @@ function renderMemberListTable(members) {
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMember('${member.IntizarID}')">👁 View</button>
-            <button onclick="printMember('${member.IntizarID}')">🖨 Print</button>
+            <button onclick="viewMember('${member.IntizarID}')">🖨 Print</button>
             ${currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul' ? `<button onclick="promoteMember('${member.IntizarID}')">⭐ Promote</button>` : ''}
             ${currentUser.role === 'Admin' ? `<button onclick="transferMember('${member.IntizarID}')">↗ Transfer</button>` : ''}
         `;
@@ -577,7 +582,7 @@ function renderMasulTable(masuls) {
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMasul('${masul.IntizarID}')">👁 View</button>
-            <button onclick="printMasul('${masul.IntizarID}')">🖨 Print</button>
+            <button onclick="viewMasul('${masul.IntizarID}')">🖨 Print</button>
             <button onclick="promoteMasul('${masul.IntizarID}')">⭐ Promote</button>
             <button onclick="transferMasul('${masul.IntizarID}')">↗ Transfer</button>
         `;
@@ -613,11 +618,13 @@ function resetMasulFilters() {
     applyMasulFilters();
 }
 
-// ==================== VIEW MEMBER (with image fallback) ====================
+// ==================== VIEW MEMBER (with image fallback and Print button) ====================
 async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
+        lastViewedMember = member; // store for printing
+
         let promotionList = '';
         try {
             const promHistory = JSON.parse(member.PromotionHistory || '[]');
@@ -679,6 +686,9 @@ async function viewMember(intizarId) {
                 <p><strong>Promotion History:</strong> ${promotionList}</p>
                 <p><strong>Transfer History:</strong> ${transferList}</p>
                 <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="printCurrentMember()" class="no-print">Print This Page</button>
+                </div>
             </div>
         `;
         showModal('viewModal');
@@ -687,11 +697,13 @@ async function viewMember(intizarId) {
     }
 }
 
-// ==================== VIEW MASUL (with image fallback) ====================
+// ==================== VIEW MASUL (with image fallback and Print button) ====================
 async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
         const masul = result.masul;
+        lastViewedMasul = masul; // store for printing
+
         let promotionList = '';
         try {
             const promHistory = JSON.parse(masul.PromotionHistory || '[]');
@@ -738,6 +750,9 @@ async function viewMasul(intizarId) {
                 ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
                 <p><strong>Promotion History:</strong> ${promotionList}</p>
                 <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="printCurrentMasul()" class="no-print">Print This Page</button>
+                </div>
             </div>
         `;
         showModal('viewModal');
@@ -746,179 +761,97 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== PRINT FUNCTIONS (with confirmation and image fallback) ====================
-async function printMember(intizarId) {
-    showLoader();
-    try {
-        const result = await apiRequest('getMember', { intizarId }, currentUser);
-        const member = result.member;
-        const confirmed = await showConfirm('Print Member', 'Data loaded. Do you want to print now?');
-        if (!confirmed) return;
-
-        const printContent = buildMemberPrintHTML(member);
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Member Biodata</title>
-                    <link rel="stylesheet" href="style.css">
-                    <style>
-                        @media print {
-                            body { margin: 1cm; }
-                            .print-header { text-align: center; }
-                            .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-                            button, .no-print { display: none; }
-                        }
-                    </style>
-                    <script>
-                        function tryAlternateImage(img, originalUrl) {
-                            var match = originalUrl.match(/[-\\w]{25,}/);
-                            if (match) {
-                                var fileId = match[0];
-                                img.src = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
-                                img.onerror = function() {
-                                    img.src = 'logo.png';
-                                    img.onerror = null;
-                                };
-                            } else {
-                                img.src = 'logo.png';
-                                img.onerror = null;
-                            }
-                        }
-                        window.onload = function() {
-                            var images = document.images;
-                            var loaded = 0;
-                            if (images.length === 0) {
-                                window.print();
-                                window.onafterprint = function() { window.close(); };
-                                return;
-                            }
-                            for (var i = 0; i < images.length; i++) {
-                                var img = images[i];
-                                if (img.complete) {
-                                    loaded++;
-                                } else {
-                                    img.addEventListener('load', function() {
-                                        loaded++;
-                                        if (loaded === images.length) {
-                                            window.print();
-                                            window.onafterprint = function() { window.close(); };
-                                        }
-                                    });
-                                    img.addEventListener('error', function() {
-                                        loaded++;
-                                        if (loaded === images.length) {
-                                            window.print();
-                                            window.onafterprint = function() { window.close(); };
-                                        }
-                                    });
-                                }
-                            }
-                            if (loaded === images.length) {
-                                window.print();
-                                window.onafterprint = function() { window.close(); };
-                            }
-                        };
-                    <\/script>
-                </head>
-                <body>
-                    <div class="print-area">${printContent}</div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-    } catch (err) {
-        showMessage('Error', 'Failed to prepare print: ' + err.message);
-    } finally {
-        hideLoader();
+// ==================== PRINT FUNCTIONS (use stored data, open new window, wait for images) ====================
+function printCurrentMember() {
+    if (!lastViewedMember) {
+        showMessage('Error', 'No member data to print.');
+        return;
     }
+    const printContent = buildMemberPrintHTML(lastViewedMember);
+    openPrintWindow(printContent, 'Member Biodata');
 }
 
-async function printMasul(intizarId) {
-    showLoader();
-    try {
-        const result = await apiRequest('getMasul', { intizarId }, currentUser);
-        const masul = result.masul;
-        const confirmed = await showConfirm('Print Mas\'ul', 'Data loaded. Do you want to print now?');
-        if (!confirmed) return;
+function printCurrentMasul() {
+    if (!lastViewedMasul) {
+        showMessage('Error', 'No masul data to print.');
+        return;
+    }
+    const printContent = buildMasulPrintHTML(lastViewedMasul);
+    openPrintWindow(printContent, 'Mas\'ul Biodata');
+}
 
-        const printContent = buildMasulPrintHTML(masul);
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Mas'ul Biodata</title>
-                    <link rel="stylesheet" href="style.css">
-                    <style>
-                        @media print {
-                            body { margin: 1cm; }
-                            .print-header { text-align: center; }
-                            .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-                            button, .no-print { display: none; }
-                        }
-                    </style>
-                    <script>
-                        function tryAlternateImage(img, originalUrl) {
-                            var match = originalUrl.match(/[-\\w]{25,}/);
-                            if (match) {
-                                var fileId = match[0];
-                                img.src = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
-                                img.onerror = function() {
-                                    img.src = 'logo.png';
-                                    img.onerror = null;
-                                };
-                            } else {
+function openPrintWindow(content, title) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>${title}</title>
+                <link rel="stylesheet" href="style.css">
+                <style>
+                    @media print {
+                        body { margin: 1cm; }
+                        .print-header { text-align: center; }
+                        .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+                        button, .no-print { display: none; }
+                    }
+                </style>
+                <script>
+                    function tryAlternateImage(img, originalUrl) {
+                        var match = originalUrl.match(/[-\\w]{25,}/);
+                        if (match) {
+                            var fileId = match[0];
+                            img.src = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+                            img.onerror = function() {
                                 img.src = 'logo.png';
                                 img.onerror = null;
+                            };
+                        } else {
+                            img.src = 'logo.png';
+                            img.onerror = null;
+                        }
+                    }
+                    window.onload = function() {
+                        var images = document.images;
+                        var loaded = 0;
+                        if (images.length === 0) {
+                            window.print();
+                            window.onafterprint = function() { window.close(); };
+                            return;
+                        }
+                        for (var i = 0; i < images.length; i++) {
+                            var img = images[i];
+                            if (img.complete) {
+                                loaded++;
+                            } else {
+                                img.addEventListener('load', function() {
+                                    loaded++;
+                                    if (loaded === images.length) {
+                                        window.print();
+                                        window.onafterprint = function() { window.close(); };
+                                    }
+                                });
+                                img.addEventListener('error', function() {
+                                    loaded++;
+                                    if (loaded === images.length) {
+                                        window.print();
+                                        window.onafterprint = function() { window.close(); };
+                                    }
+                                });
                             }
                         }
-                        window.onload = function() {
-                            var images = document.images;
-                            var loaded = 0;
-                            if (images.length === 0) {
-                                window.print();
-                                window.onafterprint = function() { window.close(); };
-                                return;
-                            }
-                            for (var i = 0; i < images.length; i++) {
-                                var img = images[i];
-                                if (img.complete) {
-                                    loaded++;
-                                } else {
-                                    img.addEventListener('load', function() {
-                                        loaded++;
-                                        if (loaded === images.length) {
-                                            window.print();
-                                            window.onafterprint = function() { window.close(); };
-                                        }
-                                    });
-                                    img.addEventListener('error', function() {
-                                        loaded++;
-                                        if (loaded === images.length) {
-                                            window.print();
-                                            window.onafterprint = function() { window.close(); };
-                                        }
-                                    });
-                                }
-                            }
-                            if (loaded === images.length) {
-                                window.print();
-                                window.onafterprint = function() { window.close(); };
-                            }
-                        };
-                    <\/script>
-                </head>
-                <body>
-                    <div class="print-area">${printContent}</div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-    } catch (err) {
-        showMessage('Error', 'Failed to prepare print: ' + err.message);
-    } finally {
-        hideLoader();
-    }
+                        if (loaded === images.length) {
+                            window.print();
+                            window.onafterprint = function() { window.close(); };
+                        }
+                    };
+                <\/script>
+            </head>
+            <body>
+                <div class="print-area">${content}</div>
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 // ==================== HELPERS FOR PRINT HTML ====================
@@ -1553,7 +1486,6 @@ async function loadDashboardStats() {
         setText('statGhalibun', stats.levelCounts.Ghalibun);
         setText('statXGhalibun', stats.levelCounts['X-Ghalibun']);
         updateMembersChart(stats.levelCounts);
-        // Remove any previous error message
         const errorMsg = document.getElementById('statsError');
         if (errorMsg) errorMsg.remove();
     } catch (err) {
@@ -1576,13 +1508,20 @@ function updateMembersChart(levelCounts) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (window.membersChart) window.membersChart.destroy();
+    // Only create chart if there is data
+    const labels = Object.keys(levelCounts);
+    const data = Object.values(levelCounts);
+    if (labels.length === 0 || data.every(v => v === 0)) {
+        console.log('No data for members chart');
+        return;
+    }
     window.membersChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: Object.keys(levelCounts),
+            labels: labels,
             datasets: [{
                 label: 'Number of Members',
-                data: Object.values(levelCounts),
+                data: data,
                 backgroundColor: ['#556B2F', '#C9A87C', '#556B2F', '#000000']
             }]
         },
@@ -1620,6 +1559,8 @@ async function loadZoneStats() {
                     }]
                 }
             });
+        } else if (canvas) {
+            console.log('No zone data for chart');
         }
     } catch (err) {
         console.error(err);
@@ -1661,6 +1602,8 @@ async function loadBranchStats() {
                     }]
                 }
             });
+        } else if (canvas) {
+            console.log('No branch data for chart');
         }
     } catch (err) {
         console.error(err);
