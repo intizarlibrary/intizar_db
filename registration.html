@@ -10,8 +10,8 @@
     <header>
         <img src="logo.png" alt="Logo" class="logo">
         <div class="title">
-            <h1>INTIZARUL IMAMUL MUNTAZAR</h1>
-            <p class="ajami">إنتظار ٱلاإمام ٱلمنتظر<br>تربير رحي د غنغر جكى</p>
+            <h1>إنتظار ٱلإمام ٱلمنتظر</h1>
+            <p class="ajami">تربير رحي د غنغر جكى</p>
         </div>
     </header>
 
@@ -143,7 +143,7 @@
                     </fieldset>
                     <fieldset>
                         <legend>Gender</legend>
-                        <select name="gender" required>
+                        <select name="gender" id="masulGender" required>
                             <option value="">Select</option>
                             <option value="Brother">Brother</option>
                             <option value="Sister">Sister</option>
@@ -195,32 +195,8 @@
                     </fieldset>
                     <fieldset>
                         <legend>Current Rank</legend>
-                        <select name="currentRank" required>
-                            <option value="">Select</option>
-                            <optgroup label="Brother Ranks">
-                                <option value="Musa'id">Musa'id</option>
-                                <option value="Areef">Areef</option>
-                                <option value="Muqaddam">Muqaddam</option>
-                                <option value="Ra'id">Ra'id</option>
-                                <option value="Raqeeb">Raqeeb</option>
-                                <option value="Mulazim">Mulazim</option>
-                                <option value="Muhafiz">Muhafiz</option>
-                                <option value="Ameed">Ameed</option>
-                                <option value="Aqeeda">Aqeeda</option>
-                                <option value="Qaid">Qaid</option>
-                            </optgroup>
-                            <optgroup label="Sister Ranks">
-                                <option value="Musa'ida">Musa'ida</option>
-                                <option value="Areefa">Areefa</option>
-                                <option value="Muqadama">Muqadama</option>
-                                <option value="Ra'ida">Ra'ida</option>
-                                <option value="Raqeeba">Raqeeba</option>
-                                <option value="Mulazima">Mulazima</option>
-                                <option value="Muhafiza">Muhafiza</option>
-                                <option value="Ameeda">Ameeda</option>
-                                <option value="Aqeeda">Aqeeda</option>
-                                <option value="Qaida">Qaida</option>
-                            </optgroup>
+                        <select name="currentRank" id="masulRank" required>
+                            <option value="">Select Rank</option>
                         </select>
                     </fieldset>
                     <fieldset>
@@ -261,6 +237,37 @@
     <footer>
         <p>INTIZARUL IMAMUL MUNTAZAR</p>
     </footer>
+
+    <!-- Custom Modals -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeMessageModal()">&times;</span>
+            <h3 id="messageModalTitle">Message</h3>
+            <p id="messageModalText"></p>
+            <button onclick="closeMessageModal()">OK</button>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmModal()">&times;</span>
+            <h3 id="confirmModalTitle">Confirm</h3>
+            <p id="confirmModalText"></p>
+            <button id="confirmOkBtn">Yes</button>
+            <button id="confirmCancelBtn">No</button>
+        </div>
+    </div>
+
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePromptModal()">&times;</span>
+            <h3 id="promptModalTitle">Input</h3>
+            <p id="promptModalText"></p>
+            <input type="text" id="promptInput">
+            <button id="promptOkBtn">OK</button>
+            <button id="promptCancelBtn">Cancel</button>
+        </div>
+    </div>
 
     <!-- Global Loader -->
     <div id="globalLoader" class="loader-overlay" style="display: none;">
