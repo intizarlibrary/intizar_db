@@ -305,7 +305,9 @@ function savePhotoToDrive(base64Data, fileName) {
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return file.getUrl();
+    // Return direct image URL instead of viewer URL
+    const fileId = file.getId();
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
   } catch (e) {
     console.warn('Drive upload failed, using base64: ' + e.toString());
     return 'data:' + mimeType + ';base64,' + base64Data;
@@ -342,7 +344,6 @@ function registerMember(data, user) {
   }
 
   const intizarId = nextIntizarId();
-  // ✅ Pass data.year to the recruitment ID generator
   const recruitmentId = nextMemberRecruitmentId(data.branch, data.year);
 
   let photoURL = '';
@@ -449,7 +450,6 @@ function registerMasul(data, user) {
     throw new Error('Invalid gender');
   }
 
-  // ✅ Pass data.year to the recruitment ID generator
   const masulRecruitmentId = nextMasulRecruitmentId(data.branch, data.year);
 
   let photoURL = '';
@@ -492,8 +492,8 @@ function registerMasul(data, user) {
   return { success: true, intizarId, masulRecruitmentId, originalMemberRecruitmentId };
 }
 
-// ==================== GET MEMBERS (with search) ====================
-function getMembers(user, page = 1, pageSize = 50, search = '') {
+// ==================== GET MEMBERS (with search & filters) ====================
+function getMembers(user, page = 1, pageSize = 50, search = '', filters = {}) {
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
@@ -506,15 +506,28 @@ function getMembers(user, page = 1, pageSize = 50, search = '') {
     allRows = allRows.filter(row => row[13] === user.branchCode);
   }
 
-  // Apply search filter if search term is provided
+  // Apply search filter
   if (search && search.trim() !== '') {
     const term = search.trim().toLowerCase();
     allRows = allRows.filter(row => {
-      // Search in FullName (index 2), IntizarID (0), RecruitmentID (1)
       return (row[2] && row[2].toLowerCase().includes(term)) ||
              (row[0] && row[0].toLowerCase().includes(term)) ||
              (row[1] && row[1].toLowerCase().includes(term));
     });
+  }
+
+  // Apply advanced filters
+  if (filters.level) {
+    allRows = allRows.filter(row => row[15] === filters.level);
+  }
+  if (filters.gender) {
+    allRows = allRows.filter(row => row[4] === filters.gender);
+  }
+  if (filters.branch) {
+    allRows = allRows.filter(row => row[13] === filters.branch);
+  }
+  if (filters.zone) {
+    allRows = allRows.filter(row => row[12] === filters.zone);
   }
 
   const total = allRows.length;
@@ -531,8 +544,8 @@ function getMembers(user, page = 1, pageSize = 50, search = '') {
   return { success: true, members, total, page, pageSize };
 }
 
-// ==================== GET MASULS (with search) ====================
-function getMasuls(user, page = 1, pageSize = 50, search = '') {
+// ==================== GET MASULS (with search & filters) ====================
+function getMasuls(user, page = 1, pageSize = 50, search = '', filters = {}) {
   if (user.role !== 'Admin') throw new Error('Only Admin can view Mas\'ul list');
 
   const sheet = getSpreadsheet().getSheetByName('Masuls');
@@ -548,6 +561,20 @@ function getMasuls(user, page = 1, pageSize = 50, search = '') {
              (row[0] && row[0].toLowerCase().includes(term)) || // IntizarID
              (row[1] && row[1].toLowerCase().includes(term));   // MasulRecruitmentID
     });
+  }
+
+  // Apply advanced filters
+  if (filters.rank) {
+    allRows = allRows.filter(row => row[15] === filters.rank);
+  }
+  if (filters.gender) {
+    allRows = allRows.filter(row => row[4] === filters.gender);
+  }
+  if (filters.branch) {
+    allRows = allRows.filter(row => row[13] === filters.branch);
+  }
+  if (filters.zone) {
+    allRows = allRows.filter(row => row[12] === filters.zone);
   }
 
   const total = allRows.length;
@@ -1010,7 +1037,7 @@ function getZoneStats(user) {
       sisters: zoneMembers.filter(m => m[4] === 'Sister').length
     };
   });
-  // ✅ No filter – include zones with zero members
+  // Include zones with zero members
   return { success: true, stats };
 }
 
@@ -1035,8 +1062,38 @@ function getBranchStats(user) {
       sisters: branchMembers.filter(m => m[4] === 'Sister').length
     };
   });
-  // ✅ No filter – include branches with zero members
+  // Include branches with zero members
   return { success: true, stats };
+}
+
+// ==================== FILTER OPTIONS (distinct values) ====================
+function getDistinctBranches() {
+  const sheet = getSpreadsheet().getSheetByName('Branches');
+  const data = sheet.getDataRange().getValues().slice(1);
+  const branches = [...new Set(data.map(row => row[1]))]; // branch names
+  return branches;
+}
+
+function getDistinctZones() {
+  const sheet = getSpreadsheet().getSheetByName('Zones');
+  const data = sheet.getDataRange().getValues().slice(1);
+  return data.map(row => row[1]).filter((v,i,a) => a.indexOf(v) === i);
+}
+
+function getDistinctLevels() {
+  const sheet = getSpreadsheet().getSheetByName('Members');
+  const data = sheet.getDataRange().getValues().slice(1);
+  return [...new Set(data.map(row => row[15]))]; // Level column
+}
+
+function getDistinctGenders() {
+  return ['Brother', 'Sister'];
+}
+
+function getDistinctRanks() {
+  const sheet = getSpreadsheet().getSheetByName('Masuls');
+  const data = sheet.getDataRange().getValues().slice(1);
+  return [...new Set(data.map(row => row[15]))]; // CurrentRank column
 }
 
 // ==================== MANUAL INITIALIZATION FUNCTIONS ====================
