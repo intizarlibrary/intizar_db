@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,8 +15,8 @@
                 <button id="toggleSidebar" class="toggle-btn"><i class="fas fa-bars"></i></button>
                 <img src="logo.png" alt="Logo" class="header-logo">
                 <div class="header-title">
-                    <h1>INTIZARUL IMAMUL MUNTAZAR</h1>
-                    <p class="ajami">إنتظار ٱلاإمام ٱلمنتظر<br>تربير رحي د غنغر جكى</p>
+                    <h1>إنتظار ٱلإمام ٱلمنتظر</h1>
+                    <p class="ajami">تربير رحي د غنغر جكى</p>
                 </div>
             </div>
             <div class="user-info">
@@ -25,17 +24,12 @@
             </div>
         </header>
 
-        <!-- New wrapper for sidebar + main content -->
         <div class="dashboard-body">
             <!-- Sidebar -->
             <nav id="sidebar" class="sidebar">
-                <!--div class="sidebar-header">
-                    <img src="logo.png" alt="Logo" class="sidebar-logo">
-                    <h3>INTIZARUL IMAMUL MUNTAZAR</h3>
-                    <button id="closeSidebar" class="sidebar-close"><i class="fas fa-times"></i></button>
-            </div-->
                 <ul class="sidebar-menu">
-                    <li><a href="#" id="navMembers"><i class="fas fa-users"></i> <span>Members</span></a></li>
+                    <li><a href="#" id="navMembers"><i class="fas fa-users"></i> <span>Overview</span></a></li>
+                    <li><a href="#" id="navMemberList"><i class="fas fa-table"></i> <span>Members</span></a></li>
                     <li><a href="registration.html" id="navRegister"><i class="fas fa-user-plus"></i> <span>Register</span></a></li>
                     <li class="admin-only" style="display: none;"><a href="#" id="navMasulin"><i class="fas fa-user-tie"></i> <span>Mas'ulin</span></a></li>
                     <li class="admin-only" style="display: none;"><a href="#" id="navZones"><i class="fas fa-map-marker-alt"></i> <span>Zones</span></a></li>
@@ -53,15 +47,9 @@
             <!-- Main Content -->
             <div class="main-content">
                 <div class="content" id="dashboardContent">
-                    <!-- Members Section (with stats and chart) -->
+                    <!-- Overview Section (stats + chart) -->
                     <section id="membersSection">
-                        <h3>Members</h3>
-                        <!-- Search bar for members -->
-                        <div class="search-bar">
-                            <input type="text" id="memberSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
-                            <button onclick="searchMembers()">Search</button>
-                            <button onclick="clearMemberSearch()">Clear</button>
-                        </div>
+                        <h3>Overview</h3>
                         <div class="stats-grid">
                             <div class="stat-card">
                                 <h4>Total (Members + Mas'ulin)</h4>
@@ -117,8 +105,37 @@
                             </div>
                         </div>
                         <canvas id="membersChart" width="400" height="200"></canvas>
+                    </section>
+
+                    <!-- Member List Section (table only) -->
+                    <section id="memberListSection" style="display: none;">
+                        <h3>Members List</h3>
+                        <div class="search-bar">
+                            <input type="text" id="memberListSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
+                            <button onclick="searchMemberList()">Search</button>
+                            <button onclick="clearMemberListSearch()">Clear</button>
+                        </div>
+                        <!-- Filter bar -->
+                        <div class="filter-bar">
+                            <select id="filterMemberLevel">
+                                <option value="">All Levels</option>
+                            </select>
+                            <select id="filterMemberGender">
+                                <option value="">All Genders</option>
+                                <option value="Brother">Brother</option>
+                                <option value="Sister">Sister</option>
+                            </select>
+                            <select id="filterMemberBranch">
+                                <option value="">All Branches</option>
+                            </select>
+                            <select id="filterMemberZone">
+                                <option value="">All Zones</option>
+                            </select>
+                            <button onclick="applyMemberFilters()">Filter</button>
+                            <button onclick="resetMemberFilters()">Reset</button>
+                        </div>
                         <div class="table-responsive">
-                            <table id="memberTable">
+                            <table id="memberListTable">
                                 <thead>
                                     <tr>
                                         <th>Intizar ID</th>
@@ -132,17 +149,35 @@
                                 <tbody></tbody>
                             </table>
                         </div>
-                        <div id="memberPagination" class="pagination"></div>
+                        <div id="memberListPagination" class="pagination"></div>
                     </section>
 
                     <!-- Mas'ulin Section (Admin) -->
                     <section id="masulSection" style="display: none;">
                         <h3>Mas'ulin</h3>
-                        <!-- Search bar for mas'ulin -->
                         <div class="search-bar">
                             <input type="text" id="masulSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
                             <button onclick="searchMasuls()">Search</button>
                             <button onclick="clearMasulSearch()">Clear</button>
+                        </div>
+                        <!-- Filter bar for Mas'ulin -->
+                        <div class="filter-bar">
+                            <select id="filterMasulRank">
+                                <option value="">All Ranks</option>
+                            </select>
+                            <select id="filterMasulGender">
+                                <option value="">All Genders</option>
+                                <option value="Brother">Brother</option>
+                                <option value="Sister">Sister</option>
+                            </select>
+                            <select id="filterMasulBranch">
+                                <option value="">All Branches</option>
+                            </select>
+                            <select id="filterMasulZone">
+                                <option value="">All Zones</option>
+                            </select>
+                            <button onclick="applyMasulFilters()">Filter</button>
+                            <button onclick="resetMasulFilters()">Reset</button>
                         </div>
                         <div class="table-responsive">
                             <table id="masulTable">
@@ -326,6 +361,37 @@
             <span class="close">&times;</span>
             <h3>Success</h3>
             <p id="successMessage"></p>
+        </div>
+    </div>
+
+    <!-- Custom Message/Confirm/Prompt Modals -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeMessageModal()">&times;</span>
+            <h3 id="messageModalTitle">Message</h3>
+            <p id="messageModalText"></p>
+            <button onclick="closeMessageModal()">OK</button>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmModal()">&times;</span>
+            <h3 id="confirmModalTitle">Confirm</h3>
+            <p id="confirmModalText"></p>
+            <button id="confirmOkBtn">Yes</button>
+            <button id="confirmCancelBtn">No</button>
+        </div>
+    </div>
+
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePromptModal()">&times;</span>
+            <h3 id="promptModalTitle">Input</h3>
+            <p id="promptModalText"></p>
+            <input type="text" id="promptInput">
+            <button id="promptOkBtn">OK</button>
+            <button id="promptCancelBtn">Cancel</button>
         </div>
     </div>
 
