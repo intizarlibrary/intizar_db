@@ -698,7 +698,7 @@ td button {
     }
 }
 
-/* ========== RESPONSIVE (MOBILE) ========== */
+/* ========== RESPONSIVE (MOBILE) - FIXED SIDEBAR ========== */
 @media (max-width: 768px) {
     /* Public pages */
     header {
@@ -718,17 +718,18 @@ td button {
         max-width: 100%;
     }
 
-    /* Dashboard sidebar */
+    /* Dashboard sidebar: hidden by default, shown when mobile-open class added */
     .sidebar {
+        display: none; /* Hidden on mobile by default */
         position: fixed;
-        left: -260px;
+        left: 0;
         top: 0;
         height: 100%;
-        transition: left 0.3s ease;
+        width: 260px;
         z-index: 1500;
     }
     .sidebar.mobile-open {
-        left: 0;
+        display: block; /* Show when toggled */
     }
     .sidebar.collapsed {
         width: 260px; /* override collapsed on mobile */
