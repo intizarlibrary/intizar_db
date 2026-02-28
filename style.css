@@ -428,7 +428,7 @@ td button {
     color: var(--white);
     box-shadow: 2px 0 5px rgba(0,0,0,0.2);
     height: 100vh;               /* added for scrolling */
-    position: sticky;
+    position: relative;
     top: 0;
 }
 
