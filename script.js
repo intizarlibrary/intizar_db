@@ -1,5 +1,6 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuzXL4L5fP0s1N7uTg-cp8JZidkVVy6fXQncIvO83Cjfq3OEy4zNlmJEPeZcivQJMl/exec'; // REPLACE WITH YOUR DEPLOYED URL
+// IMPORTANT: Replace with your NEW deployment URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuzXL4L5fP0s1N7uTg-cp8JZidkVVy6fXQncIvO83Cjfq3OEy4zNlmJEPeZcivQJMl/exec';
 const PAGE_SIZE = 50; // number of rows per page
 
 // ==================== GLOBAL STATE ====================
@@ -62,7 +63,6 @@ function hideLoader() {
 }
 
 // ==================== CUSTOM MODALS ====================
-// These functions assume the modal HTML is present in the page.
 function showMessage(title, text) {
     document.getElementById('messageModalTitle').innerText = title;
     document.getElementById('messageModalText').innerText = text;
@@ -111,9 +111,6 @@ function showPrompt(title, text, defaultValue = '') {
 function closePromptModal() {
     document.getElementById('promptModal').style.display = 'none';
 }
-
-// Override native alert/confirm/prompt if desired (optional)
-// window.alert = showMessage; // not recommended but possible
 
 // ==================== API REQUEST ====================
 async function apiRequest(action, data = {}, user = null) {
@@ -164,7 +161,7 @@ function debounce(func, wait) {
     };
 }
 
-// ==================== SIDEBAR TOGGLE (Fixed: removed unused closeBtn) ====================
+// ==================== SIDEBAR TOGGLE (FIXED: uses display for mobile) ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleSidebar');
@@ -175,12 +172,14 @@ function initSidebar() {
         e.stopPropagation();
         if (window.innerWidth <= 768) {
             sidebar.classList.toggle('mobile-open');
+            // Prevent body scroll when sidebar is open
             document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
         } else {
             sidebar.classList.toggle('collapsed');
         }
     });
 
+    // Close when clicking outside
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
             if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
@@ -664,7 +663,7 @@ function clearMasulSearch() {
     loadMasuls(1, '');
 }
 
-// ==================== VIEW MEMBER ====================
+// ==================== VIEW MEMBER (with improved image fallback) ====================
 async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
@@ -695,9 +694,9 @@ async function viewMember(intizarId) {
         } catch (e) {
             transferList = '<p>Error parsing transfers</p>';
         }
-        // Photo with fallback
+        // Photo with improved fallback
         const photoHtml = member.PhotoURL 
-            ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="this.src='logo.png'">` 
+            ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${member.PhotoURL}')">` 
             : `<img src="logo.png" alt="Default" class="print-photo">`;
 
         const content = document.getElementById('viewContent');
@@ -739,36 +738,7 @@ async function viewMember(intizarId) {
     }
 }
 
-// Fixed printMember: now async and waits for viewMember, no setTimeout
-async function printMember(intizarId) {
-    await viewMember(intizarId);
-    const printContents = document.getElementById('viewContent').innerHTML;
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html>
-            <head>
-                <title>Member Biodata</title>
-                <link rel="stylesheet" href="style.css">
-                <style>
-                    @media print {
-                        body { margin: 1cm; }
-                        .print-header { text-align: center; }
-                        .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-                        .modal .close, button { display: none; }
-                    }
-                </style>
-            </head>
-            <body>${printContents}</body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.onload = () => {
-        printWindow.print();
-        printWindow.onafterprint = () => printWindow.close();
-    };
-}
-
-// ==================== VIEW MASUL ====================
+// ==================== VIEW MASUL (with improved image fallback) ====================
 async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
@@ -787,7 +757,7 @@ async function viewMasul(intizarId) {
             promotionList = '<p>Error parsing history</p>';
         }
         const photoHtml = masul.PhotoURL 
-            ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="this.src='logo.png'">` 
+            ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${masul.PhotoURL}')">` 
             : `<img src="logo.png" alt="Default" class="print-photo">`;
 
         const content = document.getElementById('viewContent');
@@ -827,33 +797,280 @@ async function viewMasul(intizarId) {
     }
 }
 
-// Fixed printMasul: now async and waits for viewMasul, no setTimeout
+// ==================== PRINT FUNCTIONS (FIXED: async, image loading, no timeout) ====================
+async function printMember(intizarId) {
+    showLoader();
+    try {
+        // Fetch fresh data
+        const result = await apiRequest('getMember', { intizarId }, currentUser);
+        const member = result.member;
+        // Generate print HTML using a helper
+        const printContent = buildMemberPrintHTML(member);
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Member Biodata</title>
+                    <link rel="stylesheet" href="style.css">
+                    <style>
+                        @media print {
+                            body { margin: 1cm; }
+                            .print-header { text-align: center; }
+                            .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+                            button, .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-area">${printContent}</div>
+                    <script>
+                        window.onload = function() {
+                            const images = document.images;
+                            let loaded = 0;
+                            if (images.length === 0) {
+                                window.print();
+                                window.onafterprint = () => window.close();
+                                return;
+                            }
+                            for (let img of images) {
+                                if (img.complete) {
+                                    loaded++;
+                                } else {
+                                    img.addEventListener('load', () => {
+                                        loaded++;
+                                        if (loaded === images.length) {
+                                            window.print();
+                                            window.onafterprint = () => window.close();
+                                        }
+                                    });
+                                    img.addEventListener('error', () => {
+                                        loaded++; // count error as loaded to avoid infinite wait
+                                        if (loaded === images.length) {
+                                            window.print();
+                                            window.onafterprint = () => window.close();
+                                        }
+                                    });
+                                }
+                            }
+                            if (loaded === images.length) {
+                                window.print();
+                                window.onafterprint = () => window.close();
+                            }
+                        };
+                    <\/script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    } catch (err) {
+        showMessage('Error', 'Failed to prepare print: ' + err.message);
+    } finally {
+        hideLoader();
+    }
+}
+
 async function printMasul(intizarId) {
-    await viewMasul(intizarId);
-    const printContents = document.getElementById('viewContent').innerHTML;
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html>
-            <head>
-                <title>Mas'ul Biodata</title>
-                <link rel="stylesheet" href="style.css">
-                <style>
-                    @media print {
-                        body { margin: 1cm; }
-                        .print-header { text-align: center; }
-                        .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-                        .modal .close, button { display: none; }
-                    }
-                </style>
-            </head>
-            <body>${printContents}</body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.onload = () => {
-        printWindow.print();
-        printWindow.onafterprint = () => printWindow.close();
-    };
+    showLoader();
+    try {
+        const result = await apiRequest('getMasul', { intizarId }, currentUser);
+        const masul = result.masul;
+        const printContent = buildMasulPrintHTML(masul);
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Mas'ul Biodata</title>
+                    <link rel="stylesheet" href="style.css">
+                    <style>
+                        @media print {
+                            body { margin: 1cm; }
+                            .print-header { text-align: center; }
+                            .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+                            button, .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-area">${printContent}</div>
+                    <script>
+                        window.onload = function() {
+                            const images = document.images;
+                            let loaded = 0;
+                            if (images.length === 0) {
+                                window.print();
+                                window.onafterprint = () => window.close();
+                                return;
+                            }
+                            for (let img of images) {
+                                if (img.complete) {
+                                    loaded++;
+                                } else {
+                                    img.addEventListener('load', () => {
+                                        loaded++;
+                                        if (loaded === images.length) {
+                                            window.print();
+                                            window.onafterprint = () => window.close();
+                                        }
+                                    });
+                                    img.addEventListener('error', () => {
+                                        loaded++;
+                                        if (loaded === images.length) {
+                                            window.print();
+                                            window.onafterprint = () => window.close();
+                                        }
+                                    });
+                                }
+                            }
+                            if (loaded === images.length) {
+                                window.print();
+                                window.onafterprint = () => window.close();
+                            }
+                        };
+                    <\/script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    } catch (err) {
+        showMessage('Error', 'Failed to prepare print: ' + err.message);
+    } finally {
+        hideLoader();
+    }
+}
+
+// ==================== HELPERS FOR PRINT HTML ====================
+function buildMemberPrintHTML(member) {
+    let promotionList = '';
+    try {
+        const promHistory = JSON.parse(member.PromotionHistory || '[]');
+        if (promHistory.length) {
+            promotionList = '<ul>' + promHistory.map(entry => 
+                `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.level}</li>`
+            ).join('') + '</ul>';
+        } else {
+            promotionList = '<p>No promotion history</p>';
+        }
+    } catch (e) {
+        promotionList = '<p>Error parsing history</p>';
+    }
+    let transferList = '';
+    try {
+        const transHistory = JSON.parse(member.TransferHistory || '[]');
+        if (transHistory.length) {
+            transferList = '<ul>' + transHistory.map(entry => 
+                `<li>${new Date(entry.date).toLocaleDateString()}: from ${entry.fromBranch} to ${entry.toBranch}</li>`
+            ).join('') + '</ul>';
+        } else {
+            transferList = '<p>No transfer history</p>';
+        }
+    } catch (e) {
+        transferList = '<p>Error parsing transfers</p>';
+    }
+    const photoHtml = member.PhotoURL 
+        ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="this.onerror=null; this.src='logo.png';">` 
+        : `<img src="logo.png" alt="Default" class="print-photo">`;
+
+    return `
+        <div class="print-area">
+            <div class="print-header">
+                <img src="logo.png" alt="Logo" style="height:60px;">
+                <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+                <p>Member Biodata</p>
+            </div>
+            ${photoHtml}
+            <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
+            <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
+            <p><strong>Full Name:</strong> ${member.FullName}</p>
+            <p><strong>Father's Name:</strong> ${member.FatherName}</p>
+            <p><strong>Gender:</strong> ${member.Gender}</p>
+            <p><strong>Date of Birth:</strong> ${member.DOB}</p>
+            <p><strong>Place of Birth:</strong> ${member.PlaceOfBirth}</p>
+            <p><strong>Phone:</strong> ${member.Phone}</p>
+            <p><strong>Email:</strong> ${member.Email || '-'}</p>
+            <p><strong>Address:</strong> ${member.Address}</p>
+            <p><strong>State:</strong> ${member.State}</p>
+            <p><strong>LGA:</strong> ${member.LGA}</p>
+            <p><strong>Zone:</strong> ${member.Zone}</p>
+            <p><strong>Branch:</strong> ${member.Branch}</p>
+            <p><strong>Year:</strong> ${member.Year}</p>
+            <p><strong>Level:</strong> ${member.Level}</p>
+            <p><strong>Guardian Name:</strong> ${member.GuardianName}</p>
+            <p><strong>Guardian Phone:</strong> ${member.GuardianPhone}</p>
+            <p><strong>Guardian Address:</strong> ${member.GuardianAddress}</p>
+            <p><strong>Promotion History:</strong> ${promotionList}</p>
+            <p><strong>Transfer History:</strong> ${transferList}</p>
+            <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+        </div>
+    `;
+}
+
+function buildMasulPrintHTML(masul) {
+    let promotionList = '';
+    try {
+        const promHistory = JSON.parse(masul.PromotionHistory || '[]');
+        if (promHistory.length) {
+            promotionList = '<ul>' + promHistory.map(entry => 
+                `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.rank}</li>`
+            ).join('') + '</ul>';
+        } else {
+            promotionList = '<p>No promotion history</p>';
+        }
+    } catch (e) {
+        promotionList = '<p>Error parsing history</p>';
+    }
+    const photoHtml = masul.PhotoURL 
+        ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="this.onerror=null; this.src='logo.png';">` 
+        : `<img src="logo.png" alt="Default" class="print-photo">`;
+
+    return `
+        <div class="print-area">
+            <div class="print-header">
+                <img src="logo.png" alt="Logo" style="height:60px;">
+                <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+                <p>Mas'ul Biodata</p>
+            </div>
+            ${photoHtml}
+            <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
+            <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
+            <p><strong>Full Name:</strong> ${masul.FullName}</p>
+            <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
+            <p><strong>Gender:</strong> ${masul.Gender}</p>
+            <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
+            <p><strong>Place of Birth:</strong> ${masul.PlaceOfBirth}</p>
+            <p><strong>Phone:</strong> ${masul.Phone}</p>
+            <p><strong>Email:</strong> ${masul.Email || '-'}</p>
+            <p><strong>Address:</strong> ${masul.Address}</p>
+            <p><strong>State:</strong> ${masul.State}</p>
+            <p><strong>LGA:</strong> ${masul.LGA}</p>
+            <p><strong>Zone:</strong> ${masul.Zone}</p>
+            <p><strong>Branch:</strong> ${masul.Branch}</p>
+            <p><strong>Year:</strong> ${masul.Year}</p>
+            <p><strong>Current Rank:</strong> ${masul.CurrentRank}</p>
+            <p><strong>Source:</strong> ${masul.Source}</p>
+            ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
+            <p><strong>Promotion History:</strong> ${promotionList}</p>
+            <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+        </div>
+    `;
+}
+
+// ==================== IMAGE FALLBACK FUNCTION ====================
+function tryAlternateImage(img, originalUrl) {
+    // Try to extract file ID and use a different format
+    const match = originalUrl.match(/[-\w]{25,}/);
+    if (match) {
+        const fileId = match[0];
+        // Try thumbnail URL as fallback
+        img.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+        img.onerror = () => {
+            // If still fails, fall back to logo
+            img.src = 'logo.png';
+            img.onerror = null;
+        };
+    } else {
+        img.src = 'logo.png';
+        img.onerror = null;
+    }
 }
 
 // ==================== REGISTRATION PAGE ====================
@@ -1380,17 +1597,18 @@ function updateMembersChart(levelCounts) {
             datasets: [{
                 label: 'Number of Members',
                 data: Object.values(levelCounts),
-                backgroundColor: ['#556B2F', '#C9A87C', '#556B2F', '#000000'] // gold changed to #C9A87C
+                backgroundColor: ['#556B2F', '#C9A87C', '#556B2F', '#000000']
             }]
         },
         options: { responsive: true, plugins: { legend: { display: false } } }
     });
 }
 
+// ==================== ZONE STATS (FIXED: handles empty data) ====================
 async function loadZoneStats() {
     try {
         const result = await apiRequest('getZoneStats', {}, currentUser);
-        const stats = result.stats;
+        const stats = result.stats || [];
         const tbody = document.querySelector('#zoneStatsTable tbody');
         tbody.innerHTML = '';
         stats.forEach(zone => {
@@ -1400,28 +1618,35 @@ async function loadZoneStats() {
             row.insertCell().innerText = zone.brothers;
             row.insertCell().innerText = zone.sisters;
         });
-        const ctx = document.getElementById('zoneChart').getContext('2d');
-        if (window.zoneChart) window.zoneChart.destroy();
-        window.zoneChart = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: stats.map(z => z.zone),
-                datasets: [{
-                    data: stats.map(z => z.total),
-                    backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
-                }]
-            }
-        });
+
+        // Only create chart if there is data
+        if (stats.length > 0) {
+            const ctx = document.getElementById('zoneChart').getContext('2d');
+            if (window.zoneChart) window.zoneChart.destroy();
+            window.zoneChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: stats.map(z => z.zone),
+                    datasets: [{
+                        data: stats.map(z => z.total),
+                        backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
+                    }]
+                }
+            });
+        } else {
+            console.log('No zone data for chart');
+        }
     } catch (err) {
         console.error(err);
         showMessage('Error', 'Failed to load zone stats');
     }
 }
 
+// ==================== BRANCH STATS (FIXED: handles empty data) ====================
 async function loadBranchStats() {
     try {
         const result = await apiRequest('getBranchStats', {}, currentUser);
-        const stats = result.stats;
+        const stats = result.stats || [];
         const tbody = document.querySelector('#branchStatsTable tbody');
         tbody.innerHTML = '';
         stats.forEach(b => {
@@ -1433,19 +1658,24 @@ async function loadBranchStats() {
             row.insertCell().innerText = b.brothers;
             row.insertCell().innerText = b.sisters;
         });
-        const ctx = document.getElementById('branchChart').getContext('2d');
-        if (window.branchChart) window.branchChart.destroy();
-        window.branchChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: stats.slice(0, 10).map(b => b.branchCode),
-                datasets: [{
-                    label: 'Members per Branch',
-                    data: stats.slice(0, 10).map(b => b.total),
-                    backgroundColor: '#C9A87C' // gold changed to #C9A87C
-                }]
-            }
-        });
+
+        if (stats.length > 0) {
+            const ctx = document.getElementById('branchChart').getContext('2d');
+            if (window.branchChart) window.branchChart.destroy();
+            window.branchChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: stats.slice(0, 10).map(b => b.branchCode),
+                    datasets: [{
+                        label: 'Members per Branch',
+                        data: stats.slice(0, 10).map(b => b.total),
+                        backgroundColor: '#C9A87C'
+                    }]
+                }
+            });
+        } else {
+            console.log('No branch data for chart');
+        }
     } catch (err) {
         console.error(err);
         showMessage('Error', 'Failed to load branch stats');
