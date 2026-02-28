@@ -12,6 +12,14 @@
     box-sizing: border-box;
 }
 
+/* ===== FLEX LAYOUT FOR PUBLIC PAGES (footer sticks) ===== */
+html, body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--white);
@@ -141,6 +149,7 @@ main {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 0 1rem;
+    flex: 1 0 auto; /* pushes footer down */
 }
 
 .page-title {
@@ -236,6 +245,7 @@ footer {
     text-align: center;
     padding: 1.5rem;
     margin-top: 3rem;
+    flex-shrink: 0; /* prevent footer from shrinking */
 }
 
 /* ========== FORMS ========== */
@@ -632,6 +642,18 @@ td button {
     z-index: -1;
 }
 
+/* ========== PROFILE PHOTO STYLING (improved) ========== */
+.print-photo {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 2px solid var(--gold);
+    object-fit: cover;
+    margin: 1rem auto;
+    display: block;
+}
+
 /* ========== PRINT STYLES ========== */
 @media print {
     .navbar, footer, .modal, button, .close,
@@ -671,6 +693,8 @@ td button {
     .print-photo {
         max-width: 150px;
         border: 1px solid black;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 }
 
@@ -698,7 +722,9 @@ td button {
     .sidebar {
         position: fixed;
         left: -260px;
+        top: 0;
         height: 100%;
+        transition: left 0.3s ease;
         z-index: 1500;
     }
     .sidebar.mobile-open {
