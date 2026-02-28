@@ -1,6 +1,6 @@
 :root {
     --dark-olive: #155B2F;
-    --gold: #C9A87C;          /* changed from #F2C464 / #FFD700 */
+    --gold: #C9A87C;
     --white: #FFFFFF;
     --black: #333;
     --light-gray: #f4f4f4;
@@ -50,7 +50,7 @@ body::after {
     width: 100%;
     height: 100%;
     background-color: #2f4f2f;
-    color: var(--gold);        /* updated */
+    color: var(--gold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -115,7 +115,7 @@ header {
 
 .ajami {
     font-size: 1.2rem;
-    color: var(--gold);        /* updated */
+    color: var(--gold);
     direction: rtl;
     font-family: 'Amiri', serif;
 }
@@ -139,7 +139,7 @@ header {
 }
 
 .navbar a:hover {
-    background-color: var(--gold);  /* updated */
+    background-color: var(--gold);
     color: var(--black);
     border-radius: 5px;
 }
@@ -149,7 +149,7 @@ main {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 0 1rem;
-    flex: 1 0 auto; /* pushes footer down */
+    flex: 1 0 auto;
 }
 
 .page-title {
@@ -231,7 +231,7 @@ main {
 }
 
 .card h3 {
-    color: var(--gold);        /* updated */
+    color: var(--gold);
     margin-bottom: 1rem;
     border-bottom: 1px solid var(--gold);
     padding-bottom: 0.5rem;
@@ -245,7 +245,7 @@ footer {
     text-align: center;
     padding: 1.5rem;
     margin-top: 3rem;
-    flex-shrink: 0; /* prevent footer from shrinking */
+    flex-shrink: 0;
 }
 
 /* ========== FORMS ========== */
@@ -290,7 +290,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--gold);
-    box-shadow: 0 0 5px rgba(201,168,124,0.5); /* updated */
+    box-shadow: 0 0 5px rgba(201,168,124,0.5);
 }
 
 button {
@@ -344,7 +344,7 @@ td button {
     font-size: 0.85rem;
 }
 
-/* ========== DASHBOARD LAYOUT (FIXED) ========== */
+/* ========== DASHBOARD LAYOUT ========== */
 .dashboard-container {
     display: flex;
     flex-direction: column;
@@ -418,16 +418,16 @@ td button {
     color: var(--gold);
 }
 
-/* Sidebar */
+/* Sidebar (Desktop) */
 .sidebar {
     width: 260px;
     background-color: var(--dark-olive);
-    transition: width 0.3s ease, transform 0.3s ease;
+    transition: width 0.3s ease;
     flex-shrink: 0;
-    overflow-y: auto;
+    overflow-y: auto; /* Enable scrolling */
     color: var(--white);
     box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-    height: 100vh;               /* added for scrolling */
+    height: 100vh;
     position: sticky;
     top: 0;
 }
@@ -642,7 +642,7 @@ td button {
     z-index: -1;
 }
 
-/* ========== PROFILE PHOTO STYLING (improved) ========== */
+/* ========== PROFILE PHOTO STYLING ========== */
 .print-photo {
     max-width: 200px;
     max-height: 200px;
@@ -698,7 +698,7 @@ td button {
     }
 }
 
-/* ========== RESPONSIVE (MOBILE) - FIXED SIDEBAR ========== */
+/* ========== RESPONSIVE (MOBILE) ========== */
 @media (max-width: 768px) {
     /* Public pages */
     header {
@@ -718,31 +718,32 @@ td button {
         max-width: 100%;
     }
 
-    /* Dashboard sidebar: hidden by default, shown when mobile-open class added */
+    /* Dashboard sidebar – mobile specific */
     .sidebar {
-        display: none; /* Hidden on mobile by default */
+        display: none; /* Hidden by default */
         position: fixed;
         left: 0;
         top: 0;
-        height: 100%;
+        bottom: 0; /* Full viewport height */
         width: 260px;
-        overflow-y: auto; /* Enable scrolling for long menus */
+        overflow-y: auto; /* Enable scrolling */
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
         z-index: 1500;
     }
     .sidebar.mobile-open {
-        display: block; /* Show when toggled */
+        display: block;
     }
     .sidebar.collapsed {
-        width: 260px; /* override collapsed on mobile */
+        width: 260px; /* Override collapsed on mobile */
     }
     .sidebar.collapsed .sidebar-header h3,
     .sidebar.collapsed .sidebar-menu span {
-        display: inline; /* show text when open on mobile */
+        display: inline;
     }
     .sidebar-close {
         display: block;
     }
-    /* Reduce text size and padding for mobile sidebar */
+    /* Smaller text and padding for mobile */
     .sidebar-menu a {
         font-size: 0.9rem;
         padding: 0.6rem 1rem;
@@ -807,7 +808,7 @@ td button {
     cursor: pointer;
 }
 .pagination button.active {
-    background: var(--gold);   /* updated */
+    background: var(--gold);
     color: black;
 }
 .pagination button:disabled {
@@ -895,7 +896,7 @@ td button {
     color: black;
 }
 
-/* Error message for dashboard statistics (added) */
+/* Error message for dashboard statistics */
 #statsError {
     background-color: #ffe6e6;
     border: 1px solid #ff9999;
