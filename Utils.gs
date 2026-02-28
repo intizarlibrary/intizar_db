@@ -280,7 +280,7 @@ function login(role, code) {
   throw new Error('Invalid role');
 }
 
-// ==================== PHOTO UPLOAD TO DRIVE ====================
+// ==================== PHOTO UPLOAD TO DRIVE (Fixed: uses thumbnail URL) ====================
 function savePhotoToDrive(base64Data, fileName) {
   let mimeType = 'image/jpeg'; // default
   try {
@@ -305,9 +305,9 @@ function savePhotoToDrive(base64Data, fileName) {
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    // Return direct image URL instead of viewer URL
     const fileId = file.getId();
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    // Use thumbnail URL for reliable image display (works in <img> tags)
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
   } catch (e) {
     console.warn('Drive upload failed, using base64: ' + e.toString());
     return 'data:' + mimeType + ';base64,' + base64Data;
