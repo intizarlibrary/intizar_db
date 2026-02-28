@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0B0mHdu6JvxUToVIUmM2zRW_tk1KK3too1NPE0u4AVz33a_NpEZsMDE0O1DEOaCO6/exec'; // REPLACE WITH YOUR DEPLOYED URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4xqL0sBbbGcckv3tIK-FZA4_3LZKai1wKY9UDVKCVjnOInnMcrPEoV1ybnaPjFFj_/exec'; // REPLACE WITH YOUR DEPLOYED URL
 const PAGE_SIZE = 50; // number of rows per page
 
 // ==================== GLOBAL STATE ====================
@@ -12,6 +12,10 @@ let totalMasuls = 0;
 // Search state
 let currentMemberSearch = '';
 let currentMasulSearch = '';
+
+// Filter state (for members list and masul list)
+let currentMemberFilters = {};
+let currentMasulFilters = {};
 
 // Branch -> Zone mapping (for Branch Mas'ul auto‑selection)
 let branchZoneMap = {};
@@ -57,6 +61,60 @@ function hideLoader() {
     if (loader) loader.style.display = 'none'; 
 }
 
+// ==================== CUSTOM MODALS ====================
+// These functions assume the modal HTML is present in the page.
+function showMessage(title, text) {
+    document.getElementById('messageModalTitle').innerText = title;
+    document.getElementById('messageModalText').innerText = text;
+    document.getElementById('messageModal').style.display = 'block';
+}
+function closeMessageModal() {
+    document.getElementById('messageModal').style.display = 'none';
+}
+
+function showConfirm(title, text) {
+    return new Promise((resolve) => {
+        document.getElementById('confirmModalTitle').innerText = title;
+        document.getElementById('confirmModalText').innerText = text;
+        document.getElementById('confirmModal').style.display = 'block';
+        document.getElementById('confirmOkBtn').onclick = () => {
+            closeConfirmModal();
+            resolve(true);
+        };
+        document.getElementById('confirmCancelBtn').onclick = () => {
+            closeConfirmModal();
+            resolve(false);
+        };
+    });
+}
+function closeConfirmModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+}
+
+function showPrompt(title, text, defaultValue = '') {
+    return new Promise((resolve) => {
+        document.getElementById('promptModalTitle').innerText = title;
+        document.getElementById('promptModalText').innerText = text;
+        document.getElementById('promptInput').value = defaultValue;
+        document.getElementById('promptModal').style.display = 'block';
+        document.getElementById('promptOkBtn').onclick = () => {
+            const val = document.getElementById('promptInput').value;
+            closePromptModal();
+            resolve(val);
+        };
+        document.getElementById('promptCancelBtn').onclick = () => {
+            closePromptModal();
+            resolve(null);
+        };
+    });
+}
+function closePromptModal() {
+    document.getElementById('promptModal').style.display = 'none';
+}
+
+// Override native alert/confirm/prompt if desired (optional)
+// window.alert = showMessage; // not recommended but possible
+
 // ==================== API REQUEST ====================
 async function apiRequest(action, data = {}, user = null) {
     showLoader();
@@ -86,11 +144,6 @@ function showModal(modalId) {
 
 function hideModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
-}
-
-function showSuccessMessage(message) {
-    document.getElementById('successMessage').innerText = message;
-    document.getElementById('successModal').style.display = 'block';
 }
 
 function fileToBase64(file) {
@@ -157,6 +210,44 @@ function initSidebar() {
 
 // ==================== LOGIN & INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
+    // Inject global styles for custom modals and background (if not already in CSS)
+    const style = document.createElement('style');
+    style.innerHTML = `
+        /* Custom modal styles */
+        .modal-content .print-area { position: relative; }
+        .modal-content .print-area::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('logo.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 200px;
+            opacity: 0.1;
+            pointer-events: none;
+            z-index: -1;
+        }
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('logo.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 300px;
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .sidebar {
+            height: 100vh;
+            overflow-y: auto;
+            position: sticky;
+            top: 0;
+        }
+    `;
+    document.head.appendChild(style);
+
     if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
         typeSurahAsr();
     } else {
@@ -205,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionStorage.setItem('user', JSON.stringify(currentUser));
                 window.location.href = 'dashboard.html';
             } catch (err) {
-                alert('Login failed: ' + err.message);
+                showMessage('Login Failed', err.message);
             }
         });
     }
@@ -229,8 +320,7 @@ async function initializeDashboard() {
     if (currentUser.role !== 'Admin') {
         const adminSections = [
             'masulSection', 'zonesSection', 'branchesSection',
-            'auditSection', 'configSection', 'exportSection',
-            'zoneStatsSection', 'branchStatsSection'
+            'auditSection', 'configSection', 'exportSection'
         ];
         adminSections.forEach(id => {
             const el = document.getElementById(id);
@@ -247,17 +337,19 @@ async function initializeDashboard() {
     }
 
     setupNavigation();
+    applyRoleBasedVisibility();
     showSection('membersSection');
     await loadDashboardStats();
-    await loadMembers(1, ''); // start with empty search
+    await loadMemberList(1, ''); // start with empty search for the members list
+    await loadFilterOptions();    // populate filter dropdowns
     loadZonesForDropdowns();
     loadChart();
 
-    // Live search for members
-    const memberSearch = document.getElementById('memberSearch');
-    if (memberSearch) {
-        memberSearch.addEventListener('input', debounce(function() {
-            loadMembers(1, this.value);
+    // Live search for members list
+    const memberListSearch = document.getElementById('memberListSearch');
+    if (memberListSearch) {
+        memberListSearch.addEventListener('input', debounce(function() {
+            applyMemberFilters(); // reload with current search and filters
         }, 300));
     }
 
@@ -265,8 +357,21 @@ async function initializeDashboard() {
     const masulSearch = document.getElementById('masulSearch');
     if (masulSearch) {
         masulSearch.addEventListener('input', debounce(function() {
-            loadMasuls(1, this.value);
+            applyMasulFilters();
         }, 300));
+    }
+}
+
+function applyRoleBasedVisibility() {
+    const role = currentUser.role;
+    const zoneChartSection = document.getElementById('zoneStatsSection');
+    const branchChartSection = document.getElementById('branchStatsSection');
+    if (role === 'Branch Mas\'ul') {
+        if (zoneChartSection) zoneChartSection.style.display = 'none';
+        if (branchChartSection) branchChartSection.style.display = 'none';
+    } else {
+        if (zoneChartSection) zoneChartSection.style.display = 'block';
+        if (branchChartSection) branchChartSection.style.display = 'block';
     }
 }
 
@@ -274,18 +379,23 @@ function setupNavigation() {
     document.getElementById('navMembers').addEventListener('click', (e) => {
         e.preventDefault();
         showSection('membersSection');
-        // Reset search when navigating to Members
-        document.getElementById('memberSearch').value = '';
-        loadMembers(1, '');
         loadDashboardStats();
+    });
+    document.getElementById('navMemberList').addEventListener('click', (e) => {
+        e.preventDefault();
+        showSection('memberListSection');
+        // Reset search and filters
+        document.getElementById('memberListSearch').value = '';
+        resetMemberFilters();
+        loadMemberList(1, '');
     });
     const navMasulin = document.getElementById('navMasulin');
     if (navMasulin) {
         navMasulin.addEventListener('click', (e) => {
             e.preventDefault();
             showSection('masulSection');
-            // Reset search when navigating to Mas'ulin
             document.getElementById('masulSearch').value = '';
+            resetMasulFilters();
             loadMasuls(1, '');
         });
     }
@@ -348,7 +458,7 @@ function setupNavigation() {
 
 function showSection(sectionId) {
     const sections = [
-        'membersSection', 'masulSection', 'zonesSection',
+        'membersSection', 'memberListSection', 'masulSection', 'zonesSection',
         'branchesSection', 'auditSection', 'configSection', 'exportSection',
         'zoneStatsSection', 'branchStatsSection'
     ];
@@ -361,6 +471,7 @@ function showSection(sectionId) {
     document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
     const navMap = {
         membersSection: 'navMembers',
+        memberListSection: 'navMemberList',
         masulSection: 'navMasulin',
         zonesSection: 'navZones',
         branchesSection: 'navBranches',
@@ -377,44 +488,56 @@ function showSection(sectionId) {
     }
 }
 
-// ==================== PAGINATION CONTROLS ====================
-function renderMemberPagination() {
-    const totalPages = Math.ceil(totalMembers / PAGE_SIZE);
-    let html = '';
-    for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === currentMemberPage ? 'active' : ''}" onclick="loadMembers(${i}, '${currentMemberSearch}')">${i}</button>`;
+// ==================== FILTER OPTIONS ====================
+async function loadFilterOptions() {
+    try {
+        const result = await apiRequest('getFilterOptions', {}, currentUser);
+        // Populate member filters
+        populateSelect('filterMemberLevel', result.levels);
+        populateSelect('filterMemberBranch', result.branches);
+        populateSelect('filterMemberZone', result.zones);
+        // Masul filters
+        populateSelect('filterMasulRank', result.ranks);
+        populateSelect('filterMasulBranch', result.branches);
+        populateSelect('filterMasulZone', result.zones);
+    } catch (err) {
+        console.error('Failed to load filter options:', err);
     }
-    html += `<span> Total: ${totalMembers}</span>`;
-    document.getElementById('memberPagination').innerHTML = html;
 }
 
-function renderMasulPagination() {
-    const totalPages = Math.ceil(totalMasuls / PAGE_SIZE);
-    let html = '';
-    for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === currentMasulPage ? 'active' : ''}" onclick="loadMasuls(${i}, '${currentMasulSearch}')">${i}</button>`;
-    }
-    html += `<span> Total: ${totalMasuls}</span>`;
-    document.getElementById('masulPagination').innerHTML = html;
+function populateSelect(selectId, options) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    // Keep the first option (e.g., "All ...")
+    const firstOption = select.options[0] ? select.options[0].cloneNode(true) : null;
+    select.innerHTML = '';
+    if (firstOption) select.appendChild(firstOption);
+    options.forEach(val => {
+        const option = document.createElement('option');
+        option.value = val;
+        option.textContent = val;
+        select.appendChild(option);
+    });
 }
 
-// ==================== LOAD MEMBERS (with search) ====================
-async function loadMembers(page = 1, search = '') {
+// ==================== MEMBERS LIST (with search & filters) ====================
+async function loadMemberList(page = 1, search = '', filters = {}) {
     try {
         currentMemberPage = page;
         currentMemberSearch = search;
-        const result = await apiRequest('getMembers', { page, pageSize: PAGE_SIZE, search }, currentUser);
+        currentMemberFilters = filters;
+        const result = await apiRequest('getMembers', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
         totalMembers = result.total;
-        renderMemberTable(result.members);
-        renderMemberPagination();
+        renderMemberListTable(result.members);
+        renderMemberListPagination();
     } catch (err) {
         console.error(err);
-        alert('Failed to load members: ' + err.message);
+        showMessage('Error', 'Failed to load members: ' + err.message);
     }
 }
 
-function renderMemberTable(members) {
-    const tbody = document.querySelector('#memberTable tbody');
+function renderMemberListTable(members) {
+    const tbody = document.querySelector('#memberListTable tbody');
     tbody.innerHTML = '';
     members.forEach(member => {
         const row = tbody.insertRow();
@@ -433,18 +556,49 @@ function renderMemberTable(members) {
     });
 }
 
-// ==================== LOAD MASULS (with search) ====================
-async function loadMasuls(page = 1, search = '') {
+function renderMemberListPagination() {
+    const totalPages = Math.ceil(totalMembers / PAGE_SIZE);
+    let html = '';
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentMemberPage ? 'active' : ''}" onclick="loadMemberList(${i}, '${currentMemberSearch}', ${JSON.stringify(currentMemberFilters).replace(/"/g, '&quot;')})">${i}</button>`;
+    }
+    html += `<span> Total: ${totalMembers}</span>`;
+    document.getElementById('memberListPagination').innerHTML = html;
+}
+
+// Filter handlers
+function applyMemberFilters() {
+    const filters = {
+        level: document.getElementById('filterMemberLevel').value,
+        gender: document.getElementById('filterMemberGender').value,
+        branch: document.getElementById('filterMemberBranch').value,
+        zone: document.getElementById('filterMemberZone').value
+    };
+    const search = document.getElementById('memberListSearch').value;
+    loadMemberList(1, search, filters);
+}
+
+function resetMemberFilters() {
+    document.getElementById('filterMemberLevel').value = '';
+    document.getElementById('filterMemberGender').value = '';
+    document.getElementById('filterMemberBranch').value = '';
+    document.getElementById('filterMemberZone').value = '';
+    applyMemberFilters();
+}
+
+// ==================== LOAD MASULS (with search & filters) ====================
+async function loadMasuls(page = 1, search = '', filters = {}) {
     try {
         currentMasulPage = page;
         currentMasulSearch = search;
-        const result = await apiRequest('getMasuls', { page, pageSize: PAGE_SIZE, search }, currentUser);
+        currentMasulFilters = filters;
+        const result = await apiRequest('getMasuls', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
         totalMasuls = result.total;
         renderMasulTable(result.masuls);
         renderMasulPagination();
     } catch (err) {
         console.error(err);
-        alert('Failed to load masuls: ' + err.message);
+        showMessage('Error', 'Failed to load masuls: ' + err.message);
     }
 }
 
@@ -468,7 +622,36 @@ function renderMasulTable(masuls) {
     });
 }
 
-// ==================== SEARCH FUNCTIONS ====================
+function renderMasulPagination() {
+    const totalPages = Math.ceil(totalMasuls / PAGE_SIZE);
+    let html = '';
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentMasulPage ? 'active' : ''}" onclick="loadMasuls(${i}, '${currentMasulSearch}', ${JSON.stringify(currentMasulFilters).replace(/"/g, '&quot;')})">${i}</button>`;
+    }
+    html += `<span> Total: ${totalMasuls}</span>`;
+    document.getElementById('masulPagination').innerHTML = html;
+}
+
+function applyMasulFilters() {
+    const filters = {
+        rank: document.getElementById('filterMasulRank').value,
+        gender: document.getElementById('filterMasulGender').value,
+        branch: document.getElementById('filterMasulBranch').value,
+        zone: document.getElementById('filterMasulZone').value
+    };
+    const search = document.getElementById('masulSearch').value;
+    loadMasuls(1, search, filters);
+}
+
+function resetMasulFilters() {
+    document.getElementById('filterMasulRank').value = '';
+    document.getElementById('filterMasulGender').value = '';
+    document.getElementById('filterMasulBranch').value = '';
+    document.getElementById('filterMasulZone').value = '';
+    applyMasulFilters();
+}
+
+// ==================== SEARCH FUNCTIONS (legacy) ====================
 function searchMembers() {
     const searchTerm = document.getElementById('memberSearch').value;
     loadMembers(1, searchTerm);
@@ -520,6 +703,11 @@ async function viewMember(intizarId) {
         } catch (e) {
             transferList = '<p>Error parsing transfers</p>';
         }
+        // Photo with fallback
+        const photoHtml = member.PhotoURL 
+            ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="this.src='logo.png'">` 
+            : `<img src="logo.png" alt="Default" class="print-photo">`;
+
         const content = document.getElementById('viewContent');
         content.innerHTML = `
             <div class="print-area">
@@ -528,7 +716,7 @@ async function viewMember(intizarId) {
                     <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
                     <p>Member Biodata</p>
                 </div>
-                ${member.PhotoURL ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo">` : ''}
+                ${photoHtml}
                 <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
                 <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
                 <p><strong>Full Name:</strong> ${member.FullName}</p>
@@ -555,7 +743,7 @@ async function viewMember(intizarId) {
         `;
         showModal('viewModal');
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 
@@ -602,6 +790,10 @@ async function viewMasul(intizarId) {
         } catch (e) {
             promotionList = '<p>Error parsing history</p>';
         }
+        const photoHtml = masul.PhotoURL 
+            ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="this.src='logo.png'">` 
+            : `<img src="logo.png" alt="Default" class="print-photo">`;
+
         const content = document.getElementById('viewContent');
         content.innerHTML = `
             <div class="print-area">
@@ -610,7 +802,7 @@ async function viewMasul(intizarId) {
                     <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
                     <p>Mas'ul Biodata</p>
                 </div>
-                ${masul.PhotoURL ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo">` : ''}
+                ${photoHtml}
                 <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
                 <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
                 <p><strong>Full Name:</strong> ${masul.FullName}</p>
@@ -635,7 +827,7 @@ async function viewMasul(intizarId) {
         `;
         showModal('viewModal');
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 
@@ -681,6 +873,28 @@ function initializeRegistrationPage() {
     loadZonesForDropdowns();
     setDOBLimits();
 
+    // Dynamic rank dropdown for Mas'ul form
+    const masulGender = document.getElementById('masulGender');
+    if (masulGender) {
+        masulGender.addEventListener('change', function() {
+            const gender = this.value;
+            const rankSelect = document.getElementById('masulRank');
+            const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
+            const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
+            
+            rankSelect.innerHTML = '<option value="">Select Rank</option>';
+            if (gender === 'Brother') {
+                brotherRanks.forEach(rank => {
+                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+                });
+            } else if (gender === 'Sister') {
+                sisterRanks.forEach(rank => {
+                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+                });
+            }
+        });
+    }
+
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.querySelector('select[name="branch"]');
         const zoneField = document.querySelector('select[name="zone"]');
@@ -719,7 +933,7 @@ function initializeRegistrationPage() {
         const photoFile = formData.get('photo');
         if (photoFile && photoFile.size > 0) {
             if (photoFile.size > 2 * 1024 * 1024) {
-                alert('File size must be less than 2 MB');
+                showMessage('File Too Large', 'File size must be less than 2 MB');
                 return;
             }
             data.photoBase64 = await fileToBase64(photoFile);
@@ -735,7 +949,7 @@ function initializeRegistrationPage() {
                 document.querySelector('select[name="zone"]').disabled = false;
             }
         } catch (err) {
-            alert('Registration failed: ' + err.message);
+            showMessage('Registration Failed', err.message);
         }
     });
 
@@ -746,7 +960,7 @@ function initializeRegistrationPage() {
         const photoFile = formData.get('photo');
         if (photoFile && photoFile.size > 0) {
             if (photoFile.size > 2 * 1024 * 1024) {
-                alert('File size must be less than 2 MB');
+                showMessage('File Too Large', 'File size must be less than 2 MB');
                 return;
             }
             data.photoBase64 = await fileToBase64(photoFile);
@@ -757,7 +971,7 @@ function initializeRegistrationPage() {
             showSuccessModal(result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
             e.target.reset();
         } catch (err) {
-            alert('Registration failed: ' + err.message);
+            showMessage('Registration Failed', err.message);
         }
     });
 
@@ -777,7 +991,7 @@ function toggleRegistrationForm() {
     document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
 }
 
-// Success modal for registration (now shows Recruitment ID)
+// Success modal for registration
 function showSuccessModal(intizarId, recruitmentId, zone, branch) {
     document.getElementById('generatedId').innerText = intizarId;
     document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
@@ -865,12 +1079,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const zoneName = zoneForm.zoneName.value;
             try {
                 await apiRequest('addZone', { zoneName }, currentUser);
-                alert('Zone added successfully');
+                showMessage('Success', 'Zone added successfully');
                 hideModal('zoneModal');
                 zoneForm.reset();
                 loadZones();
             } catch (err) {
-                alert(err.message);
+                showMessage('Error', err.message);
             }
         });
     }
@@ -882,11 +1096,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const newName = document.getElementById('editZoneName').value;
             try {
                 await apiRequest('editZone', { zoneId, newName }, currentUser);
-                alert('Zone updated');
+                showMessage('Success', 'Zone updated');
                 hideModal('editZoneModal');
                 loadZones();
             } catch (err) {
-                alert(err.message);
+                showMessage('Error', err.message);
             }
         });
     }
@@ -898,12 +1112,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const zoneName = branchForm.zoneName.value;
             try {
                 await apiRequest('addBranch', { branchName, zoneName }, currentUser);
-                alert('Branch added successfully');
+                showMessage('Success', 'Branch added successfully');
                 hideModal('branchModal');
                 branchForm.reset();
                 loadBranches();
             } catch (err) {
-                alert(err.message);
+                showMessage('Error', err.message);
             }
         });
     }
@@ -916,11 +1130,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const newZone = document.getElementById('editBranchZone').value;
             try {
                 await apiRequest('editBranch', { branchCode, newName, newZone }, currentUser);
-                alert('Branch updated');
+                showMessage('Success', 'Branch updated');
                 hideModal('editBranchModal');
                 loadBranches();
             } catch (err) {
-                alert(err.message);
+                showMessage('Error', err.message);
             }
         });
     }
@@ -936,43 +1150,43 @@ function editBranch(branchCode, branchName, zone) {
     showModal('editBranchModal');
 }
 async function disableZone(zoneId) {
-    if (!confirm('Disable this zone?')) return;
+    if (!(await showConfirm('Confirm', 'Disable this zone?'))) return;
     try {
         await apiRequest('disableZone', { zoneId }, currentUser);
-        alert('Zone disabled');
+        showMessage('Success', 'Zone disabled');
         loadZones();
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 async function enableZone(zoneId) {
-    if (!confirm('Enable this zone?')) return;
+    if (!(await showConfirm('Confirm', 'Enable this zone?'))) return;
     try {
         await apiRequest('enableZone', { zoneId }, currentUser);
-        alert('Zone enabled');
+        showMessage('Success', 'Zone enabled');
         loadZones();
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 async function disableBranch(branchCode) {
-    if (!confirm('Disable this branch?')) return;
+    if (!(await showConfirm('Confirm', 'Disable this branch?'))) return;
     try {
         await apiRequest('disableBranch', { branchCode }, currentUser);
-        alert('Branch disabled');
+        showMessage('Success', 'Branch disabled');
         loadBranches();
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 async function enableBranch(branchCode) {
-    if (!confirm('Enable this branch?')) return;
+    if (!(await showConfirm('Confirm', 'Enable this branch?'))) return;
     try {
         await apiRequest('enableBranch', { branchCode }, currentUser);
-        alert('Branch enabled');
+        showMessage('Success', 'Branch enabled');
         loadBranches();
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 
@@ -996,7 +1210,7 @@ async function loadZones() {
         });
     } catch (err) {
         console.error(err);
-        alert('Failed to load zones: ' + err.message);
+        showMessage('Error', 'Failed to load zones: ' + err.message);
     }
 }
 
@@ -1022,7 +1236,7 @@ async function loadBranches() {
         });
     } catch (err) {
         console.error(err);
-        alert('Failed to load branches: ' + err.message);
+        showMessage('Error', 'Failed to load branches: ' + err.message);
     }
 }
 
@@ -1041,7 +1255,7 @@ async function loadAuditLog() {
         });
     } catch (err) {
         console.error(err);
-        alert('Failed to load audit log: ' + err.message);
+        showMessage('Error', 'Failed to load audit log: ' + err.message);
     }
 }
 
@@ -1062,9 +1276,9 @@ async function loadConfig() {
         try {
             if (newAdminCode) await apiRequest('updateConfig', { key: 'admin_code', value: newAdminCode }, currentUser);
             if (newPrefix) await apiRequest('updateConfig', { key: 'access_prefix', value: newPrefix }, currentUser);
-            alert('Configuration updated');
+            showMessage('Success', 'Configuration updated');
         } catch (err) {
-            alert(err.message);
+            showMessage('Error', err.message);
         }
     });
 }
@@ -1081,53 +1295,53 @@ async function exportData(type) {
         a.click();
         window.URL.revokeObjectURL(url);
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 
 // ==================== PROMOTIONS ====================
 async function promoteMember(intizarId) {
-    if (!confirm('Promote this member?')) return;
+    if (!(await showConfirm('Confirm', 'Promote this member?'))) return;
     try {
         await apiRequest('promoteMember', { intizarId }, currentUser);
-        alert('Member promoted successfully');
-        loadMembers(currentMemberPage, currentMemberSearch);
+        showMessage('Success', 'Member promoted successfully');
+        loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 async function promoteMasul(intizarId) {
-    if (!confirm('Promote this Mas\'ul?')) return;
+    if (!(await showConfirm('Confirm', 'Promote this Mas\'ul?'))) return;
     try {
         await apiRequest('promoteMasul', { intizarId }, currentUser);
-        alert('Mas\'ul promoted successfully');
-        loadMasuls(currentMasulPage, currentMasulSearch);
+        showMessage('Success', 'Mas\'ul promoted successfully');
+        loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 
 // ==================== TRANSFERS ====================
 async function transferMember(intizarId) {
-    const newBranch = prompt('Enter new Branch Code:');
+    const newBranch = await showPrompt('Transfer Member', 'Enter new Branch Code:');
     if (!newBranch) return;
     try {
         await apiRequest('transferMember', { intizarId, newBranchCode: newBranch }, currentUser);
-        alert('Member transferred');
-        loadMembers(currentMemberPage, currentMemberSearch);
+        showMessage('Success', 'Member transferred');
+        loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 async function transferMasul(intizarId) {
-    const newBranch = prompt('Enter new Branch Code:');
+    const newBranch = await showPrompt('Transfer Mas\'ul', 'Enter new Branch Code:');
     if (!newBranch) return;
     try {
         await apiRequest('transferMasul', { intizarId, newBranchCode: newBranch }, currentUser);
-        alert('Mas\'ul transferred');
-        loadMasuls(currentMasulPage, currentMasulSearch);
+        showMessage('Success', 'Mas\'ul transferred');
+        loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
     } catch (err) {
-        alert(err.message);
+        showMessage('Error', err.message);
     }
 }
 
@@ -1152,6 +1366,7 @@ async function loadDashboardStats() {
         updateMembersChart(stats.levelCounts);
     } catch (err) {
         console.error('Failed to load stats', err);
+        showMessage('Error', 'Failed to load dashboard stats');
     }
 }
 
@@ -1165,7 +1380,7 @@ function updateMembersChart(levelCounts) {
             datasets: [{
                 label: 'Number of Members',
                 data: Object.values(levelCounts),
-                backgroundColor: ['#556B2F', '#FFD700', '#556B2F', '#000000']
+                backgroundColor: ['#556B2F', '#C9A87C', '#556B2F', '#000000'] // gold changed to #C9A87C
             }]
         },
         options: { responsive: true, plugins: { legend: { display: false } } }
@@ -1193,13 +1408,13 @@ async function loadZoneStats() {
                 labels: stats.map(z => z.zone),
                 datasets: [{
                     data: stats.map(z => z.total),
-                    backgroundColor: ['#556B2F', '#FFD700', '#2F4F2F', '#DAA520', '#6B8E23']
+                    backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
                 }]
             }
         });
     } catch (err) {
         console.error(err);
-        alert('Failed to load zone stats');
+        showMessage('Error', 'Failed to load zone stats');
     }
 }
 
@@ -1227,13 +1442,13 @@ async function loadBranchStats() {
                 datasets: [{
                     label: 'Members per Branch',
                     data: stats.slice(0, 10).map(b => b.total),
-                    backgroundColor: '#556B2F'
+                    backgroundColor: '#C9A87C' // gold changed to #C9A87C
                 }]
             }
         });
     } catch (err) {
         console.error(err);
-        alert('Failed to load branch stats');
+        showMessage('Error', 'Failed to load branch stats');
     }
 }
 
