@@ -46,10 +46,10 @@ function handleRequest(e) {
         result = registerMasul(params.data, user);
         break;
       case 'getMembers':
-        result = getMembers(user, params.page, params.pageSize, params.search);
+        result = getMembers(user, params.page, params.pageSize, params.search, params.filters);
         break;
       case 'getMasuls':
-        result = getMasuls(user, params.page, params.pageSize, params.search);
+        result = getMasuls(user, params.page, params.pageSize, params.search, params.filters);
         break;
       case 'getZones':
         result = getZones(user);
@@ -119,6 +119,15 @@ function handleRequest(e) {
         break;
       case 'getBranchStats':
         result = getBranchStats(user);
+        break;
+      case 'getFilterOptions':
+        result = {
+          branches: getDistinctBranches(),
+          zones: getDistinctZones(),
+          levels: getDistinctLevels(),
+          genders: getDistinctGenders(),
+          ranks: getDistinctRanks()
+        };
         break;
       default:
         throw new Error('Unknown action: ' + action);
