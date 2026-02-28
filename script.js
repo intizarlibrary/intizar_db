@@ -1,7 +1,6 @@
 // ==================== CONFIGURATION ====================
-// IMPORTANT: Replace with your NEW deployment URL
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuzXL4L5fP0s1N7uTg-cp8JZidkVVy6fXQncIvO83Cjfq3OEy4zNlmJEPeZcivQJMl/exec';
-const PAGE_SIZE = 50; // number of rows per page
+const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
 let currentUser = null;
@@ -9,16 +8,10 @@ let currentMemberPage = 1;
 let totalMembers = 0;
 let currentMasulPage = 1;
 let totalMasuls = 0;
-
-// Search state
 let currentMemberSearch = '';
 let currentMasulSearch = '';
-
-// Filter state (for members list and masul list)
 let currentMemberFilters = {};
 let currentMasulFilters = {};
-
-// Branch -> Zone mapping (for Branch Mas'ul auto‑selection)
 let branchZoneMap = {};
 
 // ==================== SURAT AL-ASR TYPING ANIMATION ====================
@@ -161,25 +154,20 @@ function debounce(func, wait) {
     };
 }
 
-// ==================== SIDEBAR TOGGLE (FIXED: uses display for mobile) ====================
+// ==================== SIDEBAR TOGGLE ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleSidebar');
-
     if (!sidebar || !toggleBtn) return;
-
     toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (window.innerWidth <= 768) {
             sidebar.classList.toggle('mobile-open');
-            // Prevent body scroll when sidebar is open
             document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
         } else {
             sidebar.classList.toggle('collapsed');
         }
     });
-
-    // Close when clicking outside
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
             if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
@@ -188,7 +176,6 @@ function initSidebar() {
             }
         }
     });
-
     window.addEventListener('resize', () => {
         if (window.innerWidth > 768) {
             sidebar.classList.remove('mobile-open');
@@ -201,10 +188,8 @@ function initSidebar() {
 
 // ==================== LOGIN & INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
-    // Inject global styles for custom modals and background (if not already in CSS)
     const style = document.createElement('style');
     style.innerHTML = `
-        /* Custom modal styles */
         .modal-content .print-area { position: relative; }
         .modal-content .print-area::before {
             content: "";
@@ -307,7 +292,6 @@ async function initializeDashboard() {
     if (!currentUser) return;
     document.getElementById('roleDisplay').innerText = currentUser.role;
 
-    // Hide admin sections for non‑Admin users
     if (currentUser.role !== 'Admin') {
         const adminSections = [
             'masulSection', 'zonesSection', 'branchesSection',
@@ -331,25 +315,17 @@ async function initializeDashboard() {
     applyRoleBasedVisibility();
     showSection('membersSection');
     await loadDashboardStats();
-    await loadMemberList(1, ''); // start with empty search for the members list
-    await loadFilterOptions();    // populate filter dropdowns
+    await loadMemberList(1, '');
+    await loadFilterOptions();
     loadZonesForDropdowns();
-    // Removed erroneous loadChart() call
 
-    // Live search for members list
     const memberListSearch = document.getElementById('memberListSearch');
     if (memberListSearch) {
-        memberListSearch.addEventListener('input', debounce(function() {
-            applyMemberFilters(); // reload with current search and filters
-        }, 300));
+        memberListSearch.addEventListener('input', debounce(applyMemberFilters, 300));
     }
-
-    // Live search for mas'ulin
     const masulSearch = document.getElementById('masulSearch');
     if (masulSearch) {
-        masulSearch.addEventListener('input', debounce(function() {
-            applyMasulFilters();
-        }, 300));
+        masulSearch.addEventListener('input', debounce(applyMasulFilters, 300));
     }
 }
 
@@ -375,7 +351,6 @@ function setupNavigation() {
     document.getElementById('navMemberList').addEventListener('click', (e) => {
         e.preventDefault();
         showSection('memberListSection');
-        // Reset search and filters
         document.getElementById('memberListSearch').value = '';
         resetMemberFilters();
         loadMemberList(1, '');
@@ -483,11 +458,9 @@ function showSection(sectionId) {
 async function loadFilterOptions() {
     try {
         const result = await apiRequest('getFilterOptions', {}, currentUser);
-        // Populate member filters
         populateSelect('filterMemberLevel', result.levels);
         populateSelect('filterMemberBranch', result.branches);
         populateSelect('filterMemberZone', result.zones);
-        // Masul filters
         populateSelect('filterMasulRank', result.ranks);
         populateSelect('filterMasulBranch', result.branches);
         populateSelect('filterMasulZone', result.zones);
@@ -499,7 +472,6 @@ async function loadFilterOptions() {
 function populateSelect(selectId, options) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    // Keep the first option (e.g., "All ...")
     const firstOption = select.options[0] ? select.options[0].cloneNode(true) : null;
     select.innerHTML = '';
     if (firstOption) select.appendChild(firstOption);
@@ -511,7 +483,7 @@ function populateSelect(selectId, options) {
     });
 }
 
-// ==================== MEMBERS LIST (with search & filters) ====================
+// ==================== MEMBERS LIST ====================
 async function loadMemberList(page = 1, search = '', filters = {}) {
     try {
         currentMemberPage = page;
@@ -557,7 +529,6 @@ function renderMemberListPagination() {
     document.getElementById('memberListPagination').innerHTML = html;
 }
 
-// Filter handlers
 function applyMemberFilters() {
     const filters = {
         level: document.getElementById('filterMemberLevel').value,
@@ -577,7 +548,7 @@ function resetMemberFilters() {
     applyMemberFilters();
 }
 
-// ==================== LOAD MASULS (with search & filters) ====================
+// ==================== MASULS LIST ====================
 async function loadMasuls(page = 1, search = '', filters = {}) {
     try {
         currentMasulPage = page;
@@ -642,28 +613,7 @@ function resetMasulFilters() {
     applyMasulFilters();
 }
 
-// ==================== SEARCH FUNCTIONS (legacy) ====================
-function searchMembers() {
-    const searchTerm = document.getElementById('memberSearch').value;
-    loadMembers(1, searchTerm);
-}
-
-function clearMemberSearch() {
-    document.getElementById('memberSearch').value = '';
-    loadMembers(1, '');
-}
-
-function searchMasuls() {
-    const searchTerm = document.getElementById('masulSearch').value;
-    loadMasuls(1, searchTerm);
-}
-
-function clearMasulSearch() {
-    document.getElementById('masulSearch').value = '';
-    loadMasuls(1, '');
-}
-
-// ==================== VIEW MEMBER (with improved image fallback) ====================
+// ==================== VIEW MEMBER (with image fallback) ====================
 async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
@@ -694,7 +644,6 @@ async function viewMember(intizarId) {
         } catch (e) {
             transferList = '<p>Error parsing transfers</p>';
         }
-        // Photo with improved fallback
         const photoHtml = member.PhotoURL 
             ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${member.PhotoURL}')">` 
             : `<img src="logo.png" alt="Default" class="print-photo">`;
@@ -738,7 +687,7 @@ async function viewMember(intizarId) {
     }
 }
 
-// ==================== VIEW MASUL (with improved image fallback) ====================
+// ==================== VIEW MASUL (with image fallback) ====================
 async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
@@ -797,14 +746,15 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== PRINT FUNCTIONS (FIXED: async, image loading, no timeout) ====================
+// ==================== PRINT FUNCTIONS (with confirmation and image fallback) ====================
 async function printMember(intizarId) {
     showLoader();
     try {
-        // Fetch fresh data
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
-        // Generate print HTML using a helper
+        const confirmed = await showConfirm('Print Member', 'Data loaded. Do you want to print now?');
+        if (!confirmed) return;
+
         const printContent = buildMemberPrintHTML(member);
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -820,44 +770,59 @@ async function printMember(intizarId) {
                             button, .no-print { display: none; }
                         }
                     </style>
-                </head>
-                <body>
-                    <div class="print-area">${printContent}</div>
                     <script>
+                        function tryAlternateImage(img, originalUrl) {
+                            var match = originalUrl.match(/[-\\w]{25,}/);
+                            if (match) {
+                                var fileId = match[0];
+                                img.src = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+                                img.onerror = function() {
+                                    img.src = 'logo.png';
+                                    img.onerror = null;
+                                };
+                            } else {
+                                img.src = 'logo.png';
+                                img.onerror = null;
+                            }
+                        }
                         window.onload = function() {
-                            const images = document.images;
-                            let loaded = 0;
+                            var images = document.images;
+                            var loaded = 0;
                             if (images.length === 0) {
                                 window.print();
-                                window.onafterprint = () => window.close();
+                                window.onafterprint = function() { window.close(); };
                                 return;
                             }
-                            for (let img of images) {
+                            for (var i = 0; i < images.length; i++) {
+                                var img = images[i];
                                 if (img.complete) {
                                     loaded++;
                                 } else {
-                                    img.addEventListener('load', () => {
+                                    img.addEventListener('load', function() {
                                         loaded++;
                                         if (loaded === images.length) {
                                             window.print();
-                                            window.onafterprint = () => window.close();
+                                            window.onafterprint = function() { window.close(); };
                                         }
                                     });
-                                    img.addEventListener('error', () => {
-                                        loaded++; // count error as loaded to avoid infinite wait
+                                    img.addEventListener('error', function() {
+                                        loaded++;
                                         if (loaded === images.length) {
                                             window.print();
-                                            window.onafterprint = () => window.close();
+                                            window.onafterprint = function() { window.close(); };
                                         }
                                     });
                                 }
                             }
                             if (loaded === images.length) {
                                 window.print();
-                                window.onafterprint = () => window.close();
+                                window.onafterprint = function() { window.close(); };
                             }
                         };
                     <\/script>
+                </head>
+                <body>
+                    <div class="print-area">${printContent}</div>
                 </body>
             </html>
         `);
@@ -874,6 +839,9 @@ async function printMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
         const masul = result.masul;
+        const confirmed = await showConfirm('Print Mas\'ul', 'Data loaded. Do you want to print now?');
+        if (!confirmed) return;
+
         const printContent = buildMasulPrintHTML(masul);
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -889,44 +857,59 @@ async function printMasul(intizarId) {
                             button, .no-print { display: none; }
                         }
                     </style>
-                </head>
-                <body>
-                    <div class="print-area">${printContent}</div>
                     <script>
+                        function tryAlternateImage(img, originalUrl) {
+                            var match = originalUrl.match(/[-\\w]{25,}/);
+                            if (match) {
+                                var fileId = match[0];
+                                img.src = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+                                img.onerror = function() {
+                                    img.src = 'logo.png';
+                                    img.onerror = null;
+                                };
+                            } else {
+                                img.src = 'logo.png';
+                                img.onerror = null;
+                            }
+                        }
                         window.onload = function() {
-                            const images = document.images;
-                            let loaded = 0;
+                            var images = document.images;
+                            var loaded = 0;
                             if (images.length === 0) {
                                 window.print();
-                                window.onafterprint = () => window.close();
+                                window.onafterprint = function() { window.close(); };
                                 return;
                             }
-                            for (let img of images) {
+                            for (var i = 0; i < images.length; i++) {
+                                var img = images[i];
                                 if (img.complete) {
                                     loaded++;
                                 } else {
-                                    img.addEventListener('load', () => {
+                                    img.addEventListener('load', function() {
                                         loaded++;
                                         if (loaded === images.length) {
                                             window.print();
-                                            window.onafterprint = () => window.close();
+                                            window.onafterprint = function() { window.close(); };
                                         }
                                     });
-                                    img.addEventListener('error', () => {
+                                    img.addEventListener('error', function() {
                                         loaded++;
                                         if (loaded === images.length) {
                                             window.print();
-                                            window.onafterprint = () => window.close();
+                                            window.onafterprint = function() { window.close(); };
                                         }
                                     });
                                 }
                             }
                             if (loaded === images.length) {
                                 window.print();
-                                window.onafterprint = () => window.close();
+                                window.onafterprint = function() { window.close(); };
                             }
                         };
                     <\/script>
+                </head>
+                <body>
+                    <div class="print-area">${printContent}</div>
                 </body>
             </html>
         `);
@@ -967,40 +950,38 @@ function buildMemberPrintHTML(member) {
         transferList = '<p>Error parsing transfers</p>';
     }
     const photoHtml = member.PhotoURL 
-        ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="this.onerror=null; this.src='logo.png';">` 
+        ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${member.PhotoURL}')">` 
         : `<img src="logo.png" alt="Default" class="print-photo">`;
 
     return `
-        <div class="print-area">
-            <div class="print-header">
-                <img src="logo.png" alt="Logo" style="height:60px;">
-                <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
-                <p>Member Biodata</p>
-            </div>
-            ${photoHtml}
-            <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
-            <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
-            <p><strong>Full Name:</strong> ${member.FullName}</p>
-            <p><strong>Father's Name:</strong> ${member.FatherName}</p>
-            <p><strong>Gender:</strong> ${member.Gender}</p>
-            <p><strong>Date of Birth:</strong> ${member.DOB}</p>
-            <p><strong>Place of Birth:</strong> ${member.PlaceOfBirth}</p>
-            <p><strong>Phone:</strong> ${member.Phone}</p>
-            <p><strong>Email:</strong> ${member.Email || '-'}</p>
-            <p><strong>Address:</strong> ${member.Address}</p>
-            <p><strong>State:</strong> ${member.State}</p>
-            <p><strong>LGA:</strong> ${member.LGA}</p>
-            <p><strong>Zone:</strong> ${member.Zone}</p>
-            <p><strong>Branch:</strong> ${member.Branch}</p>
-            <p><strong>Year:</strong> ${member.Year}</p>
-            <p><strong>Level:</strong> ${member.Level}</p>
-            <p><strong>Guardian Name:</strong> ${member.GuardianName}</p>
-            <p><strong>Guardian Phone:</strong> ${member.GuardianPhone}</p>
-            <p><strong>Guardian Address:</strong> ${member.GuardianAddress}</p>
-            <p><strong>Promotion History:</strong> ${promotionList}</p>
-            <p><strong>Transfer History:</strong> ${transferList}</p>
-            <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+        <div class="print-header">
+            <img src="logo.png" alt="Logo" style="height:60px;">
+            <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+            <p>Member Biodata</p>
         </div>
+        ${photoHtml}
+        <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
+        <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
+        <p><strong>Full Name:</strong> ${member.FullName}</p>
+        <p><strong>Father's Name:</strong> ${member.FatherName}</p>
+        <p><strong>Gender:</strong> ${member.Gender}</p>
+        <p><strong>Date of Birth:</strong> ${member.DOB}</p>
+        <p><strong>Place of Birth:</strong> ${member.PlaceOfBirth}</p>
+        <p><strong>Phone:</strong> ${member.Phone}</p>
+        <p><strong>Email:</strong> ${member.Email || '-'}</p>
+        <p><strong>Address:</strong> ${member.Address}</p>
+        <p><strong>State:</strong> ${member.State}</p>
+        <p><strong>LGA:</strong> ${member.LGA}</p>
+        <p><strong>Zone:</strong> ${member.Zone}</p>
+        <p><strong>Branch:</strong> ${member.Branch}</p>
+        <p><strong>Year:</strong> ${member.Year}</p>
+        <p><strong>Level:</strong> ${member.Level}</p>
+        <p><strong>Guardian Name:</strong> ${member.GuardianName}</p>
+        <p><strong>Guardian Phone:</strong> ${member.GuardianPhone}</p>
+        <p><strong>Guardian Address:</strong> ${member.GuardianAddress}</p>
+        <p><strong>Promotion History:</strong> ${promotionList}</p>
+        <p><strong>Transfer History:</strong> ${transferList}</p>
+        <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
     `;
 }
 
@@ -1019,51 +1000,46 @@ function buildMasulPrintHTML(masul) {
         promotionList = '<p>Error parsing history</p>';
     }
     const photoHtml = masul.PhotoURL 
-        ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="this.onerror=null; this.src='logo.png';">` 
+        ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${masul.PhotoURL}')">` 
         : `<img src="logo.png" alt="Default" class="print-photo">`;
 
     return `
-        <div class="print-area">
-            <div class="print-header">
-                <img src="logo.png" alt="Logo" style="height:60px;">
-                <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
-                <p>Mas'ul Biodata</p>
-            </div>
-            ${photoHtml}
-            <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
-            <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
-            <p><strong>Full Name:</strong> ${masul.FullName}</p>
-            <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
-            <p><strong>Gender:</strong> ${masul.Gender}</p>
-            <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
-            <p><strong>Place of Birth:</strong> ${masul.PlaceOfBirth}</p>
-            <p><strong>Phone:</strong> ${masul.Phone}</p>
-            <p><strong>Email:</strong> ${masul.Email || '-'}</p>
-            <p><strong>Address:</strong> ${masul.Address}</p>
-            <p><strong>State:</strong> ${masul.State}</p>
-            <p><strong>LGA:</strong> ${masul.LGA}</p>
-            <p><strong>Zone:</strong> ${masul.Zone}</p>
-            <p><strong>Branch:</strong> ${masul.Branch}</p>
-            <p><strong>Year:</strong> ${masul.Year}</p>
-            <p><strong>Current Rank:</strong> ${masul.CurrentRank}</p>
-            <p><strong>Source:</strong> ${masul.Source}</p>
-            ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
-            <p><strong>Promotion History:</strong> ${promotionList}</p>
-            <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+        <div class="print-header">
+            <img src="logo.png" alt="Logo" style="height:60px;">
+            <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+            <p>Mas'ul Biodata</p>
         </div>
+        ${photoHtml}
+        <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
+        <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
+        <p><strong>Full Name:</strong> ${masul.FullName}</p>
+        <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
+        <p><strong>Gender:</strong> ${masul.Gender}</p>
+        <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
+        <p><strong>Place of Birth:</strong> ${masul.PlaceOfBirth}</p>
+        <p><strong>Phone:</strong> ${masul.Phone}</p>
+        <p><strong>Email:</strong> ${masul.Email || '-'}</p>
+        <p><strong>Address:</strong> ${masul.Address}</p>
+        <p><strong>State:</strong> ${masul.State}</p>
+        <p><strong>LGA:</strong> ${masul.LGA}</p>
+        <p><strong>Zone:</strong> ${masul.Zone}</p>
+        <p><strong>Branch:</strong> ${masul.Branch}</p>
+        <p><strong>Year:</strong> ${masul.Year}</p>
+        <p><strong>Current Rank:</strong> ${masul.CurrentRank}</p>
+        <p><strong>Source:</strong> ${masul.Source}</p>
+        ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
+        <p><strong>Promotion History:</strong> ${promotionList}</p>
+        <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
     `;
 }
 
 // ==================== IMAGE FALLBACK FUNCTION ====================
 function tryAlternateImage(img, originalUrl) {
-    // Try to extract file ID and use a different format
     const match = originalUrl.match(/[-\w]{25,}/);
     if (match) {
         const fileId = match[0];
-        // Try thumbnail URL as fallback
         img.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
         img.onerror = () => {
-            // If still fails, fall back to logo
             img.src = 'logo.png';
             img.onerror = null;
         };
@@ -1077,7 +1053,6 @@ function tryAlternateImage(img, originalUrl) {
 function initializeRegistrationPage() {
     if (!currentUser) return;
 
-    // Hide role selector and Mas'ul form for non‑Admin
     if (currentUser.role !== 'Admin') {
         document.querySelector('.role-selector').style.display = 'none';
         document.getElementById('masulFormContainer').style.display = 'none';
@@ -1090,7 +1065,6 @@ function initializeRegistrationPage() {
     loadZonesForDropdowns();
     setDOBLimits();
 
-    // Dynamic rank dropdown for Mas'ul form
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
@@ -1098,7 +1072,6 @@ function initializeRegistrationPage() {
             const rankSelect = document.getElementById('masulRank');
             const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
             const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
-            
             rankSelect.innerHTML = '<option value="">Select Rank</option>';
             if (gender === 'Brother') {
                 brotherRanks.forEach(rank => {
@@ -1120,7 +1093,6 @@ function initializeRegistrationPage() {
                 const branchCode = currentUser.branchCode;
                 const zoneName = branchZoneMap[branchCode];
                 if (zoneName) {
-                    // Select and disable zone
                     for (let opt of zoneField.options) {
                         if (opt.value === zoneName) {
                             opt.selected = true;
@@ -1158,7 +1130,6 @@ function initializeRegistrationPage() {
         }
         try {
             const result = await apiRequest('registerMember', { data }, currentUser);
-            // result contains { intizarId, recruitmentId, zone, branch }
             showSuccessModal(result.intizarId, result.recruitmentId, data.zone, data.branch);
             e.target.reset();
             if (currentUser.role === 'Branch Mas\'ul') {
@@ -1201,14 +1172,12 @@ function initializeRegistrationPage() {
     });
 }
 
-// Form switching
 function toggleRegistrationForm() {
     const role = document.getElementById('roleSelector').value;
     document.getElementById('memberFormContainer').style.display = role === 'member' ? 'block' : 'none';
     document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
 }
 
-// Success modal for registration
 function showSuccessModal(intizarId, recruitmentId, zone, branch) {
     document.getElementById('generatedId').innerText = intizarId;
     document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
@@ -1221,7 +1190,6 @@ function closeSuccessModal() {
     document.getElementById('successModal').style.display = 'none';
 }
 
-// ==================== DATE OF BIRTH RESTRICTIONS ====================
 function setDOBLimits() {
     const today = new Date();
     const maxDateMember = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate()).toISOString().split('T')[0];
@@ -1246,7 +1214,6 @@ async function loadZonesForDropdowns() {
             });
         });
 
-        // Build branchZoneMap for Branch Mas'ul auto‑selection
         branchZoneMap = {};
         for (let zone of zones) {
             const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
@@ -1407,7 +1374,7 @@ async function enableBranch(branchCode) {
     }
 }
 
-// ==================== LOAD ZONES (for zones table) ====================
+// ==================== LOAD ZONES ====================
 async function loadZones() {
     try {
         const result = await apiRequest('getZones', {}, currentUser);
@@ -1431,7 +1398,7 @@ async function loadZones() {
     }
 }
 
-// ==================== LOAD BRANCHES (for branches table) ====================
+// ==================== LOAD BRANCHES ====================
 async function loadBranches() {
     try {
         const result = await apiRequest('getBranches', {}, currentUser);
@@ -1562,33 +1529,52 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== DASHBOARD STATS & CHARTS ====================
+// ==================== DASHBOARD STATS & CHARTS (with graceful error handling) ====================
 async function loadDashboardStats() {
+    const statsContainer = document.querySelector('.stats-grid');
     try {
         const result = await apiRequest('getDashboardStats', {}, currentUser);
         const stats = result.stats;
-        document.getElementById('statTotalCombined').innerText = stats.totalCombined;
-        document.getElementById('statTotalMembers').innerText = stats.totalMembers;
-        document.getElementById('statTotalMasuls').innerText = stats.totalMasuls;
-        document.getElementById('statBrothers').innerText = stats.brothers;
-        document.getElementById('statSisters').innerText = stats.sisters;
-        document.getElementById('statBrothersMembers').innerText = stats.brothersMembers;
-        document.getElementById('statSistersMembers').innerText = stats.sistersMembers;
-        document.getElementById('statBrothersMasuls').innerText = stats.brothersMasuls;
-        document.getElementById('statSistersMasuls').innerText = stats.sistersMasuls;
-        document.getElementById('statBakiyatullah').innerText = stats.levelCounts.Bakiyatullah || 0;
-        document.getElementById('statAnsarullah').innerText = stats.levelCounts.Ansarullah || 0;
-        document.getElementById('statGhalibun').innerText = stats.levelCounts.Ghalibun || 0;
-        document.getElementById('statXGhalibun').innerText = stats.levelCounts['X-Ghalibun'] || 0;
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value !== undefined && value !== null ? value : '0';
+        };
+        setText('statTotalCombined', stats.totalCombined);
+        setText('statTotalMembers', stats.totalMembers);
+        setText('statTotalMasuls', stats.totalMasuls);
+        setText('statBrothers', stats.brothers);
+        setText('statSisters', stats.sisters);
+        setText('statBrothersMembers', stats.brothersMembers);
+        setText('statSistersMembers', stats.sistersMembers);
+        setText('statBrothersMasuls', stats.brothersMasuls);
+        setText('statSistersMasuls', stats.sistersMasuls);
+        setText('statBakiyatullah', stats.levelCounts.Bakiyatullah);
+        setText('statAnsarullah', stats.levelCounts.Ansarullah);
+        setText('statGhalibun', stats.levelCounts.Ghalibun);
+        setText('statXGhalibun', stats.levelCounts['X-Ghalibun']);
         updateMembersChart(stats.levelCounts);
+        // Remove any previous error message
+        const errorMsg = document.getElementById('statsError');
+        if (errorMsg) errorMsg.remove();
     } catch (err) {
         console.error('Failed to load stats', err);
-        showMessage('Error', 'Failed to load dashboard stats');
+        let errorDiv = document.getElementById('statsError');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.id = 'statsError';
+            errorDiv.style.color = 'red';
+            errorDiv.style.textAlign = 'center';
+            errorDiv.style.margin = '1rem 0';
+            statsContainer.parentNode.insertBefore(errorDiv, statsContainer.nextSibling);
+        }
+        errorDiv.innerText = 'Failed to load statistics. Please refresh or try again later.';
     }
 }
 
 function updateMembersChart(levelCounts) {
-    const ctx = document.getElementById('membersChart').getContext('2d');
+    const canvas = document.getElementById('membersChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (window.membersChart) window.membersChart.destroy();
     window.membersChart = new Chart(ctx, {
         type: 'bar',
@@ -1604,24 +1590,25 @@ function updateMembersChart(levelCounts) {
     });
 }
 
-// ==================== ZONE STATS (FIXED: handles empty data) ====================
+// ==================== ZONE STATS ====================
 async function loadZoneStats() {
     try {
         const result = await apiRequest('getZoneStats', {}, currentUser);
         const stats = result.stats || [];
         const tbody = document.querySelector('#zoneStatsTable tbody');
-        tbody.innerHTML = '';
-        stats.forEach(zone => {
-            const row = tbody.insertRow();
-            row.insertCell().innerText = zone.zone;
-            row.insertCell().innerText = zone.total;
-            row.insertCell().innerText = zone.brothers;
-            row.insertCell().innerText = zone.sisters;
-        });
-
-        // Only create chart if there is data
-        if (stats.length > 0) {
-            const ctx = document.getElementById('zoneChart').getContext('2d');
+        if (tbody) {
+            tbody.innerHTML = '';
+            stats.forEach(zone => {
+                const row = tbody.insertRow();
+                row.insertCell().innerText = zone.zone;
+                row.insertCell().innerText = zone.total;
+                row.insertCell().innerText = zone.brothers;
+                row.insertCell().innerText = zone.sisters;
+            });
+        }
+        const canvas = document.getElementById('zoneChart');
+        if (canvas && stats.length > 0) {
+            const ctx = canvas.getContext('2d');
             if (window.zoneChart) window.zoneChart.destroy();
             window.zoneChart = new Chart(ctx, {
                 type: 'pie',
@@ -1633,34 +1620,35 @@ async function loadZoneStats() {
                     }]
                 }
             });
-        } else {
-            console.log('No zone data for chart');
         }
     } catch (err) {
         console.error(err);
-        showMessage('Error', 'Failed to load zone stats');
+        const tbody = document.querySelector('#zoneStatsTable tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="color:red;">Failed to load zone stats</td></tr>';
     }
 }
 
-// ==================== BRANCH STATS (FIXED: handles empty data) ====================
+// ==================== BRANCH STATS ====================
 async function loadBranchStats() {
     try {
         const result = await apiRequest('getBranchStats', {}, currentUser);
         const stats = result.stats || [];
         const tbody = document.querySelector('#branchStatsTable tbody');
-        tbody.innerHTML = '';
-        stats.forEach(b => {
-            const row = tbody.insertRow();
-            row.insertCell().innerText = b.branchCode;
-            row.insertCell().innerText = b.branchName;
-            row.insertCell().innerText = b.zone;
-            row.insertCell().innerText = b.total;
-            row.insertCell().innerText = b.brothers;
-            row.insertCell().innerText = b.sisters;
-        });
-
-        if (stats.length > 0) {
-            const ctx = document.getElementById('branchChart').getContext('2d');
+        if (tbody) {
+            tbody.innerHTML = '';
+            stats.forEach(b => {
+                const row = tbody.insertRow();
+                row.insertCell().innerText = b.branchCode;
+                row.insertCell().innerText = b.branchName;
+                row.insertCell().innerText = b.zone;
+                row.insertCell().innerText = b.total;
+                row.insertCell().innerText = b.brothers;
+                row.insertCell().innerText = b.sisters;
+            });
+        }
+        const canvas = document.getElementById('branchChart');
+        if (canvas && stats.length > 0) {
+            const ctx = canvas.getContext('2d');
             if (window.branchChart) window.branchChart.destroy();
             window.branchChart = new Chart(ctx, {
                 type: 'bar',
@@ -1673,12 +1661,11 @@ async function loadBranchStats() {
                     }]
                 }
             });
-        } else {
-            console.log('No branch data for chart');
         }
     } catch (err) {
         console.error(err);
-        showMessage('Error', 'Failed to load branch stats');
+        const tbody = document.querySelector('#branchStatsTable tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="color:red;">Failed to load branch stats</td></tr>';
     }
 }
 
