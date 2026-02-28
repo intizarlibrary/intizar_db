@@ -148,14 +148,19 @@ function nextIntizarId() {
   }
 }
 
-// Member Recruitment ID – per‑branch cumulative, never reset
-function nextMemberRecruitmentId(branchCode) {
+/**
+ * Generates a member recruitment ID using the branch code and the year from the registration form.
+ * @param {string} branchCode - The branch code.
+ * @param {string|number} recruitmentYear - The year entered during registration (e.g., "2025").
+ * @returns {string} Formatted recruitment ID.
+ */
+function nextMemberRecruitmentId(branchCode, recruitmentYear) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     const sheet = getSpreadsheet().getSheetByName('Members');
     const data = sheet.getDataRange().getValues();
-    const year = new Date().getFullYear().toString().slice(-2);
+    const year = recruitmentYear.toString().slice(-2);
 
     // Count all members belonging to this branch (ignore year)
     let serial = 0;
@@ -172,14 +177,19 @@ function nextMemberRecruitmentId(branchCode) {
   }
 }
 
-// Mas'ul Recruitment ID – global serial, never reset
-function nextMasulRecruitmentId(branchCode) {
+/**
+ * Generates a Mas'ul recruitment ID using the branch code and the year from the registration form.
+ * @param {string} branchCode - The branch code.
+ * @param {string|number} recruitmentYear - The year entered during registration.
+ * @returns {string} Formatted recruitment ID.
+ */
+function nextMasulRecruitmentId(branchCode, recruitmentYear) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     const sheet = getSpreadsheet().getSheetByName('Masuls');
     const data = sheet.getDataRange().getValues();
-    const year = new Date().getFullYear().toString().slice(-2);
+    const year = recruitmentYear.toString().slice(-2);
 
     // Count ALL mas'uls (global)
     let serial = 0;
@@ -332,7 +342,8 @@ function registerMember(data, user) {
   }
 
   const intizarId = nextIntizarId();
-  const recruitmentId = nextMemberRecruitmentId(data.branch);
+  // ✅ Pass data.year to the recruitment ID generator
+  const recruitmentId = nextMemberRecruitmentId(data.branch, data.year);
 
   let photoURL = '';
   if (data.photoBase64) {
@@ -438,7 +449,8 @@ function registerMasul(data, user) {
     throw new Error('Invalid gender');
   }
 
-  const masulRecruitmentId = nextMasulRecruitmentId(data.branch);
+  // ✅ Pass data.year to the recruitment ID generator
+  const masulRecruitmentId = nextMasulRecruitmentId(data.branch, data.year);
 
   let photoURL = '';
   if (data.photoBase64) {
@@ -997,8 +1009,8 @@ function getZoneStats(user) {
       brothers: zoneMembers.filter(m => m[4] === 'Brother').length,
       sisters: zoneMembers.filter(m => m[4] === 'Sister').length
     };
-  }).filter(z => z.total > 0);
-
+  });
+  // ✅ No filter – include zones with zero members
   return { success: true, stats };
 }
 
@@ -1022,8 +1034,8 @@ function getBranchStats(user) {
       brothers: branchMembers.filter(m => m[4] === 'Brother').length,
       sisters: branchMembers.filter(m => m[4] === 'Sister').length
     };
-  }).filter(b => b.total > 0);
-
+  });
+  // ✅ No filter – include branches with zero members
   return { success: true, stats };
 }
 
