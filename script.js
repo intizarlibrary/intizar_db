@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4xqL0sBbbGcckv3tIK-FZA4_3LZKai1wKY9UDVKCVjnOInnMcrPEoV1ybnaPjFFj_/exec'; // REPLACE WITH YOUR DEPLOYED URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuzXL4L5fP0s1N7uTg-cp8JZidkVVy6fXQncIvO83Cjfq3OEy4zNlmJEPeZcivQJMl/exec'; // REPLACE WITH YOUR DEPLOYED URL
 const PAGE_SIZE = 50; // number of rows per page
 
 // ==================== GLOBAL STATE ====================
@@ -164,11 +164,10 @@ function debounce(func, wait) {
     };
 }
 
-// ==================== SIDEBAR TOGGLE ====================
+// ==================== SIDEBAR TOGGLE (Fixed: removed unused closeBtn) ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggleSidebar');
-    const closeBtn = document.getElementById('closeSidebar');
 
     if (!sidebar || !toggleBtn) return;
 
@@ -181,13 +180,6 @@ function initSidebar() {
             sidebar.classList.toggle('collapsed');
         }
     });
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            sidebar.classList.remove('mobile-open');
-            document.body.style.overflow = '';
-        });
-    }
 
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
@@ -343,7 +335,7 @@ async function initializeDashboard() {
     await loadMemberList(1, ''); // start with empty search for the members list
     await loadFilterOptions();    // populate filter dropdowns
     loadZonesForDropdowns();
-    loadChart();
+    // Removed erroneous loadChart() call
 
     // Live search for members list
     const memberListSearch = document.getElementById('memberListSearch');
@@ -747,29 +739,33 @@ async function viewMember(intizarId) {
     }
 }
 
-function printMember(intizarId) {
-    viewMember(intizarId);
-    setTimeout(() => {
-        const printContents = document.getElementById('viewContent').innerHTML;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Member Biodata</title>
-                    <link rel="stylesheet" href="style.css">
-                    <style>
-                        @media print { body { margin: 1cm; } .print-header { text-align: center; } .print-photo { max-width: 150px; } }
-                    </style>
-                </head>
-                <body>${printContents}</body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.onload = () => {
-            printWindow.print();
-            printWindow.onafterprint = () => printWindow.close();
-        };
-    }, 100);
+// Fixed printMember: now async and waits for viewMember, no setTimeout
+async function printMember(intizarId) {
+    await viewMember(intizarId);
+    const printContents = document.getElementById('viewContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Member Biodata</title>
+                <link rel="stylesheet" href="style.css">
+                <style>
+                    @media print {
+                        body { margin: 1cm; }
+                        .print-header { text-align: center; }
+                        .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+                        .modal .close, button { display: none; }
+                    }
+                </style>
+            </head>
+            <body>${printContents}</body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => {
+        printWindow.print();
+        printWindow.onafterprint = () => printWindow.close();
+    };
 }
 
 // ==================== VIEW MASUL ====================
@@ -831,29 +827,33 @@ async function viewMasul(intizarId) {
     }
 }
 
-function printMasul(intizarId) {
-    viewMasul(intizarId);
-    setTimeout(() => {
-        const printContents = document.getElementById('viewContent').innerHTML;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Mas'ul Biodata</title>
-                    <link rel="stylesheet" href="style.css">
-                    <style>
-                        @media print { body { margin: 1cm; } .print-header { text-align: center; } .print-photo { max-width: 150px; } }
-                    </style>
-                </head>
-                <body>${printContents}</body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.onload = () => {
-            printWindow.print();
-            printWindow.onafterprint = () => printWindow.close();
-        };
-    }, 100);
+// Fixed printMasul: now async and waits for viewMasul, no setTimeout
+async function printMasul(intizarId) {
+    await viewMasul(intizarId);
+    const printContents = document.getElementById('viewContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Mas'ul Biodata</title>
+                <link rel="stylesheet" href="style.css">
+                <style>
+                    @media print {
+                        body { margin: 1cm; }
+                        .print-header { text-align: center; }
+                        .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+                        .modal .close, button { display: none; }
+                    }
+                </style>
+            </head>
+            <body>${printContents}</body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => {
+        printWindow.print();
+        printWindow.onafterprint = () => printWindow.close();
+    };
 }
 
 // ==================== REGISTRATION PAGE ====================
