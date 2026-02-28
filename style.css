@@ -428,7 +428,7 @@ td button {
     color: var(--white);
     box-shadow: 2px 0 5px rgba(0,0,0,0.2);
     height: 100vh;               /* added for scrolling */
-    position: relative;
+    position: sticky;
     top: 0;
 }
 
@@ -721,11 +721,12 @@ td button {
     /* Dashboard sidebar: hidden by default, shown when mobile-open class added */
     .sidebar {
         display: none; /* Hidden on mobile by default */
-        position: relative;
+        position: fixed;
         left: 0;
         top: 0;
         height: 100%;
         width: 260px;
+        overflow-y: auto; /* Enable scrolling for long menus */
         z-index: 1500;
     }
     .sidebar.mobile-open {
@@ -740,6 +741,15 @@ td button {
     }
     .sidebar-close {
         display: block;
+    }
+    /* Reduce text size and padding for mobile sidebar */
+    .sidebar-menu a {
+        font-size: 0.9rem;
+        padding: 0.6rem 1rem;
+    }
+    .sidebar-menu i {
+        font-size: 1.2rem;
+        margin-right: 0.8rem;
     }
     .main-content {
         margin-left: 0 !important;
@@ -858,7 +868,7 @@ td button {
     color: black;
 }
 
-/* Filter bar (added) */
+/* Filter bar */
 .filter-bar {
     display: flex;
     gap: 0.5rem;
@@ -884,7 +894,8 @@ td button {
     background-color: var(--gold);
     color: black;
 }
-/* Error message for statistics */
+
+/* Error message for dashboard statistics (added) */
 #statsError {
     background-color: #ffe6e6;
     border: 1px solid #ff9999;
