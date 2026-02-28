@@ -721,7 +721,7 @@ td button {
     /* Dashboard sidebar: hidden by default, shown when mobile-open class added */
     .sidebar {
         display: none; /* Hidden on mobile by default */
-        position: fixed;
+        position: relative;
         left: 0;
         top: 0;
         height: 100%;
@@ -883,4 +883,15 @@ td button {
 .filter-bar button:hover {
     background-color: var(--gold);
     color: black;
+}
+/* Error message for statistics */
+#statsError {
+    background-color: #ffe6e6;
+    border: 1px solid #ff9999;
+    border-radius: 5px;
+    padding: 0.8rem;
+    margin: 1rem 0;
+    color: #cc0000;
+    font-weight: bold;
+    text-align: center;
 }
