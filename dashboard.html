@@ -6,6 +6,7 @@
     <title>Dashboard - INTIZARUL IMAMUL MUNTAZAR</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
@@ -27,19 +28,21 @@
         <div class="dashboard-body">
             <!-- Sidebar -->
             <nav id="sidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Menu</h3>
+                </div>
                 <ul class="sidebar-menu">
-                    <li><a href="#" id="navMembers"><i class="fas fa-users"></i> <span>Overview</span></a></li>
-                    <li><a href="#" id="navMemberList"><i class="fas fa-table"></i> <span>Members</span></a></li>
-                    <li><a href="registration.html" id="navRegister"><i class="fas fa-user-plus"></i> <span>Register</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navMasulin"><i class="fas fa-user-tie"></i> <span>Mas'ulin</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navZones"><i class="fas fa-map-marker-alt"></i> <span>Zones</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navBranches"><i class="fas fa-code-branch"></i> <span>Branches</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navAudit"><i class="fas fa-history"></i> <span>Audit Log</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navConfig"><i class="fas fa-cog"></i> <span>Config</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navExport"><i class="fas fa-download"></i> <span>Export Data</span></a></li>
-                    <!--<li class="admin-only" style="display: none;"><a href="#" id="navZoneStats"><i class="fas fa-chart-pie"></i> <span>Zone Stats</span></a></li>
-                    <li class="admin-only" style="display: none;"><a href="#" id="navBranchStats"><i class="fas fa-chart-bar"></i> <span>Branch Stats</span></a></li-->
-                    <li class="zonal-only" style="display: none;"><a href="#" id="navZoneMembers"><i class="fas fa-users"></i> <span>Zone Members</span></a></li>
+                    <li><a href="#" id="navMembers"><i class="fas fa-home"></i> <span>Overview</span></a></li>
+                    <li><a href="#" id="navMemberList"><i class="fas fa-list"></i> <span>Member List</span></a></li>
+                    <li class="admin-only"><a href="#" id="navMasulin"><i class="fas fa-users"></i> <span>Mas'ulin</span></a></li>
+                    <li class="admin-only"><a href="#" id="navZones"><i class="fas fa-globe"></i> <span>Zones</span></a></li>
+                    <li class="admin-only"><a href="#" id="navBranches"><i class="fas fa-code-branch"></i> <span>Branches</span></a></li>
+                    <li class="admin-only"><a href="#" id="navAudit"><i class="fas fa-history"></i> <span>Audit Log</span></a></li>
+                    <li class="admin-only"><a href="#" id="navConfig"><i class="fas fa-cog"></i> <span>Configuration</span></a></li>
+                    <li class="admin-only"><a href="#" id="navExport"><i class="fas fa-download"></i> <span>Export</span></a></li>
+                    <li><a href="#" id="navZoneStats"><i class="fas fa-chart-pie"></i> <span>Zone Statistics</span></a></li>
+                    <li><a href="#" id="navBranchStats"><i class="fas fa-chart-bar"></i> <span>Branch Statistics</span></a></li>
+                    <li><a href="registration.html"><i class="fas fa-user-plus"></i> <span>Registration</span></a></li>
                     <li><a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
                 </ul>
             </nav>
@@ -47,12 +50,12 @@
             <!-- Main Content -->
             <div class="main-content">
                 <div class="content" id="dashboardContent">
-                    <!-- Overview Section (stats + chart) -->
+                    <!-- Overview Section -->
                     <section id="membersSection">
                         <h3>Overview</h3>
                         <div class="stats-grid">
                             <div class="stat-card">
-                                <h4>Total (Members + Mas'ulin)</h4>
+                                <h4>Total (Combined)</h4>
                                 <p id="statTotalCombined">0</p>
                             </div>
                             <div class="stat-card">
@@ -64,11 +67,11 @@
                                 <p id="statTotalMasuls">0</p>
                             </div>
                             <div class="stat-card">
-                                <h4>All Brothers</h4>
+                                <h4>Total Brothers</h4>
                                 <p id="statBrothers">0</p>
                             </div>
                             <div class="stat-card">
-                                <h4>All Sisters</h4>
+                                <h4>Total Sisters</h4>
                                 <p id="statSisters">0</p>
                             </div>
                             <div class="stat-card">
@@ -100,23 +103,32 @@
                                 <p id="statGhalibun">0</p>
                             </div>
                             <div class="stat-card">
-                                <h4>X-Ghalibun (Graduate)</h4>
+                                <h4>X-Ghalibun</h4>
                                 <p id="statXGhalibun">0</p>
                             </div>
                         </div>
-                        <canvas id="membersChart" width="400" height="200"></canvas>
+                        <!-- New charts grid -->
+                        <div class="charts-grid">
+                            <div class="chart-card">
+                                <h4>Members by Level</h4>
+                                <canvas id="levelChart"></canvas>
+                            </div>
+                            <div class="chart-card">
+                                <h4>Members by Zone</h4>
+                                <canvas id="zoneChart"></canvas>
+                            </div>
+                            <div class="chart-card">
+                                <h4>Members by Branch (Top 10)</h4>
+                                <canvas id="branchChart"></canvas>
+                            </div>
+                        </div>
                     </section>
 
-                    <!-- Member List Section (table only) -->
+                    <!-- Member List Section -->
                     <section id="memberListSection" style="display: none;">
-                        <h3>Members List</h3>
-                        <div class="search-bar">
-                            <input type="text" id="memberListSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
-                            <button onclick="searchMemberList()">Search</button>
-                            <button onclick="clearMemberListSearch()">Clear</button>
-                        </div>
-                        <!-- Filter bar -->
-                        <div class="filter-bar">
+                        <h3>Member List</h3>
+                        <div class="filters">
+                            <input type="text" id="memberListSearch" placeholder="Search by name, ID...">
                             <select id="filterMemberLevel">
                                 <option value="">All Levels</option>
                             </select>
@@ -131,37 +143,29 @@
                             <select id="filterMemberZone">
                                 <option value="">All Zones</option>
                             </select>
-                            <button onclick="applyMemberFilters()">Filter</button>
                             <button onclick="resetMemberFilters()">Reset</button>
                         </div>
-                        <div class="table-responsive">
-                            <table id="memberListTable">
-                                <thead>
-                                    <tr>
-                                        <th>Intizar ID</th>
-                                        <th>Recruitment ID</th>
-                                        <th>Full Name</th>
-                                        <th>Level</th>
-                                        <th>Branch</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <table id="memberListTable">
+                            <thead>
+                                <tr>
+                                    <th>Intizar ID</th>
+                                    <th>Recruitment ID</th>
+                                    <th>Full Name</th>
+                                    <th>Level</th>
+                                    <th>Branch</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                         <div id="memberListPagination" class="pagination"></div>
                     </section>
 
-                    <!-- Mas'ulin Section (Admin) -->
+                    <!-- Mas'ulin Section -->
                     <section id="masulSection" style="display: none;">
-                        <h3>Mas'ulin</h3>
-                        <div class="search-bar">
-                            <input type="text" id="masulSearch" placeholder="Search by name, Intizar ID, or Recruitment ID..." />
-                            <button onclick="searchMasuls()">Search</button>
-                            <button onclick="clearMasulSearch()">Clear</button>
-                        </div>
-                        <!-- Filter bar for Mas'ulin -->
-                        <div class="filter-bar">
+                        <h3>Mas'ulin List</h3>
+                        <div class="filters">
+                            <input type="text" id="masulSearch" placeholder="Search by name, ID...">
                             <select id="filterMasulRank">
                                 <option value="">All Ranks</option>
                             </select>
@@ -176,76 +180,84 @@
                             <select id="filterMasulZone">
                                 <option value="">All Zones</option>
                             </select>
-                            <button onclick="applyMasulFilters()">Filter</button>
                             <button onclick="resetMasulFilters()">Reset</button>
                         </div>
-                        <div class="table-responsive">
-                            <table id="masulTable">
-                                <thead>
-                                    <tr>
-                                        <th>Intizar ID</th>
-                                        <th>Mas'ul Recruitment ID</th>
-                                        <th>Full Name</th>
-                                        <th>Rank</th>
-                                        <th>Branch</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <table id="masulTable">
+                            <thead>
+                                <tr>
+                                    <th>Intizar ID</th>
+                                    <th>Mas'ul ID</th>
+                                    <th>Full Name</th>
+                                    <th>Rank</th>
+                                    <th>Branch</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                         <div id="masulPagination" class="pagination"></div>
                     </section>
 
-                    <!-- Zones Section (Admin) -->
+                    <!-- Zones Section -->
                     <section id="zonesSection" style="display: none;">
-                        <h3>Zones</h3>
-                        <button onclick="showAddZoneModal()">Add Zone</button>
-                        <div class="table-responsive">
-                            <table id="zonesTable">
-                                <thead>
-                                    <tr><th>Zone Name</th><th>Status</th><th>Actions</th></tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <h3>Zones <button onclick="showAddZoneModal()">Add Zone</button></h3>
+                        <table id="zonesTable">
+                            <thead>
+                                <tr>
+                                    <th>Zone Name</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </section>
 
-                    <!-- Branches Section (Admin) -->
+                    <!-- Branches Section -->
                     <section id="branchesSection" style="display: none;">
-                        <h3>Branches</h3>
-                        <button onclick="showAddBranchModal()">Add Branch</button>
-                        <div class="table-responsive">
-                            <table id="branchesTable">
-                                <thead>
-                                    <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Status</th><th>Actions</th></tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <h3>Branches <button onclick="showAddBranchModal()">Add Branch</button></h3>
+                        <table id="branchesTable">
+                            <thead>
+                                <tr>
+                                    <th>Branch Code</th>
+                                    <th>Branch Name</th>
+                                    <th>Zone</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </section>
 
-                    <!-- Audit Log Section (Admin) -->
+                    <!-- Audit Log Section -->
                     <section id="auditSection" style="display: none;">
                         <h3>Audit Log</h3>
-                        <div class="table-responsive">
-                            <table id="auditTable">
-                                <thead>
-                                    <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Details</th></tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <table id="auditTable">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </section>
 
-                    <!-- Config Section (Admin) -->
+                    <!-- Config Section -->
                     <section id="configSection" style="display: none;">
                         <h3>Configuration</h3>
                         <form id="configForm">
-                            <label>Admin Code</label>
-                            <input type="text" name="admin_code" id="configAdminCode">
-                            <label>Access Code Prefix (e.g., Muntazir@)</label>
-                            <input type="text" name="access_prefix" id="configPrefix">
+                            <div>
+                                <label>Admin Access Code:</label>
+                                <input type="text" id="configAdminCode">
+                            </div>
+                            <div>
+                                <label>Access Prefix:</label>
+                                <input type="text" id="configPrefix">
+                            </div>
                             <button type="submit">Update</button>
                         </form>
                     </section>
@@ -255,38 +267,47 @@
                         <h3>Export Data</h3>
                         <button onclick="exportData('members')">Export Members CSV</button>
                         <button onclick="exportData('masuls')">Export Mas'ulin CSV</button>
+                        <button onclick="openSpreadsheet()">📂 Open Google Sheet</button>
                     </section>
 
-                    <!-- Zone Stats Section (Admin) -->
+                    <!-- Zone Stats Section -->
                     <section id="zoneStatsSection" class="admin-only" style="display: none;">
                         <h3>Zone Statistics</h3>
-                        <canvas id="zoneChart" width="400" height="200"></canvas>
-                        <div class="table-responsive">
-                            <table id="zoneStatsTable">
-                                <thead>
-                                    <tr><th>Zone</th><th>Total Members</th><th>Brothers</th><th>Sisters</th></tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <table id="zoneStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Zone</th>
+                                    <th>Total</th>
+                                    <th>Brothers</th>
+                                    <th>Sisters</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <canvas id="zoneChartStats" style="max-height:300px;"></canvas>
                     </section>
 
-                    <!-- Branch Stats Section (Admin) -->
+                    <!-- Branch Stats Section -->
                     <section id="branchStatsSection" class="admin-only" style="display: none;">
                         <h3>Branch Statistics</h3>
-                        <canvas id="branchChart" width="400" height="200"></canvas>
-                        <div class="table-responsive">
-                            <table id="branchStatsTable">
-                                <thead>
-                                    <tr><th>Branch Code</th><th>Branch Name</th><th>Zone</th><th>Total</th><th>Brothers</th><th>Sisters</th></tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <table id="branchStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Zone</th>
+                                    <th>Total</th>
+                                    <th>Brothers</th>
+                                    <th>Sisters</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <canvas id="branchChartStats" style="max-height:300px;"></canvas>
                     </section>
                 </div>
             </div>
-        </div> <!-- end dashboard-body -->
+        </div>
     </div>
 
     <!-- Modals -->
@@ -302,9 +323,11 @@
             <span class="close">&times;</span>
             <h3>Add Zone</h3>
             <form id="zoneForm">
-                <label>Zone Name</label>
-                <input type="text" name="zoneName" required>
-                <button type="submit">Add Zone</button>
+                <div>
+                    <label>Zone Name:</label>
+                    <input type="text" name="zoneName" required>
+                </div>
+                <button type="submit">Add</button>
             </form>
         </div>
     </div>
@@ -314,10 +337,12 @@
             <span class="close">&times;</span>
             <h3>Edit Zone</h3>
             <form id="editZoneForm">
-                <input type="hidden" name="zoneId" id="editZoneId">
-                <label>Zone Name</label>
-                <input type="text" name="zoneName" id="editZoneName" required>
-                <button type="submit">Update Zone</button>
+                <input type="hidden" id="editZoneId">
+                <div>
+                    <label>Zone Name:</label>
+                    <input type="text" id="editZoneName" required>
+                </div>
+                <button type="submit">Update</button>
             </form>
         </div>
     </div>
@@ -327,13 +352,17 @@
             <span class="close">&times;</span>
             <h3>Add Branch</h3>
             <form id="branchForm">
-                <label>Branch Name</label>
-                <input type="text" name="branchName" required>
-                <label>Zone</label>
-                <select name="zoneName" required>
-                    <option value="">Select Zone</option>
-                </select>
-                <button type="submit">Add Branch</button>
+                <div>
+                    <label>Branch Name:</label>
+                    <input type="text" name="branchName" required>
+                </div>
+                <div>
+                    <label>Zone:</label>
+                    <select name="zoneName" required>
+                        <option value="">Select Zone</option>
+                    </select>
+                </div>
+                <button type="submit">Add</button>
             </form>
         </div>
     </div>
@@ -343,28 +372,22 @@
             <span class="close">&times;</span>
             <h3>Edit Branch</h3>
             <form id="editBranchForm">
-                <input type="hidden" name="branchCode" id="editBranchCode">
-                <label>Branch Name</label>
-                <input type="text" name="branchName" id="editBranchName" required>
-                <label>Zone</label>
-                <select name="zoneName" id="editBranchZone" required>
-                    <option value="">Select Zone</option>
-                </select>
-                <button type="submit">Update Branch</button>
+                <input type="hidden" id="editBranchCode">
+                <div>
+                    <label>Branch Name:</label>
+                    <input type="text" id="editBranchName" required>
+                </div>
+                <div>
+                    <label>Zone:</label>
+                    <select id="editBranchZone" required>
+                        <option value="">Select Zone</option>
+                    </select>
+                </div>
+                <button type="submit">Update</button>
             </form>
         </div>
     </div>
 
-    <!-- Success Modal -->
-    <div id="successModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Success</h3>
-            <p id="successMessage"></p>
-        </div>
-    </div>
-
-    <!-- Custom Message/Confirm/Prompt Modals -->
     <div id="messageModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeMessageModal()">&times;</span>
