@@ -1015,7 +1015,7 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== IMPROVED PRINT FUNCTION ====================
+// ==================== IMPROVED PRINT FUNCTION (30s timeout) ====================
 function openPrintWindow(content, title) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -1057,21 +1057,53 @@ function openPrintWindow(content, title) {
                     };
                 });
 
-                // Function to check if all images are loaded
-                function whenImagesReady() {
+                // Function to check if all images are loaded with a timeout
+                function whenImagesReady(timeoutMs) {
                     const images = Array.from(document.images);
                     if (images.length === 0) return Promise.resolve();
-                    return Promise.all(images.map(img => {
-                        if (img.complete) return Promise.resolve();
-                        return new Promise(resolve => {
-                            img.addEventListener('load', resolve);
-                            img.addEventListener('error', resolve); // resolve even on error
+                    
+                    return new Promise((resolve) => {
+                        let remaining = images.length;
+                        let resolved = false;
+
+                        function checkComplete() {
+                            if (resolved) return;
+                            const allComplete = images.every(img => img.complete);
+                            if (allComplete) {
+                                resolved = true;
+                                resolve();
+                            }
+                        }
+
+                        images.forEach(img => {
+                            if (img.complete) {
+                                remaining--;
+                                checkComplete();
+                            } else {
+                                img.addEventListener('load', () => {
+                                    remaining--;
+                                    checkComplete();
+                                });
+                                img.addEventListener('error', () => {
+                                    remaining--;
+                                    checkComplete();
+                                });
+                            }
                         });
-                    }));
+
+                        // Timeout fallback
+                        setTimeout(() => {
+                            if (!resolved) {
+                                console.log('Print: image loading timeout after ' + timeoutMs + 'ms, printing anyway.');
+                                resolved = true;
+                                resolve();
+                            }
+                        }, timeoutMs);
+                    });
                 }
 
-                // Wait for images, then print after a short delay
-                whenImagesReady().then(() => {
+                // Wait for images up to 30 seconds, then print
+                whenImagesReady(30000).then(() => {
                     setTimeout(() => {
                         window.print();
                         window.onafterprint = function() { window.close(); };
@@ -1102,8 +1134,8 @@ function printCurrentMasul() {
     openPrintWindow(content, 'Mas\'ul ID Card');
 }
 
-// ==================== SCREENSHOT FUNCTIONS ====================
-function captureElement(element) {
+// ==================== SCREENSHOT FUNCTIONS (with Intizar ID filename) ====================
+function captureElement(element, filename) {
     const images = Array.from(element.getElementsByTagName('img'));
     const promises = images.map(img => {
         if (img.complete) return Promise.resolve();
@@ -1117,7 +1149,7 @@ function captureElement(element) {
     Promise.all(promises).then(() => {
         html2canvas(element, { scale: 2, useCORS: true, allowTaint: false }).then(canvas => {
             const link = document.createElement('a');
-            link.download = 'member-card.png';
+            link.download = filename;
             link.href = canvas.toDataURL('image/png');
             link.click();
         }).catch(err => {
@@ -1136,7 +1168,9 @@ function screenshotCurrentMember() {
     tempDiv.style.position = 'absolute';
     tempDiv.style.left = '-9999px';
     document.body.appendChild(tempDiv);
-    captureElement(tempDiv).finally(() => document.body.removeChild(tempDiv));
+    // Replace slashes in Intizar ID with hyphen for filename
+    const safeId = lastViewedMember.IntizarID.replace(/\//g, '-');
+    captureElement(tempDiv, safeId + '.png').finally(() => document.body.removeChild(tempDiv));
 }
 
 function screenshotCurrentMasul() {
@@ -1149,15 +1183,17 @@ function screenshotCurrentMasul() {
     tempDiv.style.position = 'absolute';
     tempDiv.style.left = '-9999px';
     document.body.appendChild(tempDiv);
-    captureElement(tempDiv).finally(() => document.body.removeChild(tempDiv));
+    const safeId = lastViewedMasul.IntizarID.replace(/\//g, '-');
+    captureElement(tempDiv, safeId + '.png').finally(() => document.body.removeChild(tempDiv));
 }
 
-// ==================== EDIT FUNCTIONS (ADMIN ONLY) ====================
+// ==================== EDIT FUNCTIONS (ADMIN ONLY) with improved branch retention ====================
 async function editMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
 
+        // Fill all fields
         document.getElementById('editMemberIntizarId').value = member.IntizarID;
         document.getElementById('editMemberFullName').value = member.FullName;
         document.getElementById('editMemberFatherName').value = member.FatherName;
@@ -1178,11 +1214,29 @@ async function editMember(intizarId) {
         await loadZonesForDropdowns(false);
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
+        
+        // Set zone
         zoneSelect.value = member.Zone;
-        zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        setTimeout(() => {
-            branchSelect.value = member.Branch;
-        }, 1000);
+        
+        // Create a promise that resolves when branch options are populated
+        await new Promise((resolve) => {
+            const handler = function() {
+                if (branchSelect.options.length > 1) { // at least one branch option besides "Select Branch"
+                    branchSelect.value = member.Branch;
+                    branchSelect.removeEventListener('change', handler);
+                    resolve();
+                }
+            };
+            branchSelect.addEventListener('change', handler);
+            zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            // Fallback timeout
+            setTimeout(() => {
+                branchSelect.removeEventListener('change', handler);
+                // Try to set value anyway
+                branchSelect.value = member.Branch;
+                resolve();
+            }, 3000);
+        });
 
         showModal('editMemberModal');
     } catch (err) {
@@ -1216,11 +1270,25 @@ async function editMasul(intizarId) {
         await loadZonesForDropdowns(false);
         const zoneSelect = document.getElementById('editMasulZone');
         const branchSelect = document.getElementById('editMasulBranch');
+        
         zoneSelect.value = masul.Zone;
-        zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        setTimeout(() => {
-            branchSelect.value = masul.Branch;
-        }, 1000);
+        
+        await new Promise((resolve) => {
+            const handler = function() {
+                if (branchSelect.options.length > 1) {
+                    branchSelect.value = masul.Branch;
+                    branchSelect.removeEventListener('change', handler);
+                    resolve();
+                }
+            };
+            branchSelect.addEventListener('change', handler);
+            zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            setTimeout(() => {
+                branchSelect.removeEventListener('change', handler);
+                branchSelect.value = masul.Branch;
+                resolve();
+            }, 3000);
+        });
 
         updateMasulRankOptions(masul.Gender);
         showModal('editMasulModal');
