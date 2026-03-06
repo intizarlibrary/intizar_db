@@ -402,8 +402,7 @@ async function initializeDashboard() {
     await loadFilterOptions();
     loadZonesForDropdowns();
 
-    // Remove input listeners – search on button only
-    // Search buttons should call searchMemberList and searchMasulList
+    // Search on button click only
 }
 
 function setupNavigation() {
@@ -557,7 +556,7 @@ function populateSelect(selectId, options, keepAllOption = true) {
 
 // ==================== ZONE/BRANCH DROPDOWNS (cached) ====================
 async function loadZonesForDropdowns(forceRefresh = false) {
-    let zones, branches;
+    let zones;
 
     if (!forceRefresh) {
         const cachedZones = sessionStorage.getItem(CACHE_ZONES);
@@ -606,7 +605,6 @@ async function loadZonesForDropdowns(forceRefresh = false) {
 
     } catch (err) {
         console.warn('Using hardcoded zones/branches due to API error:', err);
-        // Use hardcoded fallback
         zones = HARDCODED_ZONES.map(z => ({ zoneName: z }));
         branchZoneMap = {};
         branchNameToCode = {};
@@ -1015,7 +1013,7 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== IMPROVED PRINT FUNCTION (30s timeout) ====================
+// ==================== SIMPLIFIED PRINT FUNCTION (fixed) ====================
 function openPrintWindow(content, title) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -1025,6 +1023,7 @@ function openPrintWindow(content, title) {
 
     const logoAbsolute = new URL('logo.png', window.location.href).href;
 
+    // Write a clean HTML document with a small delay before printing
     printWindow.document.write(`
         <html>
         <head>
@@ -1046,7 +1045,7 @@ function openPrintWindow(content, title) {
         <body>
             <div class="id-card">${content}</div>
             <script>
-                // Ensure all images have absolute URLs and fallback
+                // Set fallback for images
                 document.querySelectorAll('img').forEach(img => {
                     if (!img.src || img.src === '') {
                         img.src = '${logoAbsolute}';
@@ -1056,59 +1055,11 @@ function openPrintWindow(content, title) {
                         this.onerror = null;
                     };
                 });
-
-                // Function to check if all images are loaded with a timeout
-                function whenImagesReady(timeoutMs) {
-                    const images = Array.from(document.images);
-                    if (images.length === 0) return Promise.resolve();
-                    
-                    return new Promise((resolve) => {
-                        let remaining = images.length;
-                        let resolved = false;
-
-                        function checkComplete() {
-                            if (resolved) return;
-                            const allComplete = images.every(img => img.complete);
-                            if (allComplete) {
-                                resolved = true;
-                                resolve();
-                            }
-                        }
-
-                        images.forEach(img => {
-                            if (img.complete) {
-                                remaining--;
-                                checkComplete();
-                            } else {
-                                img.addEventListener('load', () => {
-                                    remaining--;
-                                    checkComplete();
-                                });
-                                img.addEventListener('error', () => {
-                                    remaining--;
-                                    checkComplete();
-                                });
-                            }
-                        });
-
-                        // Timeout fallback
-                        setTimeout(() => {
-                            if (!resolved) {
-                                console.log('Print: image loading timeout after ' + timeoutMs + 'ms, printing anyway.');
-                                resolved = true;
-                                resolve();
-                            }
-                        }, timeoutMs);
-                    });
-                }
-
-                // Wait for images up to 30 seconds, then print
-                whenImagesReady(30000).then(() => {
-                    setTimeout(() => {
-                        window.print();
-                        window.onafterprint = function() { window.close(); };
-                    }, 200);
-                });
+                // Wait a moment for images to load, then print
+                setTimeout(function() {
+                    window.print();
+                    window.onafterprint = function() { window.close(); };
+                }, 1000);
             <\/script>
         </body>
         </html>
@@ -1168,7 +1119,6 @@ function screenshotCurrentMember() {
     tempDiv.style.position = 'absolute';
     tempDiv.style.left = '-9999px';
     document.body.appendChild(tempDiv);
-    // Replace slashes in Intizar ID with hyphen for filename
     const safeId = lastViewedMember.IntizarID.replace(/\//g, '-');
     captureElement(tempDiv, safeId + '.png').finally(() => document.body.removeChild(tempDiv));
 }
@@ -1187,7 +1137,7 @@ function screenshotCurrentMasul() {
     captureElement(tempDiv, safeId + '.png').finally(() => document.body.removeChild(tempDiv));
 }
 
-// ==================== EDIT FUNCTIONS (ADMIN ONLY) with improved branch retention ====================
+// ==================== EDIT FUNCTIONS (ADMIN ONLY) with reliable branch setting ====================
 async function editMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
@@ -1211,35 +1161,33 @@ async function editMember(intizarId) {
         document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone;
         document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress;
 
+        // Ensure zones and branches are loaded
         await loadZonesForDropdowns(false);
+        
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
         
-        // Set zone
+        // Set zone (dropdown will have the correct value now)
         zoneSelect.value = member.Zone;
         
-        // Create a promise that resolves when branch options are populated
-        await new Promise((resolve) => {
-            const handler = function() {
-                if (branchSelect.options.length > 1) { // at least one branch option besides "Select Branch"
-                    branchSelect.value = member.Branch;
-                    branchSelect.removeEventListener('change', handler);
-                    resolve();
-                }
-            };
-            branchSelect.addEventListener('change', handler);
-            zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            // Fallback timeout
-            setTimeout(() => {
-                branchSelect.removeEventListener('change', handler);
-                // Try to set value anyway
-                branchSelect.value = member.Branch;
-                resolve();
-            }, 3000);
+        // Manually populate branches for this zone using cached map
+        branchSelect.innerHTML = '<option value="">Select Branch</option>';
+        const branchesForZone = Object.entries(branchZoneMap)
+            .filter(([code, z]) => z === member.Zone)
+            .map(([code]) => {
+                const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                return { code, name };
+            });
+        branchesForZone.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
         });
+        
+        // Set branch value
+        branchSelect.value = member.Branch;
 
         showModal('editMemberModal');
     } catch (err) {
+        console.error('Edit member error:', err);
         showMessage('Error', err.message);
     }
 }
@@ -1268,31 +1216,29 @@ async function editMasul(intizarId) {
         document.getElementById('editMasulRank').value = masul.CurrentRank;
 
         await loadZonesForDropdowns(false);
+        
         const zoneSelect = document.getElementById('editMasulZone');
         const branchSelect = document.getElementById('editMasulBranch');
         
         zoneSelect.value = masul.Zone;
         
-        await new Promise((resolve) => {
-            const handler = function() {
-                if (branchSelect.options.length > 1) {
-                    branchSelect.value = masul.Branch;
-                    branchSelect.removeEventListener('change', handler);
-                    resolve();
-                }
-            };
-            branchSelect.addEventListener('change', handler);
-            zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            setTimeout(() => {
-                branchSelect.removeEventListener('change', handler);
-                branchSelect.value = masul.Branch;
-                resolve();
-            }, 3000);
+        branchSelect.innerHTML = '<option value="">Select Branch</option>';
+        const branchesForZone = Object.entries(branchZoneMap)
+            .filter(([code, z]) => z === masul.Zone)
+            .map(([code]) => {
+                const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                return { code, name };
+            });
+        branchesForZone.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
         });
+        
+        branchSelect.value = masul.Branch;
 
         updateMasulRankOptions(masul.Gender);
         showModal('editMasulModal');
     } catch (err) {
+        console.error('Edit masul error:', err);
         showMessage('Error', err.message);
     }
 }
