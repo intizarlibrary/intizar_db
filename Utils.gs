@@ -314,8 +314,9 @@ function savePhotoToDrive(base64Data, fileName) {
   }
 }
 
-// ==================== MEMBER REGISTRATION ====================
+// ==================== MEMBER REGISTRATION (with duplicate check) ====================
 function registerMember(data, user) {
+  // Permission checks
   if (user.role === 'Branch Mas\'ul' && data.branch !== user.branchCode) {
     throw new Error('You can only register members in your own branch');
   }
@@ -323,6 +324,7 @@ function registerMember(data, user) {
     throw new Error('Insufficient permissions');
   }
 
+  // Required fields
   const required = [
     'fullName', 'fatherName', 'gender', 'dob', 'phone', 'address', 'state', 'lga',
     'zone', 'branch', 'year', 'entryLevel',
@@ -332,17 +334,51 @@ function registerMember(data, user) {
     if (!data[f]) throw new Error(`Missing required field: ${f}`);
   }
 
+  // Age validation
   const age = calculateAge(data.dob);
   if (age < 7) throw new Error('Member must be at least 7 years old');
 
+  // Branch-zone consistency
   const branchZone = getBranchZone(data.branch);
   if (branchZone !== data.zone) throw new Error('Branch does not belong to selected zone');
 
+  // Entry level validation
   const allowedLevels = ['Bakiyatullah', 'Ansarullah', 'Ghalibun'];
   if (!allowedLevels.includes(data.entryLevel)) {
     throw new Error('Entry level must be Bakiyatullah, Ansarullah, or Ghalibun');
   }
 
+  // ========== DUPLICATE CHECK (all fields except photo) ==========
+  const sheet = getSpreadsheet().getSheetByName('Members');
+  const existingRows = sheet.getDataRange().getValues(); // includes headers
+  const dataRows = existingRows.slice(1);
+
+  for (let i = 0; i < dataRows.length; i++) {
+    const row = dataRows[i];
+    // Compare each field (using same indices as columns)
+    if (row[2] === data.fullName &&               // FullName
+        row[3] === data.fatherName &&             // FatherName
+        row[4] === data.gender &&                  // Gender
+        row[5] === data.dob &&                      // DOB
+        (row[6] || '') === (data.placeOfBirth || '') && // PlaceOfBirth (optional)
+        row[7] === data.phone &&                    // Phone
+        (row[8] || '') === (data.email || '') &&    // Email (optional)
+        row[9] === data.address &&                   // Address
+        row[10] === data.state &&                     // State
+        row[11] === data.lga &&                        // LGA
+        row[12] === data.zone &&                       // Zone
+        row[13] === data.branch &&                      // Branch
+        row[14].toString() === data.year.toString() &&  // Year
+        row[15] === data.entryLevel &&                   // EntryLevel
+        row[19] === data.guardianName &&                  // GuardianName
+        row[20] === data.guardianPhone &&                  // GuardianPhone
+        row[21] === data.guardianAddress) {                 // GuardianAddress
+      // All fields match → duplicate
+      throw new Error('Duplicate registration detected. This person is already registered with Intizar ID: ' + row[0]);
+    }
+  }
+
+  // ========== PROCEED WITH REGISTRATION ==========
   const intizarId = nextIntizarId();
   const recruitmentId = nextMemberRecruitmentId(data.branch, data.year);
 
@@ -379,9 +415,7 @@ function registerMember(data, user) {
     data.guardianAddress
   ];
 
-  const sheet = getSpreadsheet().getSheetByName('Members');
   sheet.appendRow(row);
-
   logAudit(user.role + ':' + (user.branch || user.zone || 'Admin'), 'MEMBER_REGISTERED',
     `Intizar ID: ${intizarId}, Name: ${data.fullName}`);
 
@@ -958,7 +992,7 @@ function getMasul(intizarId, user) {
   throw new Error('Mas\'ul not found');
 }
 
-// ==================== DASHBOARD STATISTICS ====================
+// ==================== DASHBOARD STATISTICS (enhanced) ====================
 function getDashboardStats(user) {
   const membersSheet = getSpreadsheet().getSheetByName('Members');
   const masulsSheet = getSpreadsheet().getSheetByName('Masuls');
@@ -966,7 +1000,7 @@ function getDashboardStats(user) {
   let membersData = membersSheet.getDataRange().getValues().slice(1);
   let masulsData = masulsSheet.getDataRange().getValues().slice(1);
 
-  // Apply role‑based filtering
+  // Role filtering
   if (user.role === 'Zonal Mas\'ul') {
     membersData = membersData.filter(row => row[12] === user.zone);
     masulsData = masulsData.filter(row => row[12] === user.zone);
@@ -975,33 +1009,35 @@ function getDashboardStats(user) {
     masulsData = masulsData.filter(row => row[13] === user.branchCode);
   }
 
+  const levelCounts = { Bakiyatullah:0, Ansarullah:0, Ghalibun:0, 'X-Ghalibun':0 };
+  const zoneCounts = {};
+  const branchCounts = {};
+
+  membersData.forEach(row => {
+    const level = row[15];
+    if (levelCounts.hasOwnProperty(level)) levelCounts[level]++;
+
+    const zone = row[12];
+    zoneCounts[zone] = (zoneCounts[zone] || 0) + 1;
+
+    const branch = row[13];
+    branchCounts[branch] = (branchCounts[branch] || 0) + 1;
+  });
+
+  // Original stats
   const totalMembers = membersData.length;
   const totalMasuls = masulsData.length;
   const totalCombined = totalMembers + totalMasuls;
 
-  // Gender breakdown (all)
   const brothers = membersData.filter(row => row[4] === 'Brother').length +
                    masulsData.filter(row => row[4] === 'Brother').length;
   const sisters = membersData.filter(row => row[4] === 'Sister').length +
                   masulsData.filter(row => row[4] === 'Sister').length;
 
-  // Gender breakdown by role
   const brothersMembers = membersData.filter(row => row[4] === 'Brother').length;
   const sistersMembers = membersData.filter(row => row[4] === 'Sister').length;
   const brothersMasuls = masulsData.filter(row => row[4] === 'Brother').length;
   const sistersMasuls = masulsData.filter(row => row[4] === 'Sister').length;
-
-  // Member levels
-  const levelCounts = {
-    Bakiyatullah: 0,
-    Ansarullah: 0,
-    Ghalibun: 0,
-    'X-Ghalibun': 0
-  };
-  membersData.forEach(row => {
-    const level = row[15];
-    if (levelCounts.hasOwnProperty(level)) levelCounts[level]++;
-  });
 
   return {
     success: true,
@@ -1015,7 +1051,9 @@ function getDashboardStats(user) {
       sistersMembers,
       brothersMasuls,
       sistersMasuls,
-      levelCounts
+      levelCounts,
+      zoneCounts,
+      branchCounts
     }
   };
 }
@@ -1094,6 +1132,13 @@ function getDistinctRanks() {
   const sheet = getSpreadsheet().getSheetByName('Masuls');
   const data = sheet.getDataRange().getValues().slice(1);
   return [...new Set(data.map(row => row[15]))]; // CurrentRank column
+}
+
+// ==================== SPREADSHEET URL FOR ADMIN ====================
+function getSpreadsheetUrl(user) {
+  if (user.role !== 'Admin') throw new Error('Only Admin can access spreadsheet URL');
+  const url = getSpreadsheet().getUrl();
+  return { success: true, url };
 }
 
 // ==================== MANUAL INITIALIZATION FUNCTIONS ====================
