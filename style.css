@@ -907,3 +907,88 @@ td button {
     font-weight: bold;
     text-align: center;
 }
+
+/* ... existing styles ... */
+
+/* Charts grid (add at the end) */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+.chart-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.chart-card h4 {
+  text-align: center;
+  color: var(--dark-olive);
+  margin-bottom: 1rem;
+}
+
+/* ID Card for view/print/screenshot */
+.id-card {
+  max-width: 500px;
+  margin: auto;
+  border: 3px solid var(--dark-olive);
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+}
+.card-header {
+  text-align: center;
+  margin-bottom: 15px;
+}
+.card-logo {
+  height: 70px;
+}
+.arabic-title {
+  font-size: 2rem;
+  color: var(--dark-olive);
+  margin: 5px 0;
+  direction: rtl;
+  font-family: 'Amiri', serif;
+}
+.card-body {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.card-photo {
+  width: 130px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--gold);
+}
+.card-details {
+  flex: 1;
+  min-width: 200px;
+}
+.card-details p {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+/* Eye icon for password visibility */
+.password-wrapper {
+  position: relative;
+}
+.password-wrapper input {
+  padding-right: 2.5rem;
+}
+.password-wrapper .toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #666;
+}
+.password-wrapper .toggle-password:hover {
+  color: var(--dark-olive);
+}
