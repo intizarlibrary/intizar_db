@@ -132,7 +132,7 @@
                             <button onclick="searchMemberList()">Search</button>
                             <button onclick="clearMemberListSearch()">Clear</button>
                         </div>
-                        <!-- Filter bar -->
+                        <!-- Filter bar with manual inputs -->
                         <div class="filter-bar">
                             <select id="filterMemberLevel">
                                 <option value="">All Levels</option>
@@ -142,12 +142,10 @@
                                 <option value="Brother">Brother</option>
                                 <option value="Sister">Sister</option>
                             </select>
-                            <select id="filterMemberBranch">
-                                <option value="">All Branches</option>
-                            </select>
-                            <select id="filterMemberZone">
-                                <option value="">All Zones</option>
-                            </select>
+                            <select id="filterMemberBranch"></select>
+                            <input type="text" id="filterMemberBranchManual" placeholder="Or type branch" style="width:120px;">
+                            <select id="filterMemberZone"></select>
+                            <input type="text" id="filterMemberZoneManual" placeholder="Or type zone" style="width:120px;">
                             <button onclick="applyMemberFilters()">Filter</button>
                             <button onclick="resetMemberFilters()">Reset</button>
                         </div>
@@ -177,7 +175,7 @@
                             <button onclick="searchMasuls()">Search</button>
                             <button onclick="clearMasulSearch()">Clear</button>
                         </div>
-                        <!-- Filter bar for Mas'ulin -->
+                        <!-- Filter bar for Mas'ulin with manual inputs -->
                         <div class="filter-bar">
                             <select id="filterMasulRank">
                                 <option value="">All Ranks</option>
@@ -187,12 +185,10 @@
                                 <option value="Brother">Brother</option>
                                 <option value="Sister">Sister</option>
                             </select>
-                            <select id="filterMasulBranch">
-                                <option value="">All Branches</option>
-                            </select>
-                            <select id="filterMasulZone">
-                                <option value="">All Zones</option>
-                            </select>
+                            <select id="filterMasulBranch"></select>
+                            <input type="text" id="filterMasulBranchManual" placeholder="Or type branch" style="width:120px;">
+                            <select id="filterMasulZone"></select>
+                            <input type="text" id="filterMasulZoneManual" placeholder="Or type zone" style="width:120px;">
                             <button onclick="applyMasulFilters()">Filter</button>
                             <button onclick="resetMasulFilters()">Reset</button>
                         </div>
