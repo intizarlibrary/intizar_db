@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbydj-MJDeyr5Dn7RLBfIdqQaZWI1hPqyZpQSlqWLreMX-3UrG8Zr7vTLOf59PoXVc91/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxCyj8hgDEyiZEEZMSvcrJr8mrChRj-U_FRD8Jmf3FdMg7zLAb0zrabHN-x7HaMV5mF/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -17,6 +17,31 @@ let branchNameToCode = {};   // map branch name -> branch code
 let levelChart, zoneChart, branchChart;   // chart instances
 let lastViewedMember = null;
 let lastViewedMasul = null;
+
+// ==================== CACHE CONSTANTS (30 minutes) ====================
+const CACHE_FILTER_OPTIONS = 'filterOptions';
+const CACHE_ZONES = 'zones';
+const CACHE_BRANCH_MAP = 'branchMap';
+const CACHE_BRANCH_NAME_TO_CODE = 'branchNameToCode';
+const CACHE_TIMESTAMP = 'cacheTimestamp';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+
+// ==================== LOADER WITH REQUEST COUNTER ====================
+let pendingRequests = 0;
+
+function showLoader() {
+  pendingRequests++;
+  const loader = document.getElementById('globalLoader');
+  if (loader) loader.style.display = 'flex';
+}
+
+function hideLoader() {
+  pendingRequests--;
+  if (pendingRequests <= 0) {
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.style.display = 'none';
+  }
+}
 
 // ==================== HELPER: Get Thumbnail URL from PhotoURL ====================
 function getThumbnailUrl(photoUrl) {
@@ -57,16 +82,6 @@ function hidePreloader() {
             if (pageContent) pageContent.style.display = 'block';
         }, 500);
     }
-}
-
-// ==================== LOADER ====================
-function showLoader() { 
-    const loader = document.getElementById('globalLoader');
-    if (loader) loader.style.display = 'flex'; 
-}
-function hideLoader() { 
-    const loader = document.getElementById('globalLoader');
-    if (loader) loader.style.display = 'none'; 
 }
 
 // ==================== CUSTOM MODALS ====================
@@ -257,6 +272,13 @@ document.addEventListener('DOMContentLoaded', () => {
             margin: 5px 0;
             direction: rtl;
             font-family: 'Amiri', serif;
+        }
+        .ajami {
+            font-size: 1.2rem;
+            color: #C9A87C;
+            margin-top: -5px;
+            margin-bottom: 10px;
+            font-family: 'Noto Naskh Arabic', serif;
         }
         .card-body {
             display: flex;
@@ -485,10 +507,28 @@ function showSection(sectionId) {
     }
 }
 
-// ==================== FILTER OPTIONS ====================
-async function loadFilterOptions() {
+// ==================== FILTER OPTIONS (cached) ====================
+async function loadFilterOptions(forceRefresh = false) {
+    if (!forceRefresh) {
+        const cached = sessionStorage.getItem(CACHE_FILTER_OPTIONS);
+        const timestamp = sessionStorage.getItem(CACHE_TIMESTAMP);
+        if (cached && timestamp && (Date.now() - parseInt(timestamp)) < CACHE_DURATION) {
+            const result = JSON.parse(cached);
+            populateSelect('filterMemberLevel', result.levels);
+            populateSelect('filterMemberBranch', result.branches);
+            populateSelect('filterMemberZone', result.zones);
+            populateSelect('filterMasulRank', result.ranks);
+            populateSelect('filterMasulBranch', result.branches);
+            populateSelect('filterMasulZone', result.zones);
+            return;
+        }
+    }
+
     try {
         const result = await apiRequest('getFilterOptions', {}, currentUser);
+        sessionStorage.setItem(CACHE_FILTER_OPTIONS, JSON.stringify(result));
+        sessionStorage.setItem(CACHE_TIMESTAMP, Date.now().toString());
+
         populateSelect('filterMemberLevel', result.levels);
         populateSelect('filterMemberBranch', result.branches);
         populateSelect('filterMemberZone', result.zones);
@@ -497,6 +537,7 @@ async function loadFilterOptions() {
         populateSelect('filterMasulZone', result.zones);
     } catch (err) {
         console.error('Failed to load filter options:', err);
+        showMessage('Error', 'Could not load filter options: ' + err.message);
     }
 }
 
@@ -511,6 +552,105 @@ function populateSelect(selectId, options) {
         option.value = val;
         option.textContent = val;
         select.appendChild(option);
+    });
+}
+
+// ==================== ZONE/BRANCH DROPDOWNS (cached) ====================
+async function loadZonesForDropdowns(forceRefresh = false) {
+    let zones, branches;
+
+    if (!forceRefresh) {
+        const cachedZones = sessionStorage.getItem(CACHE_ZONES);
+        const cachedBranchMap = sessionStorage.getItem(CACHE_BRANCH_MAP);
+        const cachedNameToCode = sessionStorage.getItem(CACHE_BRANCH_NAME_TO_CODE);
+        const timestamp = sessionStorage.getItem(CACHE_TIMESTAMP);
+        if (cachedZones && cachedBranchMap && cachedNameToCode && timestamp && 
+            (Date.now() - parseInt(timestamp)) < CACHE_DURATION) {
+            zones = JSON.parse(cachedZones);
+            branchZoneMap = JSON.parse(cachedBranchMap);
+            branchNameToCode = JSON.parse(cachedNameToCode);
+            populateZoneSelects(zones);
+            attachZoneChangeListeners();
+            return;
+        }
+    }
+
+    try {
+        const result = await apiRequest('getZones', {}, currentUser);
+        zones = result.zones.filter(z => z.status === 'Active');
+        sessionStorage.setItem(CACHE_ZONES, JSON.stringify(zones));
+        
+        branchZoneMap = {};
+        branchNameToCode = {};
+        const branchMap = {};
+        const nameToCode = {};
+        
+        for (let zone of zones) {
+            const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
+            branchRes.branches.forEach(b => {
+                if (b.status === 'Active') {
+                    branchMap[b.branchCode] = zone.zoneName;
+                    nameToCode[b.branchName] = b.branchCode;
+                }
+            });
+        }
+        
+        branchZoneMap = branchMap;
+        branchNameToCode = nameToCode;
+        sessionStorage.setItem(CACHE_BRANCH_MAP, JSON.stringify(branchMap));
+        sessionStorage.setItem(CACHE_BRANCH_NAME_TO_CODE, JSON.stringify(nameToCode));
+        sessionStorage.setItem(CACHE_TIMESTAMP, Date.now().toString());
+
+        populateZoneSelects(zones);
+        attachZoneChangeListeners();
+
+    } catch (err) {
+        console.error('Failed to load zones/branches:', err);
+        showMessage('Error', 'Could not load zones: ' + err.message);
+    }
+}
+
+function populateZoneSelects(zones) {
+    const zoneSelects = document.querySelectorAll('select[name="zone"], #editBranchZone, #branchModal select[name="zoneName"], #editMemberZone, #editMasulZone');
+    zoneSelects.forEach(select => {
+        if (!select) return;
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">Select Zone</option>';
+        zones.forEach(zone => {
+            select.innerHTML += `<option value="${zone.zoneName}">${zone.zoneName}</option>`;
+        });
+        if (currentValue) select.value = currentValue;
+    });
+}
+
+function attachZoneChangeListeners() {
+    document.querySelectorAll('select[name="zone"]').forEach(select => {
+        // Remove existing listener to avoid duplicates
+        select.removeEventListener('change', zoneChangeHandler);
+        select.addEventListener('change', zoneChangeHandler);
+    });
+}
+
+async function zoneChangeHandler(event) {
+    const zone = event.target.value;
+    const branchSelect = event.target.closest('fieldset') ?
+        event.target.closest('fieldset').parentElement.querySelector('select[name="branch"]') :
+        document.querySelector('select[name="branch"]');
+    if (!branchSelect) return;
+    branchSelect.innerHTML = '<option value="">Select Branch</option>';
+    if (!zone) return;
+
+    // Use cached branchMap to get branches for zone
+    const branchesForZone = Object.entries(branchZoneMap)
+        .filter(([code, z]) => z === zone)
+        .map(([code]) => {
+            // find branch name from branchNameToCode
+            const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+            return { code, name };
+        });
+
+    branchesForZone.forEach(b => {
+        branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
     });
 }
 
@@ -543,6 +683,7 @@ function renderMemberListTable(members) {
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMember('${member.IntizarID}')">👁 View</button>
+            ${currentUser.role === 'Admin' ? `<button onclick="editMember('${member.IntizarID}')">✏️ Edit</button>` : ''}
             ${currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul' ? `<button onclick="promoteMember('${member.IntizarID}')">⭐ Promote</button>` : ''}
             ${currentUser.role === 'Admin' ? `<button onclick="transferMember('${member.IntizarID}')">↗ Transfer</button>` : ''}
         `;
@@ -609,6 +750,7 @@ function renderMasulTable(masuls) {
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMasul('${masul.IntizarID}')">👁 View</button>
+            ${currentUser.role === 'Admin' ? `<button onclick="editMasul('${masul.IntizarID}')">✏️ Edit</button>` : ''}
             <button onclick="promoteMasul('${masul.IntizarID}')">⭐ Promote</button>
             <button onclick="transferMasul('${masul.IntizarID}')">↗ Transfer</button>
         `;
@@ -648,16 +790,18 @@ function resetMasulFilters() {
 
 // ==================== SIMPLIFIED ID CARD BUILDER (for print/screenshot) ====================
 function buildSimpleCard(person, type) {
-    const imgSrc = getThumbnailUrl(person.PhotoURL) || 'logo.png';
-    const photoHtml = `<img src="${imgSrc}" alt="Photo" class="card-photo" onerror="this.src='logo.png'; this.onerror=null;">`;
+    const logoAbsolute = new URL('logo.png', window.location.href).href;
+    const imgSrc = getThumbnailUrl(person.PhotoURL) || logoAbsolute;
+    const photoHtml = `<img src="${imgSrc}" alt="Photo" class="card-photo" crossorigin="anonymous" onerror="this.src='${logoAbsolute}'; this.onerror=null;">`;
 
     const idField = type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID;
 
     return `
         <div class="id-card">
             <div class="card-header">
-                <img src="logo.png" alt="Logo" class="card-logo">
-                <h2 class="arabic-title">إنتظار ٱلإمام المنتظر</h2>
+                <img src="${logoAbsolute}" alt="Logo" class="card-logo">
+                <h2 class="arabic-title">إنتظار ٱلإمام ٱلمنتظر</h2>
+                <p class="ajami">تربير رحي د غنغر جكى</p>
             </div>
             <div class="card-body">
                 ${photoHtml}
@@ -715,7 +859,8 @@ async function viewMember(intizarId) {
             <div class="print-area">
                 <div class="print-header">
                     <img src="logo.png" alt="Logo" style="height:60px;">
-                    <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+                    <h2 class="arabic-title">إنتظار ٱلإمام ٱلمنتظر</h2>
+                    <p class="ajami">تربير رحي د غنغر جكى</p>
                     <p>Member Biodata</p>
                 </div>
                 ${photoHtml}
@@ -781,7 +926,8 @@ async function viewMasul(intizarId) {
             <div class="print-area">
                 <div class="print-header">
                     <img src="logo.png" alt="Logo" style="height:60px;">
-                    <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+                    <h2 class="arabic-title">إنتظار ٱلإمام ٱلمنتظر</h2>
+                    <p class="ajami">تربير رحي د غنغر جكى</p>
                     <p>Mas'ul Biodata</p>
                 </div>
                 ${photoHtml}
@@ -825,6 +971,8 @@ function openPrintWindow(content, title) {
         return;
     }
 
+    const logoUrl = new URL('logo.png', window.location.href).href;
+
     printWindow.document.write(`
         <html>
             <head>
@@ -835,6 +983,7 @@ function openPrintWindow(content, title) {
                     .card-header { text-align: center; margin-bottom: 15px; }
                     .card-logo { height: 70px; }
                     .arabic-title { font-size: 1.8rem; color: #155B2F; margin: 5px 0; direction: rtl; font-family: 'Amiri', serif; }
+                    .ajami { font-size: 1.2rem; color: #C9A87C; margin-top: -5px; margin-bottom: 10px; font-family: 'Noto Naskh Arabic', serif; }
                     .card-body { display: flex; gap: 20px; align-items: center; }
                     .card-photo { width: 120px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid #C9A87C; }
                     .card-details { flex: 1; }
@@ -866,6 +1015,9 @@ function openPrintWindow(content, title) {
             </head>
             <body>
                 <div class="id-card">${content}</div>
+                <script>
+                    document.querySelectorAll('.card-logo').forEach(img => img.src = '${logoUrl}');
+                <\/script>
             </body>
         </html>
     `);
@@ -892,13 +1044,23 @@ function printCurrentMasul() {
 
 // ==================== SCREENSHOT FUNCTIONS ====================
 function captureElement(element) {
-    html2canvas(element, { scale: 2 }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = 'member-card.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    }).catch(err => {
-        showMessage('Error', 'Screenshot failed: ' + err.message);
+    const images = element.getElementsByTagName('img');
+    const promises = Array.from(images).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+            img.addEventListener('load', resolve);
+            img.addEventListener('error', resolve);
+        });
+    });
+    Promise.all(promises).then(() => {
+        html2canvas(element, { scale: 2, useCORS: true, allowTaint: false }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'member-card.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(err => {
+            showMessage('Error', 'Screenshot failed: ' + err.message);
+        });
     });
 }
 
@@ -928,54 +1090,96 @@ function screenshotCurrentMasul() {
     captureElement(tempDiv).finally(() => document.body.removeChild(tempDiv));
 }
 
-// ==================== ZONE/BRANCH DROPDOWNS ====================
-async function loadZonesForDropdowns() {
+// ==================== EDIT FUNCTIONS (ADMIN ONLY) ====================
+async function editMember(intizarId) {
     try {
-        const result = await apiRequest('getZones', {}, currentUser);
-        const zones = result.zones.filter(z => z.status === 'Active');
-        const zoneSelects = document.querySelectorAll('select[name="zone"], #editBranchZone, #branchModal select[name="zoneName"]');
-        zoneSelects.forEach(select => {
-            if (!select) return;
-            select.innerHTML = '<option value="">Select Zone</option>';
-            zones.forEach(zone => {
-                select.innerHTML += `<option value="${zone.zoneName}">${zone.zoneName}</option>`;
-            });
-        });
+        const result = await apiRequest('getMember', { intizarId }, currentUser);
+        const member = result.member;
 
-        branchZoneMap = {};
-        branchNameToCode = {};
-        for (let zone of zones) {
-            const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
-            branchRes.branches.forEach(b => {
-                if (b.status === 'Active') {
-                    branchZoneMap[b.branchCode] = zone.zoneName;
-                    branchNameToCode[b.branchName] = b.branchCode;
-                }
-            });
-        }
+        document.getElementById('editMemberIntizarId').value = member.IntizarID;
+        document.getElementById('editMemberFullName').value = member.FullName;
+        document.getElementById('editMemberFatherName').value = member.FatherName;
+        document.getElementById('editMemberGender').value = member.Gender;
+        document.getElementById('editMemberDob').value = member.DOB;
+        document.getElementById('editMemberPlaceOfBirth').value = member.PlaceOfBirth || '';
+        document.getElementById('editMemberPhone').value = member.Phone;
+        document.getElementById('editMemberEmail').value = member.Email || '';
+        document.getElementById('editMemberAddress').value = member.Address;
+        document.getElementById('editMemberState').value = member.State;
+        document.getElementById('editMemberLga').value = member.LGA;
+        document.getElementById('editMemberYear').value = member.Year;
+        document.getElementById('editMemberLevel').value = member.Level;
+        document.getElementById('editMemberGuardianName').value = member.GuardianName;
+        document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone;
+        document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress;
 
-        document.querySelectorAll('select[name="zone"]').forEach(select => {
-            select.addEventListener('change', async function() {
-                const zone = this.value;
-                const branchSelect = this.closest('fieldset') ?
-                    this.closest('fieldset').parentElement.querySelector('select[name="branch"]') :
-                    document.querySelector('select[name="branch"]');
-                if (!branchSelect) return;
-                branchSelect.innerHTML = '<option value="">Select Branch</option>';
-                if (!zone) return;
-                try {
-                    const result = await apiRequest('getBranches', { zone }, currentUser);
-                    result.branches.filter(b => b.status === 'Active').forEach(branch => {
-                        branchSelect.innerHTML += `<option value="${branch.branchCode}">${branch.branchName}</option>`;
-                    });
-                } catch (err) {
-                    console.error(err);
-                }
-            });
-        });
+        await loadZonesForDropdowns(false);
+        const zoneSelect = document.getElementById('editMemberZone');
+        const branchSelect = document.getElementById('editMemberBranch');
+        zoneSelect.value = member.Zone;
+        zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(() => {
+            branchSelect.value = member.Branch;
+        }, 500);
+
+        showModal('editMemberModal');
     } catch (err) {
-        console.error(err);
+        showMessage('Error', err.message);
     }
+}
+
+function closeEditMemberModal() {
+    document.getElementById('editMemberModal').style.display = 'none';
+}
+
+async function editMasul(intizarId) {
+    try {
+        const result = await apiRequest('getMasul', { intizarId }, currentUser);
+        const masul = result.masul;
+
+        document.getElementById('editMasulIntizarId').value = masul.IntizarID;
+        document.getElementById('editMasulFullName').value = masul.FullName;
+        document.getElementById('editMasulFatherName').value = masul.FatherName;
+        document.getElementById('editMasulGender').value = masul.Gender;
+        document.getElementById('editMasulDob').value = masul.DOB;
+        document.getElementById('editMasulPlaceOfBirth').value = masul.PlaceOfBirth || '';
+        document.getElementById('editMasulPhone').value = masul.Phone;
+        document.getElementById('editMasulEmail').value = masul.Email || '';
+        document.getElementById('editMasulAddress').value = masul.Address;
+        document.getElementById('editMasulState').value = masul.State;
+        document.getElementById('editMasulLga').value = masul.LGA;
+        document.getElementById('editMasulYear').value = masul.Year;
+        document.getElementById('editMasulRank').value = masul.CurrentRank;
+
+        await loadZonesForDropdowns(false);
+        const zoneSelect = document.getElementById('editMasulZone');
+        const branchSelect = document.getElementById('editMasulBranch');
+        zoneSelect.value = masul.Zone;
+        zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(() => {
+            branchSelect.value = masul.Branch;
+        }, 500);
+
+        updateMasulRankOptions(masul.Gender);
+        showModal('editMasulModal');
+    } catch (err) {
+        showMessage('Error', err.message);
+    }
+}
+
+function updateMasulRankOptions(gender) {
+    const rankSelect = document.getElementById('editMasulRank');
+    const brotherRanks = ['Musa\'id','Areef','Muqaddam','Ra\'id','Raqeeb','Mulazim','Muhafiz','Ameed','Aqeeda','Qaid'];
+    const sisterRanks = ['Musa\'ida','Areefa','Muqadama','Ra\'ida','Raqeeba','Mulazima','Muhafiza','Ameeda','Aqeeda','Qaida'];
+    rankSelect.innerHTML = '<option value="">Select Rank</option>';
+    const ranks = gender === 'Brother' ? brotherRanks : sisterRanks;
+    ranks.forEach(rank => {
+        rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+    });
+}
+
+function closeEditMasulModal() {
+    document.getElementById('editMasulModal').style.display = 'none';
 }
 
 // ==================== DASHBOARD STATS & CHARTS ====================
@@ -1021,10 +1225,12 @@ async function loadDashboardStats() {
 }
 
 function updateLevelChart(levelCounts) {
-    const ctx = document.getElementById('levelChart');
-    if (!ctx) return;
-    if (window.levelChart) window.levelChart.destroy();
-    window.levelChart = new Chart(ctx, {
+    const canvas = document.getElementById('levelChart');
+    if (!canvas) return;
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) existingChart.destroy();
+
+    new Chart(canvas, {
         type: 'bar',
         data: {
             labels: Object.keys(levelCounts),
@@ -1039,16 +1245,18 @@ function updateLevelChart(levelCounts) {
 }
 
 function updateZoneChart(zoneCounts) {
-    const ctx = document.getElementById('zoneChart');
-    if (!ctx) return;
-    if (window.zoneChart) window.zoneChart.destroy();
-    window.zoneChart = new Chart(ctx, {
+    const canvas = document.getElementById('zoneChart');
+    if (!canvas) return;
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) existingChart.destroy();
+
+    new Chart(canvas, {
         type: 'pie',
         data: {
             labels: Object.keys(zoneCounts),
             datasets: [{
                 data: Object.values(zoneCounts),
-                backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
+                backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23', '#8B4513', '#5F9EA0']
             }]
         },
         options: { responsive: true }
@@ -1056,11 +1264,13 @@ function updateZoneChart(zoneCounts) {
 }
 
 function updateBranchChart(branchCounts) {
-    const ctx = document.getElementById('branchChart');
-    if (!ctx) return;
+    const canvas = document.getElementById('branchChart');
+    if (!canvas) return;
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) existingChart.destroy();
+
     const sorted = Object.entries(branchCounts).sort((a,b) => b[1] - a[1]).slice(0,10);
-    if (window.branchChart) window.branchChart.destroy();
-    window.branchChart = new Chart(ctx, {
+    new Chart(canvas, {
         type: 'bar',
         data: {
             labels: sorted.map(item => item[0]),
@@ -1446,7 +1656,7 @@ function initializeRegistrationPage() {
         }
         try {
             const result = await apiRequest('registerMember', { data }, currentUser);
-            showSuccessModal(result.intizarId, result.recruitmentId, data.zone, data.branch);
+            showSuccessModal(data.fullName, result.intizarId, result.recruitmentId, data.zone, data.branch);
             e.target.reset();
             if (currentUser.role === 'Branch Mas\'ul') {
                 document.querySelector('select[name="branch"]').disabled = false;
@@ -1472,7 +1682,7 @@ function initializeRegistrationPage() {
         }
         try {
             const result = await apiRequest('registerMasul', { data }, currentUser);
-            showSuccessModal(result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
+            showSuccessModal(data.fullName, result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
             e.target.reset();
         } catch (err) {
             showMessage('Registration Failed', err.message);
@@ -1494,7 +1704,8 @@ function toggleRegistrationForm() {
     document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
 }
 
-function showSuccessModal(intizarId, recruitmentId, zone, branch) {
+function showSuccessModal(name, intizarId, recruitmentId, zone, branch) {
+    document.getElementById('generatedName').innerText = name;
     document.getElementById('generatedId').innerText = intizarId;
     document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
     document.getElementById('generatedZone').innerText = zone;
@@ -1515,6 +1726,77 @@ function setDOBLimits() {
     if (memberDob) memberDob.setAttribute('max', maxDateMember);
     if (masulDob) masulDob.setAttribute('max', maxDateMasul);
 }
+
+// ==================== EDIT FORM EVENT LISTENERS ====================
+document.addEventListener('DOMContentLoaded', function() {
+    // Edit Member form
+    document.getElementById('editMemberForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const intizarId = document.getElementById('editMemberIntizarId').value;
+        const data = {
+            fullName: document.getElementById('editMemberFullName').value,
+            fatherName: document.getElementById('editMemberFatherName').value,
+            gender: document.getElementById('editMemberGender').value,
+            dob: document.getElementById('editMemberDob').value,
+            placeOfBirth: document.getElementById('editMemberPlaceOfBirth').value,
+            phone: document.getElementById('editMemberPhone').value,
+            email: document.getElementById('editMemberEmail').value,
+            address: document.getElementById('editMemberAddress').value,
+            state: document.getElementById('editMemberState').value,
+            lga: document.getElementById('editMemberLga').value,
+            zone: document.getElementById('editMemberZone').value,
+            branch: document.getElementById('editMemberBranch').value,
+            year: document.getElementById('editMemberYear').value,
+            level: document.getElementById('editMemberLevel').value,
+            guardianName: document.getElementById('editMemberGuardianName').value,
+            guardianPhone: document.getElementById('editMemberGuardianPhone').value,
+            guardianAddress: document.getElementById('editMemberGuardianAddress').value
+        };
+        try {
+            await apiRequest('updateMember', { intizarId, data }, currentUser);
+            showMessage('Success', 'Member updated successfully');
+            closeEditMemberModal();
+            loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
+        } catch (err) {
+            showMessage('Error', err.message);
+        }
+    });
+
+    // Edit Masul form
+    document.getElementById('editMasulForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const intizarId = document.getElementById('editMasulIntizarId').value;
+        const data = {
+            fullName: document.getElementById('editMasulFullName').value,
+            fatherName: document.getElementById('editMasulFatherName').value,
+            gender: document.getElementById('editMasulGender').value,
+            dob: document.getElementById('editMasulDob').value,
+            placeOfBirth: document.getElementById('editMasulPlaceOfBirth').value,
+            phone: document.getElementById('editMasulPhone').value,
+            email: document.getElementById('editMasulEmail').value,
+            address: document.getElementById('editMasulAddress').value,
+            state: document.getElementById('editMasulState').value,
+            lga: document.getElementById('editMasulLga').value,
+            zone: document.getElementById('editMasulZone').value,
+            branch: document.getElementById('editMasulBranch').value,
+            year: document.getElementById('editMasulYear').value,
+            currentRank: document.getElementById('editMasulRank').value
+        };
+        try {
+            await apiRequest('updateMasul', { intizarId, data }, currentUser);
+            showMessage('Success', 'Mas\'ul updated successfully');
+            closeEditMasulModal();
+            loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
+        } catch (err) {
+            showMessage('Error', err.message);
+        }
+    });
+
+    // Gender change in edit masul modal
+    document.getElementById('editMasulGender')?.addEventListener('change', function() {
+        updateMasulRankOptions(this.value);
+    });
+});
 
 // ==================== CLOSE MODALS ====================
 document.querySelectorAll('.modal .close').forEach(span => {
