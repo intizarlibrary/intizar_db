@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuzXL4L5fP0s1N7uTg-cp8JZidkVVy6fXQncIvO83Cjfq3OEy4zNlmJEPeZcivQJMl/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyW23hG4KHqNzcVt4J65nJ2F6bz2mli_Ds036bAbpeJ-wY9AZz9G4D2c46rZlFSYNww/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -13,10 +13,12 @@ let currentMasulSearch = '';
 let currentMemberFilters = {};
 let currentMasulFilters = {};
 let branchZoneMap = {};
-
-// Store the last viewed member/masul data for printing
+let branchNameToCode = {};               // added for branch filter mapping
 let lastViewedMember = null;
 let lastViewedMasul = null;
+
+// Chart instances
+let levelChart, zoneChart, branchChart;  // added
 
 // ==================== SURAT AL-ASR TYPING ANIMATION (with Arabic numerals) ====================
 function typeSurahAsr() {
@@ -267,6 +269,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.target.closest('.modal').style.display = 'none';
             }
         };
+
+        // Add password toggle eye
+        const accessCodeInput = document.getElementById('accessCode');
+        if (accessCodeInput) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'password-wrapper';
+            accessCodeInput.parentNode.insertBefore(wrapper, accessCodeInput);
+            wrapper.appendChild(accessCodeInput);
+            const toggle = document.createElement('i');
+            toggle.className = 'fas fa-eye toggle-password';
+            toggle.addEventListener('click', () => {
+                const type = accessCodeInput.type === 'password' ? 'text' : 'password';
+                accessCodeInput.type = type;
+                toggle.classList.toggle('fa-eye');
+                toggle.classList.toggle('fa-eye-slash');
+            });
+            wrapper.appendChild(toggle);
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const role = document.getElementById('role').value;
@@ -535,10 +556,12 @@ function renderMemberListPagination() {
 }
 
 function applyMemberFilters() {
+    const branchName = document.getElementById('filterMemberBranch').value;
+    const branchCode = branchName ? branchNameToCode[branchName] : '';
     const filters = {
         level: document.getElementById('filterMemberLevel').value,
         gender: document.getElementById('filterMemberGender').value,
-        branch: document.getElementById('filterMemberBranch').value,
+        branch: branchCode,
         zone: document.getElementById('filterMemberZone').value
     };
     const search = document.getElementById('memberListSearch').value;
@@ -600,10 +623,12 @@ function renderMasulPagination() {
 }
 
 function applyMasulFilters() {
+    const branchName = document.getElementById('filterMasulBranch').value;
+    const branchCode = branchName ? branchNameToCode[branchName] : '';
     const filters = {
         rank: document.getElementById('filterMasulRank').value,
         gender: document.getElementById('filterMasulGender').value,
-        branch: document.getElementById('filterMasulBranch').value,
+        branch: branchCode,
         zone: document.getElementById('filterMasulZone').value
     };
     const search = document.getElementById('masulSearch').value;
@@ -618,77 +643,42 @@ function resetMasulFilters() {
     applyMasulFilters();
 }
 
-// ==================== VIEW MEMBER (with image fallback and Print button) ====================
+// ==================== SIMPLIFIED ID CARD BUILDER ====================
+function buildSimpleCard(person, type) {
+    const photoHtml = person.PhotoURL
+        ? `<img src="${person.PhotoURL}" alt="Photo" class="card-photo" onerror="tryAlternateImage(this, '${person.PhotoURL}')">`
+        : `<img src="logo.png" alt="Default" class="card-photo">`;
+
+    return `
+        <div class="id-card">
+            <div class="card-header">
+                <img src="logo.png" alt="Logo" class="card-logo">
+                <h2 class="arabic-title">إنتظار ٱلإمام المنتظر</h2>
+            </div>
+            <div class="card-body">
+                ${photoHtml}
+                <div class="card-details">
+                    <p><strong>Full Name:</strong> ${person.FullName}</p>
+                    <p><strong>Intizar ID:</strong> ${person.IntizarID}</p>
+                    <p><strong>Recruitment ID:</strong> ${type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID}</p>
+                    <p><strong>Zone:</strong> ${person.Zone}</p>
+                    <p><strong>Branch:</strong> ${person.Branch}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ==================== UPDATED VIEW MEMBER / MASUL ====================
 async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
-        const member = result.member;
-        lastViewedMember = member; // store for printing
-
-        let promotionList = '';
-        try {
-            const promHistory = JSON.parse(member.PromotionHistory || '[]');
-            if (promHistory.length) {
-                promotionList = '<ul>' + promHistory.map(entry => 
-                    `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.level}</li>`
-                ).join('') + '</ul>';
-            } else {
-                promotionList = '<p>No promotion history</p>';
-            }
-        } catch (e) {
-            promotionList = '<p>Error parsing history</p>';
-        }
-        let transferList = '';
-        try {
-            const transHistory = JSON.parse(member.TransferHistory || '[]');
-            if (transHistory.length) {
-                transferList = '<ul>' + transHistory.map(entry => 
-                    `<li>${new Date(entry.date).toLocaleDateString()}: from ${entry.fromBranch} to ${entry.toBranch}</li>`
-                ).join('') + '</ul>';
-            } else {
-                transferList = '<p>No transfer history</p>';
-            }
-        } catch (e) {
-            transferList = '<p>Error parsing transfers</p>';
-        }
-        const photoHtml = member.PhotoURL 
-            ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${member.PhotoURL}')">` 
-            : `<img src="logo.png" alt="Default" class="print-photo">`;
-
+        lastViewedMember = result.member;
         const content = document.getElementById('viewContent');
-        content.innerHTML = `
-            <div class="print-area">
-                <div class="print-header">
-                    <img src="logo.png" alt="Logo" style="height:60px;">
-                    <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
-                    <p>Member Biodata</p>
-                </div>
-                ${photoHtml}
-                <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
-                <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
-                <p><strong>Full Name:</strong> ${member.FullName}</p>
-                <p><strong>Father's Name:</strong> ${member.FatherName}</p>
-                <p><strong>Gender:</strong> ${member.Gender}</p>
-                <p><strong>Date of Birth:</strong> ${member.DOB}</p>
-                <p><strong>Place of Birth:</strong> ${member.PlaceOfBirth}</p>
-                <p><strong>Phone:</strong> ${member.Phone}</p>
-                <p><strong>Email:</strong> ${member.Email || '-'}</p>
-                <p><strong>Address:</strong> ${member.Address}</p>
-                <p><strong>State:</strong> ${member.State}</p>
-                <p><strong>LGA:</strong> ${member.LGA}</p>
-                <p><strong>Zone:</strong> ${member.Zone}</p>
-                <p><strong>Branch:</strong> ${member.Branch}</p>
-                <p><strong>Year:</strong> ${member.Year}</p>
-                <p><strong>Level:</strong> ${member.Level}</p>
-                <p><strong>Guardian Name:</strong> ${member.GuardianName}</p>
-                <p><strong>Guardian Phone:</strong> ${member.GuardianPhone}</p>
-                <p><strong>Guardian Address:</strong> ${member.GuardianAddress}</p>
-                <p><strong>Promotion History:</strong> ${promotionList}</p>
-                <p><strong>Transfer History:</strong> ${transferList}</p>
-                <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
-                <div style="text-align: center; margin-top: 20px;">
-                    <button onclick="printCurrentMember()" class="no-print">Print This Page</button>
-                </div>
+        content.innerHTML = buildSimpleCard(lastViewedMember, 'member') + `
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="printCurrentMember()" class="no-print">Print Card</button>
+                <button onclick="screenshotCurrentMember()" class="no-print">Screenshot</button>
             </div>
         `;
         showModal('viewModal');
@@ -697,62 +687,15 @@ async function viewMember(intizarId) {
     }
 }
 
-// ==================== VIEW MASUL (with image fallback and Print button) ====================
 async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
-        const masul = result.masul;
-        lastViewedMasul = masul; // store for printing
-
-        let promotionList = '';
-        try {
-            const promHistory = JSON.parse(masul.PromotionHistory || '[]');
-            if (promHistory.length) {
-                promotionList = '<ul>' + promHistory.map(entry => 
-                    `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.rank}</li>`
-                ).join('') + '</ul>';
-            } else {
-                promotionList = '<p>No promotion history</p>';
-            }
-        } catch (e) {
-            promotionList = '<p>Error parsing history</p>';
-        }
-        const photoHtml = masul.PhotoURL 
-            ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${masul.PhotoURL}')">` 
-            : `<img src="logo.png" alt="Default" class="print-photo">`;
-
+        lastViewedMasul = result.masul;
         const content = document.getElementById('viewContent');
-        content.innerHTML = `
-            <div class="print-area">
-                <div class="print-header">
-                    <img src="logo.png" alt="Logo" style="height:60px;">
-                    <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
-                    <p>Mas'ul Biodata</p>
-                </div>
-                ${photoHtml}
-                <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
-                <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
-                <p><strong>Full Name:</strong> ${masul.FullName}</p>
-                <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
-                <p><strong>Gender:</strong> ${masul.Gender}</p>
-                <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
-                <p><strong>Place of Birth:</strong> ${masul.PlaceOfBirth}</p>
-                <p><strong>Phone:</strong> ${masul.Phone}</p>
-                <p><strong>Email:</strong> ${masul.Email || '-'}</p>
-                <p><strong>Address:</strong> ${masul.Address}</p>
-                <p><strong>State:</strong> ${masul.State}</p>
-                <p><strong>LGA:</strong> ${masul.LGA}</p>
-                <p><strong>Zone:</strong> ${masul.Zone}</p>
-                <p><strong>Branch:</strong> ${masul.Branch}</p>
-                <p><strong>Year:</strong> ${masul.Year}</p>
-                <p><strong>Current Rank:</strong> ${masul.CurrentRank}</p>
-                <p><strong>Source:</strong> ${masul.Source}</p>
-                ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
-                <p><strong>Promotion History:</strong> ${promotionList}</p>
-                <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
-                <div style="text-align: center; margin-top: 20px;">
-                    <button onclick="printCurrentMasul()" class="no-print">Print This Page</button>
-                </div>
+        content.innerHTML = buildSimpleCard(lastViewedMasul, 'masul') + `
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="printCurrentMasul()" class="no-print">Print Card</button>
+                <button onclick="screenshotCurrentMasul()" class="no-print">Screenshot</button>
             </div>
         `;
         showModal('viewModal');
@@ -761,14 +704,64 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== PRINT FUNCTIONS (use stored data, open new window, wait for images) ====================
+// ==================== ENHANCED PRINT FUNCTIONS ====================
+function openPrintWindow(content, title) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        showMessage('Popup Blocked', 'Please allow popups to print.');
+        return;
+    }
+
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>${title}</title>
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; margin: 1cm; }
+                    .id-card { max-width: 400px; margin: auto; border: 2px solid #155B2F; border-radius: 10px; padding: 20px; background: white; }
+                    .card-header { text-align: center; margin-bottom: 15px; }
+                    .card-logo { height: 70px; }
+                    .arabic-title { font-size: 1.8rem; color: #155B2F; margin: 5px 0; direction: rtl; font-family: 'Amiri', serif; }
+                    .card-body { display: flex; gap: 20px; align-items: center; }
+                    .card-photo { width: 120px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid #C9A87C; }
+                    .card-details { flex: 1; }
+                    .card-details p { margin: 8px 0; }
+                    @media print { button { display: none; } body { margin: 0.5cm; } }
+                </style>
+                <script>
+                    function whenAllImagesLoaded(doc) {
+                        const images = Array.from(doc.images);
+                        if (images.length === 0) return Promise.resolve();
+                        return Promise.all(images.map(img => {
+                            if (img.complete) return Promise.resolve();
+                            return new Promise(resolve => {
+                                img.addEventListener('load', resolve);
+                                img.addEventListener('error', resolve);
+                            });
+                        }));
+                    }
+                    window.onload = function() {
+                        whenAllImagesLoaded(document).then(() => {
+                            window.print();
+                            window.onafterprint = function() { window.close(); };
+                        });
+                    };
+                <\/script>
+            </head>
+            <body>
+                <div class="id-card">${content}</div>
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
 function printCurrentMember() {
     if (!lastViewedMember) {
         showMessage('Error', 'No member data to print.');
         return;
     }
-    const printContent = buildMemberPrintHTML(lastViewedMember);
-    openPrintWindow(printContent, 'Member Biodata');
+    openPrintWindow(buildSimpleCard(lastViewedMember, 'member'), 'Member ID Card');
 }
 
 function printCurrentMasul() {
@@ -776,194 +769,45 @@ function printCurrentMasul() {
         showMessage('Error', 'No masul data to print.');
         return;
     }
-    const printContent = buildMasulPrintHTML(lastViewedMasul);
-    openPrintWindow(printContent, 'Mas\'ul Biodata');
+    openPrintWindow(buildSimpleCard(lastViewedMasul, 'masul'), 'Mas\'ul ID Card');
 }
 
-function openPrintWindow(content, title) {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html>
-            <head>
-                <title>${title}</title>
-                <link rel="stylesheet" href="style.css">
-                <style>
-                    @media print {
-                        body { margin: 1cm; }
-                        .print-header { text-align: center; }
-                        .print-photo { max-width: 150px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-                        button, .no-print { display: none; }
-                    }
-                </style>
-                <script>
-                    function tryAlternateImage(img, originalUrl) {
-                        var match = originalUrl.match(/[-\\w]{25,}/);
-                        if (match) {
-                            var fileId = match[0];
-                            img.src = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
-                            img.onerror = function() {
-                                img.src = 'logo.png';
-                                img.onerror = null;
-                            };
-                        } else {
-                            img.src = 'logo.png';
-                            img.onerror = null;
-                        }
-                    }
-                    window.onload = function() {
-                        var images = document.images;
-                        var loaded = 0;
-                        if (images.length === 0) {
-                            window.print();
-                            window.onafterprint = function() { window.close(); };
-                            return;
-                        }
-                        for (var i = 0; i < images.length; i++) {
-                            var img = images[i];
-                            if (img.complete) {
-                                loaded++;
-                            } else {
-                                img.addEventListener('load', function() {
-                                    loaded++;
-                                    if (loaded === images.length) {
-                                        window.print();
-                                        window.onafterprint = function() { window.close(); };
-                                    }
-                                });
-                                img.addEventListener('error', function() {
-                                    loaded++;
-                                    if (loaded === images.length) {
-                                        window.print();
-                                        window.onafterprint = function() { window.close(); };
-                                    }
-                                });
-                            }
-                        }
-                        if (loaded === images.length) {
-                            window.print();
-                            window.onafterprint = function() { window.close(); };
-                        }
-                    };
-                <\/script>
-            </head>
-            <body>
-                <div class="print-area">${content}</div>
-            </body>
-        </html>
-    `);
-    printWindow.document.close();
+// ==================== SCREENSHOT FUNCTIONS ====================
+function captureElement(element) {
+    html2canvas(element, { scale: 2 }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'member-card.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }).catch(err => {
+        showMessage('Error', 'Screenshot failed: ' + err.message);
+    });
 }
 
-// ==================== HELPERS FOR PRINT HTML ====================
-function buildMemberPrintHTML(member) {
-    let promotionList = '';
-    try {
-        const promHistory = JSON.parse(member.PromotionHistory || '[]');
-        if (promHistory.length) {
-            promotionList = '<ul>' + promHistory.map(entry => 
-                `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.level}</li>`
-            ).join('') + '</ul>';
-        } else {
-            promotionList = '<p>No promotion history</p>';
-        }
-    } catch (e) {
-        promotionList = '<p>Error parsing history</p>';
+function screenshotCurrentMember() {
+    if (!lastViewedMember) {
+        showMessage('Error', 'No member data to capture.');
+        return;
     }
-    let transferList = '';
-    try {
-        const transHistory = JSON.parse(member.TransferHistory || '[]');
-        if (transHistory.length) {
-            transferList = '<ul>' + transHistory.map(entry => 
-                `<li>${new Date(entry.date).toLocaleDateString()}: from ${entry.fromBranch} to ${entry.toBranch}</li>`
-            ).join('') + '</ul>';
-        } else {
-            transferList = '<p>No transfer history</p>';
-        }
-    } catch (e) {
-        transferList = '<p>Error parsing transfers</p>';
-    }
-    const photoHtml = member.PhotoURL 
-        ? `<img src="${member.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${member.PhotoURL}')">` 
-        : `<img src="logo.png" alt="Default" class="print-photo">`;
-
-    return `
-        <div class="print-header">
-            <img src="logo.png" alt="Logo" style="height:60px;">
-            <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
-            <p>Member Biodata</p>
-        </div>
-        ${photoHtml}
-        <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
-        <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
-        <p><strong>Full Name:</strong> ${member.FullName}</p>
-        <p><strong>Father's Name:</strong> ${member.FatherName}</p>
-        <p><strong>Gender:</strong> ${member.Gender}</p>
-        <p><strong>Date of Birth:</strong> ${member.DOB}</p>
-        <p><strong>Place of Birth:</strong> ${member.PlaceOfBirth}</p>
-        <p><strong>Phone:</strong> ${member.Phone}</p>
-        <p><strong>Email:</strong> ${member.Email || '-'}</p>
-        <p><strong>Address:</strong> ${member.Address}</p>
-        <p><strong>State:</strong> ${member.State}</p>
-        <p><strong>LGA:</strong> ${member.LGA}</p>
-        <p><strong>Zone:</strong> ${member.Zone}</p>
-        <p><strong>Branch:</strong> ${member.Branch}</p>
-        <p><strong>Year:</strong> ${member.Year}</p>
-        <p><strong>Level:</strong> ${member.Level}</p>
-        <p><strong>Guardian Name:</strong> ${member.GuardianName}</p>
-        <p><strong>Guardian Phone:</strong> ${member.GuardianPhone}</p>
-        <p><strong>Guardian Address:</strong> ${member.GuardianAddress}</p>
-        <p><strong>Promotion History:</strong> ${promotionList}</p>
-        <p><strong>Transfer History:</strong> ${transferList}</p>
-        <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
-    `;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = buildSimpleCard(lastViewedMember, 'member');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    document.body.appendChild(tempDiv);
+    captureElement(tempDiv).finally(() => document.body.removeChild(tempDiv));
 }
 
-function buildMasulPrintHTML(masul) {
-    let promotionList = '';
-    try {
-        const promHistory = JSON.parse(masul.PromotionHistory || '[]');
-        if (promHistory.length) {
-            promotionList = '<ul>' + promHistory.map(entry => 
-                `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.rank}</li>`
-            ).join('') + '</ul>';
-        } else {
-            promotionList = '<p>No promotion history</p>';
-        }
-    } catch (e) {
-        promotionList = '<p>Error parsing history</p>';
+function screenshotCurrentMasul() {
+    if (!lastViewedMasul) {
+        showMessage('Error', 'No masul data to capture.');
+        return;
     }
-    const photoHtml = masul.PhotoURL 
-        ? `<img src="${masul.PhotoURL}" alt="Passport" class="print-photo" onerror="tryAlternateImage(this, '${masul.PhotoURL}')">` 
-        : `<img src="logo.png" alt="Default" class="print-photo">`;
-
-    return `
-        <div class="print-header">
-            <img src="logo.png" alt="Logo" style="height:60px;">
-            <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
-            <p>Mas'ul Biodata</p>
-        </div>
-        ${photoHtml}
-        <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
-        <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
-        <p><strong>Full Name:</strong> ${masul.FullName}</p>
-        <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
-        <p><strong>Gender:</strong> ${masul.Gender}</p>
-        <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
-        <p><strong>Place of Birth:</strong> ${masul.PlaceOfBirth}</p>
-        <p><strong>Phone:</strong> ${masul.Phone}</p>
-        <p><strong>Email:</strong> ${masul.Email || '-'}</p>
-        <p><strong>Address:</strong> ${masul.Address}</p>
-        <p><strong>State:</strong> ${masul.State}</p>
-        <p><strong>LGA:</strong> ${masul.LGA}</p>
-        <p><strong>Zone:</strong> ${masul.Zone}</p>
-        <p><strong>Branch:</strong> ${masul.Branch}</p>
-        <p><strong>Year:</strong> ${masul.Year}</p>
-        <p><strong>Current Rank:</strong> ${masul.CurrentRank}</p>
-        <p><strong>Source:</strong> ${masul.Source}</p>
-        ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
-        <p><strong>Promotion History:</strong> ${promotionList}</p>
-        <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
-    `;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = buildSimpleCard(lastViewedMasul, 'masul');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    document.body.appendChild(tempDiv);
+    captureElement(tempDiv).finally(() => document.body.removeChild(tempDiv));
 }
 
 // ==================== IMAGE FALLBACK FUNCTION ====================
@@ -1148,11 +992,13 @@ async function loadZonesForDropdowns() {
         });
 
         branchZoneMap = {};
+        branchNameToCode = {}; // clear before rebuild
         for (let zone of zones) {
             const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
             branchRes.branches.forEach(b => {
                 if (b.status === 'Active') {
                     branchZoneMap[b.branchCode] = zone.zoneName;
+                    branchNameToCode[b.branchName] = b.branchCode;   // ← added
                 }
             });
         }
@@ -1416,6 +1262,16 @@ async function exportData(type) {
     }
 }
 
+// ==================== OPEN SPREADSHEET ====================
+async function openSpreadsheet() {
+    try {
+        const result = await apiRequest('getSpreadsheetUrl', {}, currentUser);
+        window.open(result.url, '_blank');
+    } catch (err) {
+        showMessage('Error', err.message);
+    }
+}
+
 // ==================== PROMOTIONS ====================
 async function promoteMember(intizarId) {
     if (!(await showConfirm('Confirm', 'Promote this member?'))) return;
@@ -1462,15 +1318,16 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== DASHBOARD STATS & CHARTS (with graceful error handling) ====================
+// ==================== DASHBOARD STATS & CHARTS ====================
 async function loadDashboardStats() {
-    const statsContainer = document.querySelector('.stats-grid');
     try {
         const result = await apiRequest('getDashboardStats', {}, currentUser);
-        const stats = result.stats;
+        const stats = result.stats || {};
+
+        // Update numeric stat cards
         const setText = (id, value) => {
             const el = document.getElementById(id);
-            if (el) el.innerText = value !== undefined && value !== null ? value : '0';
+            if (el) el.innerText = value !== undefined ? value : '0';
         };
         setText('statTotalCombined', stats.totalCombined);
         setText('statTotalMembers', stats.totalMembers);
@@ -1481,51 +1338,72 @@ async function loadDashboardStats() {
         setText('statSistersMembers', stats.sistersMembers);
         setText('statBrothersMasuls', stats.brothersMasuls);
         setText('statSistersMasuls', stats.sistersMasuls);
-        setText('statBakiyatullah', stats.levelCounts.Bakiyatullah);
-        setText('statAnsarullah', stats.levelCounts.Ansarullah);
-        setText('statGhalibun', stats.levelCounts.Ghalibun);
-        setText('statXGhalibun', stats.levelCounts['X-Ghalibun']);
-        updateMembersChart(stats.levelCounts);
-        const errorMsg = document.getElementById('statsError');
-        if (errorMsg) errorMsg.remove();
+        setText('statBakiyatullah', stats.levelCounts?.Bakiyatullah);
+        setText('statAnsarullah', stats.levelCounts?.Ansarullah);
+        setText('statGhalibun', stats.levelCounts?.Ghalibun);
+        setText('statXGhalibun', stats.levelCounts?.['X-Ghalibun']);
+
+        // Update three charts
+        updateLevelChart(stats.levelCounts || {});
+        updateZoneChart(stats.zoneCounts || {});
+        updateBranchChart(stats.branchCounts || {});
     } catch (err) {
         console.error('Failed to load stats', err);
-        let errorDiv = document.getElementById('statsError');
-        if (!errorDiv) {
-            errorDiv = document.createElement('div');
-            errorDiv.id = 'statsError';
-            errorDiv.style.color = 'red';
-            errorDiv.style.textAlign = 'center';
-            errorDiv.style.margin = '1rem 0';
-            statsContainer.parentNode.insertBefore(errorDiv, statsContainer.nextSibling);
-        }
-        errorDiv.innerText = 'Failed to load statistics. Please refresh or try again later.';
+        showMessage('Error', 'Could not load dashboard statistics.');
     }
 }
 
-function updateMembersChart(levelCounts) {
-    const canvas = document.getElementById('membersChart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (window.membersChart) window.membersChart.destroy();
-    // Only create chart if there is data
-    const labels = Object.keys(levelCounts);
-    const data = Object.values(levelCounts);
-    if (labels.length === 0 || data.every(v => v === 0)) {
-        console.log('No data for members chart');
-        return;
-    }
-    window.membersChart = new Chart(ctx, {
+function updateLevelChart(levelCounts) {
+    const ctx = document.getElementById('levelChart');
+    if (!ctx) return;
+    if (window.levelChart) window.levelChart.destroy();
+    window.levelChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
+            labels: Object.keys(levelCounts),
             datasets: [{
-                label: 'Number of Members',
-                data: data,
-                backgroundColor: ['#556B2F', '#C9A87C', '#556B2F', '#000000']
+                label: 'Members',
+                data: Object.values(levelCounts),
+                backgroundColor: '#556B2F'
             }]
         },
         options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+}
+
+function updateZoneChart(zoneCounts) {
+    const ctx = document.getElementById('zoneChart');
+    if (!ctx) return;
+    if (window.zoneChart) window.zoneChart.destroy();
+    window.zoneChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(zoneCounts),
+            datasets: [{
+                data: Object.values(zoneCounts),
+                backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
+            }]
+        },
+        options: { responsive: true }
+    });
+}
+
+function updateBranchChart(branchCounts) {
+    const ctx = document.getElementById('branchChart');
+    if (!ctx) return;
+    const sorted = Object.entries(branchCounts).sort((a,b) => b[1] - a[1]).slice(0,10);
+    if (window.branchChart) window.branchChart.destroy();
+    window.branchChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(item => item[0]),
+            datasets: [{
+                label: 'Members',
+                data: sorted.map(item => item[1]),
+                backgroundColor: '#C9A87C'
+            }]
+        },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } } }
     });
 }
 
