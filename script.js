@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyW23hG4KHqNzcVt4J65nJ2F6bz2mli_Ds036bAbpeJ-wY9AZz9G4D2c46rZlFSYNww/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbydj-MJDeyr5Dn7RLBfIdqQaZWI1hPqyZpQSlqWLreMX-3UrG8Zr7vTLOf59PoXVc91/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -13,18 +13,25 @@ let currentMasulSearch = '';
 let currentMemberFilters = {};
 let currentMasulFilters = {};
 let branchZoneMap = {};
-let branchNameToCode = {};               // added for branch filter mapping
+let branchNameToCode = {};   // map branch name -> branch code
+let levelChart, zoneChart, branchChart;   // chart instances
 let lastViewedMember = null;
 let lastViewedMasul = null;
 
-// Chart instances
-let levelChart, zoneChart, branchChart;  // added
+// ==================== HELPER: Get Thumbnail URL from PhotoURL ====================
+function getThumbnailUrl(photoUrl) {
+    if (!photoUrl) return 'logo.png';
+    const match = photoUrl.match(/[-\w]{25,}/);
+    if (match) {
+        return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1000`;
+    }
+    return photoUrl; // fallback to original if no file ID found
+}
 
-// ==================== SURAT AL-ASR TYPING ANIMATION (with Arabic numerals) ====================
+// ==================== SURAH PRELOADER (unchanged) ====================
 function typeSurahAsr() {
     const surahElement = document.getElementById('surahText');
     if (!surahElement) return;
-    // Arabic text with Arabic-Indic numerals (١, ٢, ٣)
     const fullText = "وَٱلْعَصْرِ (١) إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ (٢) إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ (٣)";
     let index = 0;
     surahElement.innerHTML = '';
@@ -228,6 +235,50 @@ document.addEventListener('DOMContentLoaded', () => {
             position: sticky;
             top: 0;
         }
+        /* ID Card styles */
+        .id-card {
+            max-width: 500px;
+            margin: auto;
+            border: 3px solid #155B2F;
+            border-radius: 12px;
+            padding: 20px;
+            background: white;
+        }
+        .card-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .card-logo {
+            height: 70px;
+        }
+        .arabic-title {
+            font-size: 2rem;
+            color: #155B2F;
+            margin: 5px 0;
+            direction: rtl;
+            font-family: 'Amiri', serif;
+        }
+        .card-body {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .card-photo {
+            width: 130px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #C9A87C;
+        }
+        .card-details {
+            flex: 1;
+            min-width: 200px;
+        }
+        .card-details p {
+            margin: 8px 0;
+            font-size: 1rem;
+        }
     `;
     document.head.appendChild(style);
 
@@ -269,25 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.target.closest('.modal').style.display = 'none';
             }
         };
-
-        // Add password toggle eye
-        const accessCodeInput = document.getElementById('accessCode');
-        if (accessCodeInput) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'password-wrapper';
-            accessCodeInput.parentNode.insertBefore(wrapper, accessCodeInput);
-            wrapper.appendChild(accessCodeInput);
-            const toggle = document.createElement('i');
-            toggle.className = 'fas fa-eye toggle-password';
-            toggle.addEventListener('click', () => {
-                const type = accessCodeInput.type === 'password' ? 'text' : 'password';
-                accessCodeInput.type = type;
-                toggle.classList.toggle('fa-eye');
-                toggle.classList.toggle('fa-eye-slash');
-            });
-            wrapper.appendChild(toggle);
-        }
-
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const role = document.getElementById('role').value;
@@ -340,10 +372,10 @@ async function initializeDashboard() {
     setupNavigation();
     applyRoleBasedVisibility();
     showSection('membersSection');
-    await loadDashboardStats();
+    await loadDashboardStats();          // loads charts as well
     await loadMemberList(1, '');
     await loadFilterOptions();
-    loadZonesForDropdowns();
+    loadZonesForDropdowns();             // populates branchNameToCode
 
     const memberListSearch = document.getElementById('memberListSearch');
     if (memberListSearch) {
@@ -357,15 +389,7 @@ async function initializeDashboard() {
 
 function applyRoleBasedVisibility() {
     const role = currentUser.role;
-    const zoneChartSection = document.getElementById('zoneStatsSection');
-    const branchChartSection = document.getElementById('branchStatsSection');
-    if (role === 'Branch Mas\'ul') {
-        if (zoneChartSection) zoneChartSection.style.display = 'none';
-        if (branchChartSection) branchChartSection.style.display = 'none';
-    } else {
-        if (zoneChartSection) zoneChartSection.style.display = 'block';
-        if (branchChartSection) branchChartSection.style.display = 'block';
-    }
+    // Admin sees everything; others may see certain stats
 }
 
 function setupNavigation() {
@@ -430,29 +454,12 @@ function setupNavigation() {
             showSection('exportSection');
         });
     }
-    const navZoneStats = document.getElementById('navZoneStats');
-    if (navZoneStats) {
-        navZoneStats.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('zoneStatsSection');
-            loadZoneStats();
-        });
-    }
-    const navBranchStats = document.getElementById('navBranchStats');
-    if (navBranchStats) {
-        navBranchStats.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('branchStatsSection');
-            loadBranchStats();
-        });
-    }
 }
 
 function showSection(sectionId) {
     const sections = [
         'membersSection', 'memberListSection', 'masulSection', 'zonesSection',
-        'branchesSection', 'auditSection', 'configSection', 'exportSection',
-        'zoneStatsSection', 'branchStatsSection'
+        'branchesSection', 'auditSection', 'configSection', 'exportSection'
     ];
     sections.forEach(id => {
         const el = document.getElementById(id);
@@ -469,9 +476,7 @@ function showSection(sectionId) {
         branchesSection: 'navBranches',
         auditSection: 'navAudit',
         configSection: 'navConfig',
-        exportSection: 'navExport',
-        zoneStatsSection: 'navZoneStats',
-        branchStatsSection: 'navBranchStats'
+        exportSection: 'navExport'
     };
     const navId = navMap[sectionId];
     if (navId) {
@@ -538,7 +543,6 @@ function renderMemberListTable(members) {
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMember('${member.IntizarID}')">👁 View</button>
-            <button onclick="viewMember('${member.IntizarID}')">🖨 Print</button>
             ${currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul' ? `<button onclick="promoteMember('${member.IntizarID}')">⭐ Promote</button>` : ''}
             ${currentUser.role === 'Admin' ? `<button onclick="transferMember('${member.IntizarID}')">↗ Transfer</button>` : ''}
         `;
@@ -605,7 +609,6 @@ function renderMasulTable(masuls) {
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMasul('${masul.IntizarID}')">👁 View</button>
-            <button onclick="viewMasul('${masul.IntizarID}')">🖨 Print</button>
             <button onclick="promoteMasul('${masul.IntizarID}')">⭐ Promote</button>
             <button onclick="transferMasul('${masul.IntizarID}')">↗ Transfer</button>
         `;
@@ -643,11 +646,12 @@ function resetMasulFilters() {
     applyMasulFilters();
 }
 
-// ==================== SIMPLIFIED ID CARD BUILDER ====================
+// ==================== SIMPLIFIED ID CARD BUILDER (for print/screenshot) ====================
 function buildSimpleCard(person, type) {
-    const photoHtml = person.PhotoURL
-        ? `<img src="${person.PhotoURL}" alt="Photo" class="card-photo" onerror="tryAlternateImage(this, '${person.PhotoURL}')">`
-        : `<img src="logo.png" alt="Default" class="card-photo">`;
+    const imgSrc = getThumbnailUrl(person.PhotoURL) || 'logo.png';
+    const photoHtml = `<img src="${imgSrc}" alt="Photo" class="card-photo" onerror="this.src='logo.png'; this.onerror=null;">`;
+
+    const idField = type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID;
 
     return `
         <div class="id-card">
@@ -660,25 +664,87 @@ function buildSimpleCard(person, type) {
                 <div class="card-details">
                     <p><strong>Full Name:</strong> ${person.FullName}</p>
                     <p><strong>Intizar ID:</strong> ${person.IntizarID}</p>
-                    <p><strong>Recruitment ID:</strong> ${type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID}</p>
+                    <p><strong>Recruitment ID:</strong> ${idField}</p>
                     <p><strong>Zone:</strong> ${person.Zone}</p>
                     <p><strong>Branch:</strong> ${person.Branch}</p>
+                    <p><strong>Type:</strong> ${type === 'member' ? 'Member' : 'Mas\'ul'}</p>
                 </div>
             </div>
         </div>
     `;
 }
 
-// ==================== UPDATED VIEW MEMBER / MASUL ====================
+// ==================== VIEW MEMBER (full details) ====================
 async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
-        lastViewedMember = result.member;
+        const member = result.member;
+        lastViewedMember = member;
+
+        let promotionList = '';
+        try {
+            const promHistory = JSON.parse(member.PromotionHistory || '[]');
+            if (promHistory.length) {
+                promotionList = '<ul>' + promHistory.map(entry => 
+                    `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.level}</li>`
+                ).join('') + '</ul>';
+            } else {
+                promotionList = '<p>No promotion history</p>';
+            }
+        } catch (e) {
+            promotionList = '<p>Error parsing history</p>';
+        }
+        let transferList = '';
+        try {
+            const transHistory = JSON.parse(member.TransferHistory || '[]');
+            if (transHistory.length) {
+                transferList = '<ul>' + transHistory.map(entry => 
+                    `<li>${new Date(entry.date).toLocaleDateString()}: from ${entry.fromBranch} to ${entry.toBranch}</li>`
+                ).join('') + '</ul>';
+            } else {
+                transferList = '<p>No transfer history</p>';
+            }
+        } catch (e) {
+            transferList = '<p>Error parsing transfers</p>';
+        }
+        const imgSrc = getThumbnailUrl(member.PhotoURL) || 'logo.png';
+        const photoHtml = `<img src="${imgSrc}" alt="Passport" style="max-width:150px; border-radius:8px;" onerror="this.src='logo.png'; this.onerror=null;">`;
+
         const content = document.getElementById('viewContent');
-        content.innerHTML = buildSimpleCard(lastViewedMember, 'member') + `
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="printCurrentMember()" class="no-print">Print Card</button>
-                <button onclick="screenshotCurrentMember()" class="no-print">Screenshot</button>
+        content.innerHTML = `
+            <div class="print-area">
+                <div class="print-header">
+                    <img src="logo.png" alt="Logo" style="height:60px;">
+                    <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+                    <p>Member Biodata</p>
+                </div>
+                ${photoHtml}
+                <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
+                <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
+                <p><strong>Full Name:</strong> ${member.FullName}</p>
+                <p><strong>Father's Name:</strong> ${member.FatherName}</p>
+                <p><strong>Gender:</strong> ${member.Gender}</p>
+                <p><strong>Date of Birth:</strong> ${member.DOB}</p>
+                <p><strong>Place of Birth:</strong> ${member.PlaceOfBirth}</p>
+                <p><strong>Phone:</strong> ${member.Phone}</p>
+                <p><strong>Email:</strong> ${member.Email || '-'}</p>
+                <p><strong>Address:</strong> ${member.Address}</p>
+                <p><strong>State:</strong> ${member.State}</p>
+                <p><strong>LGA:</strong> ${member.LGA}</p>
+                <p><strong>Zone:</strong> ${member.Zone}</p>
+                <p><strong>Branch:</strong> ${member.Branch}</p>
+                <p><strong>Year:</strong> ${member.Year}</p>
+                <p><strong>Level:</strong> ${member.Level}</p>
+                <p><strong>Guardian Name:</strong> ${member.GuardianName}</p>
+                <p><strong>Guardian Phone:</strong> ${member.GuardianPhone}</p>
+                <p><strong>Guardian Address:</strong> ${member.GuardianAddress}</p>
+                <p><strong>Promotion History:</strong> ${promotionList}</p>
+                <p><strong>Transfer History:</strong> ${transferList}</p>
+                <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="printCurrentMember()" class="no-print">Print ID Card</button>
+                    <button onclick="screenshotCurrentMember()" class="no-print">Screenshot</button>
+                </div>
             </div>
         `;
         showModal('viewModal');
@@ -687,15 +753,62 @@ async function viewMember(intizarId) {
     }
 }
 
+// ==================== VIEW MASUL (full details) ====================
 async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
-        lastViewedMasul = result.masul;
+        const masul = result.masul;
+        lastViewedMasul = masul;
+
+        let promotionList = '';
+        try {
+            const promHistory = JSON.parse(masul.PromotionHistory || '[]');
+            if (promHistory.length) {
+                promotionList = '<ul>' + promHistory.map(entry => 
+                    `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.rank}</li>`
+                ).join('') + '</ul>';
+            } else {
+                promotionList = '<p>No promotion history</p>';
+            }
+        } catch (e) {
+            promotionList = '<p>Error parsing history</p>';
+        }
+        const imgSrc = getThumbnailUrl(masul.PhotoURL) || 'logo.png';
+        const photoHtml = `<img src="${imgSrc}" alt="Passport" style="max-width:150px; border-radius:8px;" onerror="this.src='logo.png'; this.onerror=null;">`;
+
         const content = document.getElementById('viewContent');
-        content.innerHTML = buildSimpleCard(lastViewedMasul, 'masul') + `
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="printCurrentMasul()" class="no-print">Print Card</button>
-                <button onclick="screenshotCurrentMasul()" class="no-print">Screenshot</button>
+        content.innerHTML = `
+            <div class="print-area">
+                <div class="print-header">
+                    <img src="logo.png" alt="Logo" style="height:60px;">
+                    <h2>INTIZARUL IMAMUL MUNTAZAR</h2>
+                    <p>Mas'ul Biodata</p>
+                </div>
+                ${photoHtml}
+                <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
+                <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
+                <p><strong>Full Name:</strong> ${masul.FullName}</p>
+                <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
+                <p><strong>Gender:</strong> ${masul.Gender}</p>
+                <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
+                <p><strong>Place of Birth:</strong> ${masul.PlaceOfBirth}</p>
+                <p><strong>Phone:</strong> ${masul.Phone}</p>
+                <p><strong>Email:</strong> ${masul.Email || '-'}</p>
+                <p><strong>Address:</strong> ${masul.Address}</p>
+                <p><strong>State:</strong> ${masul.State}</p>
+                <p><strong>LGA:</strong> ${masul.LGA}</p>
+                <p><strong>Zone:</strong> ${masul.Zone}</p>
+                <p><strong>Branch:</strong> ${masul.Branch}</p>
+                <p><strong>Year:</strong> ${masul.Year}</p>
+                <p><strong>Current Rank:</strong> ${masul.CurrentRank}</p>
+                <p><strong>Source:</strong> ${masul.Source}</p>
+                ${masul.OriginalMemberRecruitmentID ? `<p><strong>Original Member Recruitment ID:</strong> ${masul.OriginalMemberRecruitmentID}</p>` : ''}
+                <p><strong>Promotion History:</strong> ${promotionList}</p>
+                <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="printCurrentMasul()" class="no-print">Print ID Card</button>
+                    <button onclick="screenshotCurrentMasul()" class="no-print">Screenshot</button>
+                </div>
             </div>
         `;
         showModal('viewModal');
@@ -704,7 +817,7 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== ENHANCED PRINT FUNCTIONS ====================
+// ==================== PRINT FUNCTIONS (simplified card) ====================
 function openPrintWindow(content, title) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -726,7 +839,10 @@ function openPrintWindow(content, title) {
                     .card-photo { width: 120px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid #C9A87C; }
                     .card-details { flex: 1; }
                     .card-details p { margin: 8px 0; }
-                    @media print { button { display: none; } body { margin: 0.5cm; } }
+                    @media print {
+                        button { display: none; }
+                        body { margin: 0.5cm; }
+                    }
                 </style>
                 <script>
                     function whenAllImagesLoaded(doc) {
@@ -736,7 +852,7 @@ function openPrintWindow(content, title) {
                             if (img.complete) return Promise.resolve();
                             return new Promise(resolve => {
                                 img.addEventListener('load', resolve);
-                                img.addEventListener('error', resolve);
+                                img.addEventListener('error', resolve); // resolve even on error
                             });
                         }));
                     }
@@ -761,7 +877,8 @@ function printCurrentMember() {
         showMessage('Error', 'No member data to print.');
         return;
     }
-    openPrintWindow(buildSimpleCard(lastViewedMember, 'member'), 'Member ID Card');
+    const content = buildSimpleCard(lastViewedMember, 'member');
+    openPrintWindow(content, 'Member ID Card');
 }
 
 function printCurrentMasul() {
@@ -769,7 +886,8 @@ function printCurrentMasul() {
         showMessage('Error', 'No masul data to print.');
         return;
     }
-    openPrintWindow(buildSimpleCard(lastViewedMasul, 'masul'), 'Mas\'ul ID Card');
+    const content = buildSimpleCard(lastViewedMasul, 'masul');
+    openPrintWindow(content, 'Mas\'ul ID Card');
 }
 
 // ==================== SCREENSHOT FUNCTIONS ====================
@@ -810,173 +928,6 @@ function screenshotCurrentMasul() {
     captureElement(tempDiv).finally(() => document.body.removeChild(tempDiv));
 }
 
-// ==================== IMAGE FALLBACK FUNCTION ====================
-function tryAlternateImage(img, originalUrl) {
-    const match = originalUrl.match(/[-\w]{25,}/);
-    if (match) {
-        const fileId = match[0];
-        img.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
-        img.onerror = () => {
-            img.src = 'logo.png';
-            img.onerror = null;
-        };
-    } else {
-        img.src = 'logo.png';
-        img.onerror = null;
-    }
-}
-
-// ==================== REGISTRATION PAGE ====================
-function initializeRegistrationPage() {
-    if (!currentUser) return;
-
-    if (currentUser.role !== 'Admin') {
-        document.querySelector('.role-selector').style.display = 'none';
-        document.getElementById('masulFormContainer').style.display = 'none';
-        document.getElementById('memberFormContainer').style.display = 'block';
-    } else {
-        document.getElementById('memberFormContainer').style.display = 'block';
-        document.getElementById('masulFormContainer').style.display = 'none';
-    }
-
-    loadZonesForDropdowns();
-    setDOBLimits();
-
-    const masulGender = document.getElementById('masulGender');
-    if (masulGender) {
-        masulGender.addEventListener('change', function() {
-            const gender = this.value;
-            const rankSelect = document.getElementById('masulRank');
-            const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
-            const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
-            rankSelect.innerHTML = '<option value="">Select Rank</option>';
-            if (gender === 'Brother') {
-                brotherRanks.forEach(rank => {
-                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
-                });
-            } else if (gender === 'Sister') {
-                sisterRanks.forEach(rank => {
-                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
-                });
-            }
-        });
-    }
-
-    if (currentUser.role === 'Branch Mas\'ul') {
-        const branchField = document.querySelector('select[name="branch"]');
-        const zoneField = document.querySelector('select[name="zone"]');
-        if (branchField && zoneField) {
-            setTimeout(() => {
-                const branchCode = currentUser.branchCode;
-                const zoneName = branchZoneMap[branchCode];
-                if (zoneName) {
-                    for (let opt of zoneField.options) {
-                        if (opt.value === zoneName) {
-                            opt.selected = true;
-                            zoneField.disabled = true;
-                            break;
-                        }
-                    }
-                    zoneField.dispatchEvent(new Event('change'));
-                    setTimeout(() => {
-                        for (let opt of branchField.options) {
-                            if (opt.value === branchCode) {
-                                opt.selected = true;
-                                branchField.disabled = true;
-                                break;
-                            }
-                        }
-                    }, 500);
-                }
-            }, 1000);
-        }
-    }
-
-    document.getElementById('memberForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData.entries());
-        const photoFile = formData.get('photo');
-        if (photoFile && photoFile.size > 0) {
-            if (photoFile.size > 2 * 1024 * 1024) {
-                showMessage('File Too Large', 'File size must be less than 2 MB');
-                return;
-            }
-            data.photoBase64 = await fileToBase64(photoFile);
-            data.photoName = photoFile.name;
-        }
-        try {
-            const result = await apiRequest('registerMember', { data }, currentUser);
-            showSuccessModal(result.intizarId, result.recruitmentId, data.zone, data.branch);
-            e.target.reset();
-            if (currentUser.role === 'Branch Mas\'ul') {
-                document.querySelector('select[name="branch"]').disabled = false;
-                document.querySelector('select[name="zone"]').disabled = false;
-            }
-        } catch (err) {
-            showMessage('Registration Failed', err.message);
-        }
-    });
-
-    document.getElementById('masulForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData.entries());
-        const photoFile = formData.get('photo');
-        if (photoFile && photoFile.size > 0) {
-            if (photoFile.size > 2 * 1024 * 1024) {
-                showMessage('File Too Large', 'File size must be less than 2 MB');
-                return;
-            }
-            data.photoBase64 = await fileToBase64(photoFile);
-            data.photoName = photoFile.name;
-        }
-        try {
-            const result = await apiRequest('registerMasul', { data }, currentUser);
-            showSuccessModal(result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
-            e.target.reset();
-        } catch (err) {
-            showMessage('Registration Failed', err.message);
-        }
-    });
-
-    document.getElementById('source').addEventListener('change', function() {
-        const field = document.getElementById('intizarIdField');
-        field.style.display = this.value === 'xghalibun' ? 'block' : 'none';
-        if (this.value !== 'xghalibun') {
-            document.querySelector('input[name="intizarId"]').value = '';
-        }
-    });
-}
-
-function toggleRegistrationForm() {
-    const role = document.getElementById('roleSelector').value;
-    document.getElementById('memberFormContainer').style.display = role === 'member' ? 'block' : 'none';
-    document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
-}
-
-function showSuccessModal(intizarId, recruitmentId, zone, branch) {
-    document.getElementById('generatedId').innerText = intizarId;
-    document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
-    document.getElementById('generatedZone').innerText = zone;
-    document.getElementById('generatedBranch').innerText = branch;
-    document.getElementById('successModal').style.display = 'block';
-}
-
-function closeSuccessModal() {
-    document.getElementById('successModal').style.display = 'none';
-}
-
-function setDOBLimits() {
-    const today = new Date();
-    const maxDateMember = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate()).toISOString().split('T')[0];
-    const maxDateMasul = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()).toISOString().split('T')[0];
-    const memberDob = document.getElementById('memberDob');
-    const masulDob = document.getElementById('masulDob');
-    if (memberDob) memberDob.setAttribute('max', maxDateMember);
-    if (masulDob) masulDob.setAttribute('max', maxDateMasul);
-}
-
 // ==================== ZONE/BRANCH DROPDOWNS ====================
 async function loadZonesForDropdowns() {
     try {
@@ -992,13 +943,13 @@ async function loadZonesForDropdowns() {
         });
 
         branchZoneMap = {};
-        branchNameToCode = {}; // clear before rebuild
+        branchNameToCode = {};
         for (let zone of zones) {
             const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
             branchRes.branches.forEach(b => {
                 if (b.status === 'Active') {
                     branchZoneMap[b.branchCode] = zone.zoneName;
-                    branchNameToCode[b.branchName] = b.branchCode;   // ← added
+                    branchNameToCode[b.branchName] = b.branchCode;
                 }
             });
         }
@@ -1024,6 +975,112 @@ async function loadZonesForDropdowns() {
         });
     } catch (err) {
         console.error(err);
+    }
+}
+
+// ==================== DASHBOARD STATS & CHARTS ====================
+async function loadDashboardStats() {
+    const statsError = document.getElementById('statsError');
+    try {
+        const result = await apiRequest('getDashboardStats', {}, currentUser);
+        const stats = result.stats;
+
+        // Update numeric stats
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value !== undefined && value !== null ? value : '0';
+        };
+        setText('statTotalCombined', stats.totalCombined);
+        setText('statTotalMembers', stats.totalMembers);
+        setText('statTotalMasuls', stats.totalMasuls);
+        setText('statBrothers', stats.brothers);
+        setText('statSisters', stats.sisters);
+        setText('statBrothersMembers', stats.brothersMembers);
+        setText('statSistersMembers', stats.sistersMembers);
+        setText('statBrothersMasuls', stats.brothersMasuls);
+        setText('statSistersMasuls', stats.sistersMasuls);
+        setText('statBakiyatullah', stats.levelCounts.Bakiyatullah);
+        setText('statAnsarullah', stats.levelCounts.Ansarullah);
+        setText('statGhalibun', stats.levelCounts.Ghalibun);
+        setText('statXGhalibun', stats.levelCounts['X-Ghalibun']);
+
+        // Update charts
+        updateLevelChart(stats.levelCounts);
+        updateZoneChart(stats.zoneCounts);
+        updateBranchChart(stats.branchCounts);
+
+        // Hide error if previously shown
+        if (statsError) statsError.style.display = 'none';
+    } catch (err) {
+        console.error('Failed to load stats', err);
+        if (statsError) {
+            statsError.innerText = 'Failed to load statistics. Please refresh or try again later.';
+            statsError.style.display = 'block';
+        }
+    }
+}
+
+function updateLevelChart(levelCounts) {
+    const ctx = document.getElementById('levelChart');
+    if (!ctx) return;
+    if (window.levelChart) window.levelChart.destroy();
+    window.levelChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(levelCounts),
+            datasets: [{
+                label: 'Members',
+                data: Object.values(levelCounts),
+                backgroundColor: '#556B2F'
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+}
+
+function updateZoneChart(zoneCounts) {
+    const ctx = document.getElementById('zoneChart');
+    if (!ctx) return;
+    if (window.zoneChart) window.zoneChart.destroy();
+    window.zoneChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(zoneCounts),
+            datasets: [{
+                data: Object.values(zoneCounts),
+                backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
+            }]
+        },
+        options: { responsive: true }
+    });
+}
+
+function updateBranchChart(branchCounts) {
+    const ctx = document.getElementById('branchChart');
+    if (!ctx) return;
+    const sorted = Object.entries(branchCounts).sort((a,b) => b[1] - a[1]).slice(0,10);
+    if (window.branchChart) window.branchChart.destroy();
+    window.branchChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(item => item[0]),
+            datasets: [{
+                label: 'Members',
+                data: sorted.map(item => item[1]),
+                backgroundColor: '#C9A87C'
+            }]
+        },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } } }
+    });
+}
+
+// ==================== OPEN SPREADSHEET ====================
+async function openSpreadsheet() {
+    try {
+        const result = await apiRequest('getSpreadsheetUrl', {}, currentUser);
+        window.open(result.url, '_blank');
+    } catch (err) {
+        showMessage('Error', err.message);
     }
 }
 
@@ -1262,16 +1319,6 @@ async function exportData(type) {
     }
 }
 
-// ==================== OPEN SPREADSHEET ====================
-async function openSpreadsheet() {
-    try {
-        const result = await apiRequest('getSpreadsheetUrl', {}, currentUser);
-        window.open(result.url, '_blank');
-    } catch (err) {
-        showMessage('Error', err.message);
-    }
-}
-
 // ==================== PROMOTIONS ====================
 async function promoteMember(intizarId) {
     if (!(await showConfirm('Confirm', 'Promote this member?'))) return;
@@ -1318,176 +1365,155 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== DASHBOARD STATS & CHARTS ====================
-async function loadDashboardStats() {
-    try {
-        const result = await apiRequest('getDashboardStats', {}, currentUser);
-        const stats = result.stats || {};
+// ==================== REGISTRATION PAGE ====================
+function initializeRegistrationPage() {
+    if (!currentUser) return;
 
-        // Update numeric stat cards
-        const setText = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.innerText = value !== undefined ? value : '0';
-        };
-        setText('statTotalCombined', stats.totalCombined);
-        setText('statTotalMembers', stats.totalMembers);
-        setText('statTotalMasuls', stats.totalMasuls);
-        setText('statBrothers', stats.brothers);
-        setText('statSisters', stats.sisters);
-        setText('statBrothersMembers', stats.brothersMembers);
-        setText('statSistersMembers', stats.sistersMembers);
-        setText('statBrothersMasuls', stats.brothersMasuls);
-        setText('statSistersMasuls', stats.sistersMasuls);
-        setText('statBakiyatullah', stats.levelCounts?.Bakiyatullah);
-        setText('statAnsarullah', stats.levelCounts?.Ansarullah);
-        setText('statGhalibun', stats.levelCounts?.Ghalibun);
-        setText('statXGhalibun', stats.levelCounts?.['X-Ghalibun']);
-
-        // Update three charts
-        updateLevelChart(stats.levelCounts || {});
-        updateZoneChart(stats.zoneCounts || {});
-        updateBranchChart(stats.branchCounts || {});
-    } catch (err) {
-        console.error('Failed to load stats', err);
-        showMessage('Error', 'Could not load dashboard statistics.');
+    if (currentUser.role !== 'Admin') {
+        document.querySelector('.role-selector').style.display = 'none';
+        document.getElementById('masulFormContainer').style.display = 'none';
+        document.getElementById('memberFormContainer').style.display = 'block';
+    } else {
+        document.getElementById('memberFormContainer').style.display = 'block';
+        document.getElementById('masulFormContainer').style.display = 'none';
     }
-}
 
-function updateLevelChart(levelCounts) {
-    const ctx = document.getElementById('levelChart');
-    if (!ctx) return;
-    if (window.levelChart) window.levelChart.destroy();
-    window.levelChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(levelCounts),
-            datasets: [{
-                label: 'Members',
-                data: Object.values(levelCounts),
-                backgroundColor: '#556B2F'
-            }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } } }
-    });
-}
+    loadZonesForDropdowns();
+    setDOBLimits();
 
-function updateZoneChart(zoneCounts) {
-    const ctx = document.getElementById('zoneChart');
-    if (!ctx) return;
-    if (window.zoneChart) window.zoneChart.destroy();
-    window.zoneChart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: Object.keys(zoneCounts),
-            datasets: [{
-                data: Object.values(zoneCounts),
-                backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
-            }]
-        },
-        options: { responsive: true }
-    });
-}
+    const masulGender = document.getElementById('masulGender');
+    if (masulGender) {
+        masulGender.addEventListener('change', function() {
+            const gender = this.value;
+            const rankSelect = document.getElementById('masulRank');
+            const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
+            const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
+            rankSelect.innerHTML = '<option value="">Select Rank</option>';
+            if (gender === 'Brother') {
+                brotherRanks.forEach(rank => {
+                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+                });
+            } else if (gender === 'Sister') {
+                sisterRanks.forEach(rank => {
+                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+                });
+            }
+        });
+    }
 
-function updateBranchChart(branchCounts) {
-    const ctx = document.getElementById('branchChart');
-    if (!ctx) return;
-    const sorted = Object.entries(branchCounts).sort((a,b) => b[1] - a[1]).slice(0,10);
-    if (window.branchChart) window.branchChart.destroy();
-    window.branchChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: sorted.map(item => item[0]),
-            datasets: [{
-                label: 'Members',
-                data: sorted.map(item => item[1]),
-                backgroundColor: '#C9A87C'
-            }]
-        },
-        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } } }
-    });
-}
-
-// ==================== ZONE STATS ====================
-async function loadZoneStats() {
-    try {
-        const result = await apiRequest('getZoneStats', {}, currentUser);
-        const stats = result.stats || [];
-        const tbody = document.querySelector('#zoneStatsTable tbody');
-        if (tbody) {
-            tbody.innerHTML = '';
-            stats.forEach(zone => {
-                const row = tbody.insertRow();
-                row.insertCell().innerText = zone.zone;
-                row.insertCell().innerText = zone.total;
-                row.insertCell().innerText = zone.brothers;
-                row.insertCell().innerText = zone.sisters;
-            });
-        }
-        const canvas = document.getElementById('zoneChart');
-        if (canvas && stats.length > 0) {
-            const ctx = canvas.getContext('2d');
-            if (window.zoneChart) window.zoneChart.destroy();
-            window.zoneChart = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: stats.map(z => z.zone),
-                    datasets: [{
-                        data: stats.map(z => z.total),
-                        backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23']
-                    }]
+    if (currentUser.role === 'Branch Mas\'ul') {
+        const branchField = document.querySelector('select[name="branch"]');
+        const zoneField = document.querySelector('select[name="zone"]');
+        if (branchField && zoneField) {
+            setTimeout(() => {
+                const branchCode = currentUser.branchCode;
+                const zoneName = branchZoneMap[branchCode];
+                if (zoneName) {
+                    for (let opt of zoneField.options) {
+                        if (opt.value === zoneName) {
+                            opt.selected = true;
+                            zoneField.disabled = true;
+                            break;
+                        }
+                    }
+                    zoneField.dispatchEvent(new Event('change'));
+                    setTimeout(() => {
+                        for (let opt of branchField.options) {
+                            if (opt.value === branchCode) {
+                                opt.selected = true;
+                                branchField.disabled = true;
+                                break;
+                            }
+                        }
+                    }, 500);
                 }
-            });
-        } else if (canvas) {
-            console.log('No zone data for chart');
+            }, 1000);
         }
-    } catch (err) {
-        console.error(err);
-        const tbody = document.querySelector('#zoneStatsTable tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="color:red;">Failed to load zone stats</td></tr>';
     }
+
+    document.getElementById('memberForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+        const photoFile = formData.get('photo');
+        if (photoFile && photoFile.size > 0) {
+            if (photoFile.size > 2 * 1024 * 1024) {
+                showMessage('File Too Large', 'File size must be less than 2 MB');
+                return;
+            }
+            data.photoBase64 = await fileToBase64(photoFile);
+            data.photoName = photoFile.name;
+        }
+        try {
+            const result = await apiRequest('registerMember', { data }, currentUser);
+            showSuccessModal(result.intizarId, result.recruitmentId, data.zone, data.branch);
+            e.target.reset();
+            if (currentUser.role === 'Branch Mas\'ul') {
+                document.querySelector('select[name="branch"]').disabled = false;
+                document.querySelector('select[name="zone"]').disabled = false;
+            }
+        } catch (err) {
+            showMessage('Registration Failed', err.message);
+        }
+    });
+
+    document.getElementById('masulForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+        const photoFile = formData.get('photo');
+        if (photoFile && photoFile.size > 0) {
+            if (photoFile.size > 2 * 1024 * 1024) {
+                showMessage('File Too Large', 'File size must be less than 2 MB');
+                return;
+            }
+            data.photoBase64 = await fileToBase64(photoFile);
+            data.photoName = photoFile.name;
+        }
+        try {
+            const result = await apiRequest('registerMasul', { data }, currentUser);
+            showSuccessModal(result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
+            e.target.reset();
+        } catch (err) {
+            showMessage('Registration Failed', err.message);
+        }
+    });
+
+    document.getElementById('source').addEventListener('change', function() {
+        const field = document.getElementById('intizarIdField');
+        field.style.display = this.value === 'xghalibun' ? 'block' : 'none';
+        if (this.value !== 'xghalibun') {
+            document.querySelector('input[name="intizarId"]').value = '';
+        }
+    });
 }
 
-// ==================== BRANCH STATS ====================
-async function loadBranchStats() {
-    try {
-        const result = await apiRequest('getBranchStats', {}, currentUser);
-        const stats = result.stats || [];
-        const tbody = document.querySelector('#branchStatsTable tbody');
-        if (tbody) {
-            tbody.innerHTML = '';
-            stats.forEach(b => {
-                const row = tbody.insertRow();
-                row.insertCell().innerText = b.branchCode;
-                row.insertCell().innerText = b.branchName;
-                row.insertCell().innerText = b.zone;
-                row.insertCell().innerText = b.total;
-                row.insertCell().innerText = b.brothers;
-                row.insertCell().innerText = b.sisters;
-            });
-        }
-        const canvas = document.getElementById('branchChart');
-        if (canvas && stats.length > 0) {
-            const ctx = canvas.getContext('2d');
-            if (window.branchChart) window.branchChart.destroy();
-            window.branchChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: stats.slice(0, 10).map(b => b.branchCode),
-                    datasets: [{
-                        label: 'Members per Branch',
-                        data: stats.slice(0, 10).map(b => b.total),
-                        backgroundColor: '#C9A87C'
-                    }]
-                }
-            });
-        } else if (canvas) {
-            console.log('No branch data for chart');
-        }
-    } catch (err) {
-        console.error(err);
-        const tbody = document.querySelector('#branchStatsTable tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="color:red;">Failed to load branch stats</td></tr>';
-    }
+function toggleRegistrationForm() {
+    const role = document.getElementById('roleSelector').value;
+    document.getElementById('memberFormContainer').style.display = role === 'member' ? 'block' : 'none';
+    document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
+}
+
+function showSuccessModal(intizarId, recruitmentId, zone, branch) {
+    document.getElementById('generatedId').innerText = intizarId;
+    document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
+    document.getElementById('generatedZone').innerText = zone;
+    document.getElementById('generatedBranch').innerText = branch;
+    document.getElementById('successModal').style.display = 'block';
+}
+
+function closeSuccessModal() {
+    document.getElementById('successModal').style.display = 'none';
+}
+
+function setDOBLimits() {
+    const today = new Date();
+    const maxDateMember = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate()).toISOString().split('T')[0];
+    const maxDateMasul = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()).toISOString().split('T')[0];
+    const memberDob = document.getElementById('memberDob');
+    const masulDob = document.getElementById('masulDob');
+    if (memberDob) memberDob.setAttribute('max', maxDateMember);
+    if (masulDob) masulDob.setAttribute('max', maxDateMasul);
 }
 
 // ==================== CLOSE MODALS ====================
