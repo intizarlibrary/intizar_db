@@ -345,6 +345,91 @@
         </div>
     </div>
 
+    <!-- Edit Member Modal -->
+    <div id="editMemberModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditMemberModal()">&times;</span>
+            <h3>Edit Member</h3>
+            <form id="editMemberForm">
+                <input type="hidden" id="editMemberIntizarId">
+                <fieldset><legend>Full Name</legend><input type="text" id="editMemberFullName" required></fieldset>
+                <fieldset><legend>Father's Name</legend><input type="text" id="editMemberFatherName" required></fieldset>
+                <fieldset><legend>Gender</legend>
+                    <select id="editMemberGender" required>
+                        <option value="">Select</option>
+                        <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
+                    </select>
+                </fieldset>
+                <fieldset><legend>Date of Birth</legend><input type="date" id="editMemberDob" required></fieldset>
+                <fieldset><legend>Place of Birth</legend><input type="text" id="editMemberPlaceOfBirth"></fieldset>
+                <fieldset><legend>Phone</legend><input type="tel" id="editMemberPhone" required></fieldset>
+                <fieldset><legend>Email</legend><input type="email" id="editMemberEmail"></fieldset>
+                <fieldset><legend>Address</legend><textarea id="editMemberAddress" required></textarea></fieldset>
+                <fieldset><legend>State</legend><input type="text" id="editMemberState" required></fieldset>
+                <fieldset><legend>LGA</legend><input type="text" id="editMemberLga" required></fieldset>
+                <fieldset><legend>Zone</legend>
+                    <select id="editMemberZone" required><option value="">Select Zone</option></select>
+                </fieldset>
+                <fieldset><legend>Branch</legend>
+                    <select id="editMemberBranch" required><option value="">Select Branch</option></select>
+                </fieldset>
+                <fieldset><legend>Year</legend><input type="number" id="editMemberYear" required></fieldset>
+                <fieldset><legend>Level</legend>
+                    <select id="editMemberLevel" required>
+                        <option value="">Select</option>
+                        <option value="Bakiyatullah">Bakiyatullah</option>
+                        <option value="Ansarullah">Ansarullah</option>
+                        <option value="Ghalibun">Ghalibun</option>
+                        <option value="X-Ghalibun">X-Ghalibun</option>
+                    </select>
+                </fieldset>
+                <fieldset><legend>Guardian Name</legend><input type="text" id="editMemberGuardianName" required></fieldset>
+                <fieldset><legend>Guardian Phone</legend><input type="tel" id="editMemberGuardianPhone" required></fieldset>
+                <fieldset><legend>Guardian Address</legend><textarea id="editMemberGuardianAddress" required></textarea></fieldset>
+                <button type="submit">Update Member</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Mas'ul Modal -->
+    <div id="editMasulModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditMasulModal()">&times;</span>
+            <h3>Edit Mas'ul</h3>
+            <form id="editMasulForm">
+                <input type="hidden" id="editMasulIntizarId">
+                <fieldset><legend>Full Name</legend><input type="text" id="editMasulFullName" required></fieldset>
+                <fieldset><legend>Father's Name</legend><input type="text" id="editMasulFatherName" required></fieldset>
+                <fieldset><legend>Gender</legend>
+                    <select id="editMasulGender" required>
+                        <option value="">Select</option>
+                        <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
+                    </select>
+                </fieldset>
+                <fieldset><legend>Date of Birth</legend><input type="date" id="editMasulDob" required></fieldset>
+                <fieldset><legend>Place of Birth</legend><input type="text" id="editMasulPlaceOfBirth"></fieldset>
+                <fieldset><legend>Phone</legend><input type="tel" id="editMasulPhone" required></fieldset>
+                <fieldset><legend>Email</legend><input type="email" id="editMasulEmail"></fieldset>
+                <fieldset><legend>Address</legend><textarea id="editMasulAddress" required></textarea></fieldset>
+                <fieldset><legend>State</legend><input type="text" id="editMasulState" required></fieldset>
+                <fieldset><legend>LGA</legend><input type="text" id="editMasulLga" required></fieldset>
+                <fieldset><legend>Zone</legend>
+                    <select id="editMasulZone" required><option value="">Select Zone</option></select>
+                </fieldset>
+                <fieldset><legend>Branch</legend>
+                    <select id="editMasulBranch" required><option value="">Select Branch</option></select>
+                </fieldset>
+                <fieldset><legend>Year</legend><input type="number" id="editMasulYear" required></fieldset>
+                <fieldset><legend>Current Rank</legend>
+                    <select id="editMasulRank" required><option value="">Select Rank</option></select>
+                </fieldset>
+                <button type="submit">Update Mas'ul</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Success Modal -->
     <div id="successModal" class="modal">
         <div class="modal-content">
