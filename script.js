@@ -43,17 +43,17 @@ const HARDCODED_BRANCH_MAP = {
 let pendingRequests = 0;
 
 function showLoader() {
-  pendingRequests++;
-  const loader = document.getElementById('globalLoader');
-  if (loader) loader.style.display = 'flex';
+    pendingRequests++;
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.style.display = 'flex';
 }
 
 function hideLoader() {
-  pendingRequests = Math.max(0, pendingRequests - 1);
-  if (pendingRequests === 0) {
-    const loader = document.getElementById('globalLoader');
-    if (loader) loader.style.display = 'none';
-  }
+    pendingRequests = Math.max(0, pendingRequests - 1);
+    if (pendingRequests === 0) {
+        const loader = document.getElementById('globalLoader');
+        if (loader) loader.style.display = 'none';
+    }
 }
 
 // ==================== HELPER: Get Thumbnail URL from PhotoURL ====================
@@ -509,7 +509,7 @@ async function loadFilterOptions(forceRefresh = false) {
             populateSelect('filterMemberLevel', result.levels, true);
             populateSelect('filterMemberBranch', result.branches, true);
             populateSelect('filterMemberZone', result.zones, true);
-            populateSelect('filterMasulRank', result.ranks.Brother, true); // will be updated by gender change
+            populateSelect('filterMasulRank', result.ranks.Brother, true);
             populateSelect('filterMasulBranch', result.branches, true);
             populateSelect('filterMasulZone', result.zones, true);
             return;
@@ -612,7 +612,6 @@ async function loadZonesForDropdowns(forceRefresh = false) {
         branchNameToCode = {};
         for (let zone in HARDCODED_BRANCH_MAP) {
             HARDCODED_BRANCH_MAP[zone].forEach(branchName => {
-                // Create a simple code: first 2 letters + number? For simplicity use branchName as code
                 const code = branchName.replace(/\s+/g, '').substring(0,3).toUpperCase();
                 branchZoneMap[code] = zone;
                 branchNameToCode[branchName] = code;
@@ -653,7 +652,6 @@ async function zoneChangeHandler(event) {
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
-    // Use cached branchMap to get branches for zone
     const branchesForZone = Object.entries(branchZoneMap)
         .filter(([code, z]) => z === zone)
         .map(([code]) => {
@@ -718,7 +716,7 @@ function applyMemberFilters() {
     const zoneDropdown = document.getElementById('filterMemberZone').value;
     const zoneManual = document.getElementById('filterMemberZoneManual')?.value || '';
 
-    const branchCode = branchManual || branchDropdown; // manual overrides dropdown
+    const branchCode = branchManual || branchDropdown;
     const zone = zoneManual || zoneDropdown;
 
     const filters = {
@@ -741,7 +739,6 @@ function resetMemberFilters() {
     applyMemberFilters();
 }
 
-// Search on button click
 function searchMemberList() {
     currentMemberSearch = document.getElementById('memberListSearch').value;
     currentMemberPage = 1;
@@ -1018,7 +1015,7 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== PRINT FUNCTIONS ====================
+// ==================== IMPROVED PRINT FUNCTION ====================
 function openPrintWindow(content, title) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -1026,56 +1023,62 @@ function openPrintWindow(content, title) {
         return;
     }
 
-    const logoUrl = new URL('logo.png', window.location.href).href;
+    const logoAbsolute = new URL('logo.png', window.location.href).href;
 
     printWindow.document.write(`
         <html>
-            <head>
-                <title>${title}</title>
-                <style>
-                    body { font-family: 'Segoe UI', sans-serif; margin: 1cm; }
-                    .id-card { max-width: 400px; margin: auto; border: 2px solid #155B2F; border-radius: 10px; padding: 20px; background: white; }
-                    .card-header { text-align: center; margin-bottom: 15px; }
-                    .card-logo { height: 70px; }
-                    .arabic-title { font-size: 1.8rem; color: #155B2F; margin: 5px 0; direction: rtl; font-family: 'Amiri', serif; }
-                    .ajami { font-size: 1.2rem; color: #C9A87C; margin-top: -5px; margin-bottom: 10px; font-family: 'Noto Naskh Arabic', serif; }
-                    .card-body { display: flex; gap: 20px; align-items: center; }
-                    .card-photo { width: 120px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid #C9A87C; }
-                    .card-details { flex: 1; }
-                    .card-details p { margin: 8px 0; }
-                    @media print {
-                        button { display: none; }
-                        body { margin: 0.5cm; }
+        <head>
+            <title>${title}</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; margin: 1cm; }
+                .id-card { max-width: 400px; margin: auto; border: 2px solid #155B2F; border-radius: 10px; padding: 20px; background: white; }
+                .card-header { text-align: center; margin-bottom: 15px; }
+                .card-logo { height: 70px; }
+                .arabic-title { font-size: 1.8rem; color: #155B2F; margin: 5px 0; direction: rtl; font-family: 'Amiri', serif; }
+                .ajami { font-size: 1.2rem; color: #C9A87C; margin-top: -5px; margin-bottom: 10px; font-family: 'Noto Naskh Arabic', serif; }
+                .card-body { display: flex; gap: 20px; align-items: center; }
+                .card-photo { width: 120px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid #C9A87C; }
+                .card-details { flex: 1; }
+                .card-details p { margin: 8px 0; }
+                @media print { button { display: none; } body { margin: 0.5cm; } }
+            </style>
+        </head>
+        <body>
+            <div class="id-card">${content}</div>
+            <script>
+                // Ensure all images have absolute URLs and fallback
+                document.querySelectorAll('img').forEach(img => {
+                    if (!img.src || img.src === '') {
+                        img.src = '${logoAbsolute}';
                     }
-                </style>
-                <script>
-                    function whenAllImagesLoaded(doc) {
-                        const images = Array.from(doc.images);
-                        if (images.length === 0) return Promise.resolve();
-                        return Promise.all(images.map(img => {
-                            if (img.complete) return Promise.resolve();
-                            return new Promise(resolve => {
-                                img.addEventListener('load', resolve);
-                                img.addEventListener('error', resolve);
-                            });
-                        }));
-                    }
-                    window.onload = function() {
-                        whenAllImagesLoaded(document).then(() => {
-                            setTimeout(() => {
-                                window.print();
-                                window.onafterprint = function() { window.close(); };
-                            }, 100);
-                        });
+                    img.onerror = function() {
+                        this.src = '${logoAbsolute}';
+                        this.onerror = null;
                     };
-                <\/script>
-            </head>
-            <body>
-                <div class="id-card">${content}</div>
-                <script>
-                    document.querySelectorAll('.card-logo').forEach(img => img.src = '${logoUrl}');
-                <\/script>
-            </body>
+                });
+
+                // Function to check if all images are loaded
+                function whenImagesReady() {
+                    const images = Array.from(document.images);
+                    if (images.length === 0) return Promise.resolve();
+                    return Promise.all(images.map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(resolve => {
+                            img.addEventListener('load', resolve);
+                            img.addEventListener('error', resolve); // resolve even on error
+                        });
+                    }));
+                }
+
+                // Wait for images, then print after a short delay
+                whenImagesReady().then(() => {
+                    setTimeout(() => {
+                        window.print();
+                        window.onafterprint = function() { window.close(); };
+                    }, 200);
+                });
+            <\/script>
+        </body>
         </html>
     `);
     printWindow.document.close();
@@ -1107,7 +1110,6 @@ function captureElement(element) {
         return new Promise(resolve => {
             img.addEventListener('load', resolve);
             img.addEventListener('error', () => {
-                // Allow fallback to load
                 setTimeout(resolve, 50);
             });
         });
@@ -1178,7 +1180,6 @@ async function editMember(intizarId) {
         const branchSelect = document.getElementById('editMemberBranch');
         zoneSelect.value = member.Zone;
         zoneSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        // Wait for branch options to populate
         setTimeout(() => {
             branchSelect.value = member.Branch;
         }, 1000);
