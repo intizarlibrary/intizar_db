@@ -129,6 +129,9 @@ function handleRequest(e) {
           ranks: getDistinctRanks()
         };
         break;
+      case 'getSpreadsheetUrl':                 // new action for admin
+        result = getSpreadsheetUrl(user);
+        break;
       default:
         throw new Error('Unknown action: ' + action);
     }
