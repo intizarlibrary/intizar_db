@@ -233,6 +233,19 @@
                 <button onclick="closeSuccessModal()">OK</button>
             </div>
         </div>
+
+        <!-- Preview Confirmation Modal -->
+        <div id="previewModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="hideModal('previewModal')">&times;</span>
+                <h3>Confirm Registration</h3>
+                <div id="previewContent" style="max-height: 400px; overflow-y: auto;"></div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button id="previewCancelBtn">Cancel</button>
+                    <button id="previewConfirmBtn">Confirm & Register</button>
+                </div>
+            </div>
+        </div>
     </main>
 
     <footer>
