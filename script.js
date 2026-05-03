@@ -1,5 +1,6 @@
+
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxHz0LJfsOIR5yJYK1FNokBOn6hqxG-a6dpJNudgPr8KkkdIeTmpmwmAy1c80BVgsz5Eg/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby76v97VP7e-M4WXjlC5odxkQs4AQ_OYoZhdBHbB4XGHQZ3sSlLEYuwv7OnjXgitXRluA/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -16,6 +17,10 @@ let branchZoneMap = {};
 let branchNameToCode = {};
 let lastViewedMember = null;
 let lastViewedMasul = null;
+
+// NEW: pending registration data for confirmation
+let pendingMemberData = null;
+let pendingMasulData = null;
 
 // ==================== CACHE CONSTANTS (30 minutes) ====================
 const CACHE_FILTER_OPTIONS = 'filterOptions';
@@ -368,26 +373,6 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.removeItem('user');
             window.location.href = 'index.html';
         });
-    }
-
-    // Attach preview modal listeners for registration page
-    const previewConfirmBtn = document.getElementById('previewConfirmBtn');
-    const previewCancelBtn = document.getElementById('previewCancelBtn');
-    const previewModalClose = document.querySelector('#previewModal .close');
-    if (previewConfirmBtn) {
-        previewConfirmBtn.addEventListener('click', processPendingRegistration);
-    }
-    if (previewCancelBtn) {
-        previewCancelBtn.addEventListener('click', () => {
-            hideModal('previewModal');
-            window._pendingRegistration = null;
-        });
-    }
-    if (previewModalClose) {
-        previewModalClose.onclick = () => {
-            hideModal('previewModal');
-            window._pendingRegistration = null;
-        };
     }
 });
 
@@ -858,38 +843,29 @@ function clearMasulListSearch() {
     loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
 }
 
-// ==================== SIMPLIFIED ID CARD BUILDER (Enhanced with date) ====================
-function formatCardDate(dateString) {
-    if (!dateString) return '';
-    const d = new Date(dateString);
-    if (isNaN(d)) return dateString;
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
+// ==================== SIMPLIFIED ID CARD BUILDER ====================
 function buildSimpleCard(person, type) {
     const logoAbsolute = new URL('logo.png', window.location.href).href;
     const imgSrc = getThumbnailUrl(person.PhotoURL) || logoAbsolute;
+    const photoHtml = `<img src="${imgSrc}" alt="Photo" class="card-photo" crossorigin="anonymous" onerror="this.src='${logoAbsolute}'; this.onerror=null;">`;
+
     const idField = type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID;
-    const formattedDOB = formatCardDate(person.DOB);
-    const formattedYear = person.Year || '';
 
     return `
         <div class="id-card">
             <div class="card-header">
-                <img src="${logoAbsolute}" alt="Logo" class="card-logo" crossorigin="anonymous">
+                <img src="${logoAbsolute}" alt="Logo" class="card-logo">
                 <h2 class="arabic-title">إنتظار ٱلإمام ٱلمنتظر</h2>
                 <p class="ajami">تربير رحي د غنغر جكى</p>
             </div>
             <div class="card-body">
-                <img src="${imgSrc}" alt="Photo" class="card-photo" crossorigin="anonymous" onerror="this.src='${logoAbsolute}'; this.onerror=null;">
+                ${photoHtml}
                 <div class="card-details">
                     <p><strong>Full Name:</strong> ${person.FullName}</p>
                     <p><strong>Intizar ID:</strong> ${person.IntizarID}</p>
                     <p><strong>Recruitment ID:</strong> ${idField}</p>
                     <p><strong>Zone:</strong> ${person.Zone}</p>
                     <p><strong>Branch:</strong> ${person.Branch}</p>
-                    <p><strong>DOB:</strong> ${formattedDOB}</p>
-                    <p><strong>Year:</strong> ${formattedYear}</p>
                     <p><strong>Type:</strong> ${type === 'member' ? 'Member' : 'Mas\'ul'}</p>
                 </div>
             </div>
@@ -1043,7 +1019,7 @@ async function viewMasul(intizarId) {
 }
 
 // ==================== SIMPLIFIED PRINT FUNCTION (fixed) ====================
-async function openPrintWindow(content, title) {
+function openPrintWindow(content, title) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
         showMessage('Popup Blocked', 'Please allow popups to print.');
@@ -1052,6 +1028,7 @@ async function openPrintWindow(content, title) {
 
     const logoAbsolute = new URL('logo.png', window.location.href).href;
 
+    // Write a clean HTML document with a small delay before printing
     printWindow.document.write(`
         <html>
         <head>
@@ -1073,6 +1050,7 @@ async function openPrintWindow(content, title) {
         <body>
             <div class="id-card">${content}</div>
             <script>
+                // Set fallback for images
                 document.querySelectorAll('img').forEach(img => {
                     if (!img.src || img.src === '') {
                         img.src = '${logoAbsolute}';
@@ -1082,45 +1060,34 @@ async function openPrintWindow(content, title) {
                         this.onerror = null;
                     };
                 });
+                // Wait a moment for images to load, then print
+                setTimeout(function() {
+                    window.print();
+                    window.onafterprint = function() { window.close(); };
+                }, 1000);
             <\/script>
         </body>
         </html>
     `);
     printWindow.document.close();
-
-    // Wait for all images to load
-    const images = printWindow.document.querySelectorAll('img');
-    await Promise.all(Array.from(images).map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
-            img.onload = resolve;
-            img.onerror = () => {
-                img.src = logoAbsolute;
-                resolve();
-            };
-        });
-    }));
-
-    printWindow.print();
-    printWindow.onafterprint = () => printWindow.close();
 }
 
-async function printCurrentMember() {
+function printCurrentMember() {
     if (!lastViewedMember) {
-        showMessage('Error', 'No member data to print. Please view a member first.');
+        showMessage('Error', 'No member data to print.');
         return;
     }
     const content = buildSimpleCard(lastViewedMember, 'member');
-    await openPrintWindow(content, 'Member ID Card');
+    openPrintWindow(content, 'Member ID Card');
 }
 
-async function printCurrentMasul() {
+function printCurrentMasul() {
     if (!lastViewedMasul) {
-        showMessage('Error', 'No masul data to print. Please view a masul first.');
+        showMessage('Error', 'No masul data to print.');
         return;
     }
     const content = buildSimpleCard(lastViewedMasul, 'masul');
-    await openPrintWindow(content, 'Mas\'ul ID Card');
+    openPrintWindow(content, 'Mas\'ul ID Card');
 }
 
 // ==================== SCREENSHOT FUNCTIONS (with Intizar ID filename) ====================
@@ -1176,25 +1143,17 @@ function screenshotCurrentMasul() {
 }
 
 // ==================== EDIT FUNCTIONS (ADMIN ONLY) with reliable branch setting ====================
-function formatDateForInput(dateValue) {
-    if (!dateValue) return '';
-    const d = new Date(dateValue);
-    if (isNaN(d)) return dateValue;
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
 async function editMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
 
+        // Fill all fields
         document.getElementById('editMemberIntizarId').value = member.IntizarID;
         document.getElementById('editMemberFullName').value = member.FullName;
         document.getElementById('editMemberFatherName').value = member.FatherName;
         document.getElementById('editMemberGender').value = member.Gender;
+        // FIX: format DOB for date input
         document.getElementById('editMemberDob').value = formatDateForInput(member.DOB);
         document.getElementById('editMemberPlaceOfBirth').value = member.PlaceOfBirth || '';
         document.getElementById('editMemberPhone').value = member.Phone;
@@ -1202,22 +1161,34 @@ async function editMember(intizarId) {
         document.getElementById('editMemberAddress').value = member.Address;
         document.getElementById('editMemberState').value = member.State;
         document.getElementById('editMemberLga').value = member.LGA;
-        document.getElementById('editMemberYear').value = member.Year ? member.Year.toString() : '';
+        document.getElementById('editMemberYear').value = member.Year;
         document.getElementById('editMemberLevel').value = member.Level;
         document.getElementById('editMemberGuardianName').value = member.GuardianName;
         document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone;
         document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress;
 
+        // Ensure zones and branches are loaded
         await loadZonesForDropdowns(false);
+        
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
         
+        // Set zone (dropdown will have the correct value now)
         zoneSelect.value = member.Zone;
-        zoneSelect.dispatchEvent(new Event('change'));
         
-        // Wait for branch options to populate
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Manually populate branches for this zone using cached map
+        branchSelect.innerHTML = '<option value="">Select Branch</option>';
+        const branchesForZone = Object.entries(branchZoneMap)
+            .filter(([code, z]) => z === member.Zone)
+            .map(([code]) => {
+                const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                return { code, name };
+            });
+        branchesForZone.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+        });
         
+        // Set branch value
         branchSelect.value = member.Branch;
 
         showModal('editMemberModal');
@@ -1240,6 +1211,7 @@ async function editMasul(intizarId) {
         document.getElementById('editMasulFullName').value = masul.FullName;
         document.getElementById('editMasulFatherName').value = masul.FatherName;
         document.getElementById('editMasulGender').value = masul.Gender;
+        // FIX: format DOB for date input
         document.getElementById('editMasulDob').value = formatDateForInput(masul.DOB);
         document.getElementById('editMasulPlaceOfBirth').value = masul.PlaceOfBirth || '';
         document.getElementById('editMasulPhone').value = masul.Phone;
@@ -1247,7 +1219,7 @@ async function editMasul(intizarId) {
         document.getElementById('editMasulAddress').value = masul.Address;
         document.getElementById('editMasulState').value = masul.State;
         document.getElementById('editMasulLga').value = masul.LGA;
-        document.getElementById('editMasulYear').value = masul.Year ? masul.Year.toString() : '';
+        document.getElementById('editMasulYear').value = masul.Year;
         document.getElementById('editMasulRank').value = masul.CurrentRank;
 
         await loadZonesForDropdowns(false);
@@ -1256,9 +1228,17 @@ async function editMasul(intizarId) {
         const branchSelect = document.getElementById('editMasulBranch');
         
         zoneSelect.value = masul.Zone;
-        zoneSelect.dispatchEvent(new Event('change'));
         
-        await new Promise(resolve => setTimeout(resolve, 100));
+        branchSelect.innerHTML = '<option value="">Select Branch</option>';
+        const branchesForZone = Object.entries(branchZoneMap)
+            .filter(([code, z]) => z === masul.Zone)
+            .map(([code]) => {
+                const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                return { code, name };
+            });
+        branchesForZone.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+        });
         
         branchSelect.value = masul.Branch;
 
@@ -1268,6 +1248,17 @@ async function editMasul(intizarId) {
         console.error('Edit masul error:', err);
         showMessage('Error', err.message);
     }
+}
+
+// NEW HELPER: Format a date string for <input type="date"> (YYYY-MM-DD)
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString; // fallback
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function updateMasulRankOptions(gender) {
@@ -1741,70 +1732,40 @@ function initializeRegistrationPage() {
         }
     }
 
-    // Intercept member form submission for preview
+    // MODIFIED: Member form submission – now shows confirmation first
     document.getElementById('memberForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
         const photoFile = formData.get('photo');
-        
-        // Build preview
-        const previewHtml = `
-            <p><strong>Full Name:</strong> ${data.fullName}</p>
-            <p><strong>Father's Name:</strong> ${data.fatherName}</p>
-            <p><strong>Gender:</strong> ${data.gender}</p>
-            <p><strong>DOB:</strong> ${data.dob}</p>
-            <p><strong>Phone:</strong> ${data.phone}</p>
-            <p><strong>Email:</strong> ${data.email || '-'}</p>
-            <p><strong>Zone:</strong> ${data.zone}</p>
-            <p><strong>Branch:</strong> ${data.branch}</p>
-            <p><strong>Year:</strong> ${data.year}</p>
-            <p><strong>Entry Level:</strong> ${data.entryLevel}</p>
-            ${photoFile && photoFile.size > 0 ? `<p><strong>Photo:</strong> ${photoFile.name}</p>` : ''}
-        `;
-        document.getElementById('previewContent').innerHTML = previewHtml;
-        
-        // Store pending data
-        window._pendingRegistration = {
-            type: 'member',
-            formElement: e.target,
-            formData,
-            data
-        };
-        showModal('previewModal');
+        if (photoFile && photoFile.size > 0) {
+            if (photoFile.size > 2 * 1024 * 1024) {
+                showMessage('File Too Large', 'File size must be less than 2 MB');
+                return;
+            }
+            data.photoBase64 = await fileToBase64(photoFile);
+            data.photoName = photoFile.name;
+        }
+        pendingMemberData = data;   // store for confirmation
+        showRegistrationConfirm(data, 'member');
     });
 
-    // Intercept masul form submission for preview
+    // MODIFIED: Mas'ul form submission – confirmation first
     document.getElementById('masulForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
         const photoFile = formData.get('photo');
-        
-        const previewHtml = `
-            <p><strong>Full Name:</strong> ${data.fullName}</p>
-            <p><strong>Father's Name:</strong> ${data.fatherName}</p>
-            <p><strong>Gender:</strong> ${data.gender}</p>
-            <p><strong>DOB:</strong> ${data.dob}</p>
-            <p><strong>Phone:</strong> ${data.phone}</p>
-            <p><strong>Email:</strong> ${data.email || '-'}</p>
-            <p><strong>Zone:</strong> ${data.zone}</p>
-            <p><strong>Branch:</strong> ${data.branch}</p>
-            <p><strong>Year:</strong> ${data.year}</p>
-            <p><strong>Current Rank:</strong> ${data.currentRank}</p>
-            <p><strong>Source:</strong> ${data.source}</p>
-            ${data.intizarId ? `<p><strong>Intizar ID:</strong> ${data.intizarId}</p>` : ''}
-            ${photoFile && photoFile.size > 0 ? `<p><strong>Photo:</strong> ${photoFile.name}</p>` : ''}
-        `;
-        document.getElementById('previewContent').innerHTML = previewHtml;
-        
-        window._pendingRegistration = {
-            type: 'masul',
-            formElement: e.target,
-            formData,
-            data
-        };
-        showModal('previewModal');
+        if (photoFile && photoFile.size > 0) {
+            if (photoFile.size > 2 * 1024 * 1024) {
+                showMessage('File Too Large', 'File size must be less than 2 MB');
+                return;
+            }
+            data.photoBase64 = await fileToBase64(photoFile);
+            data.photoName = photoFile.name;
+        }
+        pendingMasulData = data;
+        showRegistrationConfirm(data, 'masul');
     });
 
     document.getElementById('source').addEventListener('change', function() {
@@ -1816,41 +1777,60 @@ function initializeRegistrationPage() {
     });
 }
 
-async function processPendingRegistration() {
-    hideModal('previewModal');
-    const pending = window._pendingRegistration;
-    if (!pending) return;
-    
-    const { type, formElement, formData, data } = pending;
-    const photoFile = formData.get('photo');
-    
-    try {
-        if (photoFile && photoFile.size > 0) {
-            if (photoFile.size > 2 * 1024 * 1024) {
-                showMessage('File Too Large', 'File size must be less than 2 MB');
-                return;
+// NEW: Show confirmation modal with registration preview
+function showRegistrationConfirm(data, type) {
+    const modal = document.getElementById('registrationConfirmModal');
+    const content = document.getElementById('registrationConfirmContent');
+    let html = `<p><strong>Name:</strong> ${data.fullName}</p>
+                <p><strong>Father's Name:</strong> ${data.fatherName}</p>
+                <p><strong>Gender:</strong> ${data.gender}</p>
+                <p><strong>Date of Birth:</strong> ${data.dob}</p>
+                <p><strong>Phone:</strong> ${data.phone}</p>
+                <p><strong>Email:</strong> ${data.email || '-'}</p>
+                <p><strong>Zone:</strong> ${data.zone}</p>
+                <p><strong>Branch:</strong> ${data.branch}</p>`;
+    if (type === 'member') {
+        html += `<p><strong>Entry Level:</strong> ${data.entryLevel}</p>`;
+    } else {
+        html += `<p><strong>Current Rank:</strong> ${data.currentRank}</p>
+                 <p><strong>Source:</strong> ${data.source}</p>`;
+    }
+    content.innerHTML = html;
+    modal.style.display = 'block';
+}
+
+function closeRegistrationConfirmModal() {
+    document.getElementById('registrationConfirmModal').style.display = 'none';
+    pendingMemberData = null;
+    pendingMasulData = null;
+}
+
+// NEW: Submit the registration after user confirms
+async function submitConfirmedRegistration() {
+    if (pendingMemberData) {
+        try {
+            const result = await apiRequest('registerMember', { data: pendingMemberData }, currentUser);
+            showSuccessModal(pendingMemberData.fullName, result.intizarId, result.recruitmentId, pendingMemberData.zone, pendingMemberData.branch);
+            document.getElementById('memberForm').reset();
+            pendingMemberData = null;
+            closeRegistrationConfirmModal();
+            if (currentUser.role === 'Branch Mas\'ul') {
+                document.querySelector('select[name="branch"]').disabled = false;
+                document.querySelector('select[name="zone"]').disabled = false;
             }
-            data.photoBase64 = await fileToBase64(photoFile);
-            data.photoName = photoFile.name;
+        } catch (err) {
+            showMessage('Registration Failed', err.message);
         }
-        
-        let result;
-        if (type === 'member') {
-            result = await apiRequest('registerMember', { data }, currentUser);
-            showSuccessModal(data.fullName, result.intizarId, result.recruitmentId, data.zone, data.branch);
-        } else {
-            result = await apiRequest('registerMasul', { data }, currentUser);
-            showSuccessModal(data.fullName, result.intizarId, result.masulRecruitmentId, data.zone, data.branch);
+    } else if (pendingMasulData) {
+        try {
+            const result = await apiRequest('registerMasul', { data: pendingMasulData }, currentUser);
+            showSuccessModal(pendingMasulData.fullName, result.intizarId, result.masulRecruitmentId, pendingMasulData.zone, pendingMasulData.branch);
+            document.getElementById('masulForm').reset();
+            pendingMasulData = null;
+            closeRegistrationConfirmModal();
+        } catch (err) {
+            showMessage('Registration Failed', err.message);
         }
-        
-        formElement.reset();
-        if (currentUser.role === 'Branch Mas\'ul') {
-            document.querySelector('select[name="branch"]').disabled = false;
-            document.querySelector('select[name="zone"]').disabled = false;
-        }
-        window._pendingRegistration = null;
-    } catch (err) {
-        showMessage('Registration Failed', err.message);
     }
 }
 
