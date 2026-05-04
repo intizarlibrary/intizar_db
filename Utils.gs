@@ -137,9 +137,7 @@ function logAudit(user, action, details) {
   sheet.appendRow([new Date(), user, action, details]);
 }
 
-// ==================== ID GENERATION (atomic) ====================
-
-// ==================== MEMBER RECRUITMENT ID ====================
+// ==================== MEMBER RECRUITMENT ID (excludes archived members) ====================
 function nextMemberRecruitmentId(branchCode, recruitmentYear) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -148,10 +146,10 @@ function nextMemberRecruitmentId(branchCode, recruitmentYear) {
     const data = sheet.getDataRange().getValues();
     const year = recruitmentYear.toString().slice(-2);
 
-    // Count all members belonging to this branch
+    // Count only active members (Status = 'Active') in that branch
     let serial = 0;
     for (let i = 1; i < data.length; i++) {
-      if (data[i][13] === branchCode) {
+      if (data[i][13] === branchCode && data[i][22] === 'Active') {
         serial++;
       }
     }
@@ -172,7 +170,6 @@ function nextMasulRecruitmentId(branchCode, recruitmentYear) {
     const data = sheet.getDataRange().getValues();
     const year = recruitmentYear.toString().slice(-2);
 
-    // Count ALL mas'uls (global)
     let serial = 0;
     for (let i = 1; i < data.length; i++) {
       if (data[i][0]) serial++;
@@ -287,7 +284,6 @@ function savePhotoToDrive(base64Data, fileName) {
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const fileId = file.getId();
-    // Use thumbnail URL for reliable image display
     return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
   } catch (e) {
     console.warn('Drive upload failed, using base64: ' + e.toString());
@@ -295,7 +291,7 @@ function savePhotoToDrive(base64Data, fileName) {
   }
 }
 
-// ==================== MEMBER REGISTRATION (with atomic ID generation) ====================
+// ==================== MEMBER REGISTRATION (atomic duplicate check) ====================
 function registerMember(data, user) {
   // Permission checks
   if (user.role === 'Branch Mas\'ul' && data.branch !== user.branchCode) {
@@ -329,38 +325,38 @@ function registerMember(data, user) {
     throw new Error('Entry level must be Bakiyatullah, Ansarullah, or Ghalibun');
   }
 
-  // Duplicate check (all fields except photo)
-  const sheet = getSpreadsheet().getSheetByName('Members');
-  const existingRows = sheet.getDataRange().getValues(); // includes headers
-  const dataRows = existingRows.slice(1);
-
-  for (let i = 0; i < dataRows.length; i++) {
-    const row = dataRows[i];
-    if (row[2] === data.fullName &&
-        row[3] === data.fatherName &&
-        row[4] === data.gender &&
-        row[5] === data.dob &&
-        (row[6] || '') === (data.placeOfBirth || '') &&
-        row[7] === data.phone &&
-        (row[8] || '') === (data.email || '') &&
-        row[9] === data.address &&
-        row[10] === data.state &&
-        row[11] === data.lga &&
-        row[12] === data.zone &&
-        row[13] === data.branch &&
-        row[14].toString() === data.year.toString() &&
-        row[15] === data.entryLevel &&
-        row[19] === data.guardianName &&
-        row[20] === data.guardianPhone &&
-        row[21] === data.guardianAddress) {
-      throw new Error('Duplicate registration detected. This person is already registered with Intizar ID: ' + row[0]);
-    }
-  }
-
-  // Atomic ID generation and row append
+  // Atomic ID generation, duplicate check, and row append
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    const sheet = getSpreadsheet().getSheetByName('Members');
+    const existingRows = sheet.getDataRange().getValues(); // fresh read inside lock
+    const dataRows = existingRows.slice(1);
+
+    // Duplicate check (inside lock for atomicity)
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      if (row[2] === data.fullName &&
+          row[3] === data.fatherName &&
+          row[4] === data.gender &&
+          row[5] === data.dob &&
+          (row[6] || '') === (data.placeOfBirth || '') &&
+          row[7] === data.phone &&
+          (row[8] || '') === (data.email || '') &&
+          row[9] === data.address &&
+          row[10] === data.state &&
+          row[11] === data.lga &&
+          row[12] === data.zone &&
+          row[13] === data.branch &&
+          row[14].toString() === data.year.toString() &&
+          row[15] === data.entryLevel &&
+          row[19] === data.guardianName &&
+          row[20] === data.guardianPhone &&
+          row[21] === data.guardianAddress) {
+        throw new Error('Duplicate registration detected. This person is already registered with Intizar ID: ' + row[0]);
+      }
+    }
+
     let currentIntizar = parseInt(getConfigValue('global_intizar') || '0');
     let nextIntizar = currentIntizar + 1;
     const intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
@@ -398,7 +394,7 @@ function registerMember(data, user) {
       data.guardianName,
       data.guardianPhone,
       data.guardianAddress,
-      'Active'   // NEW: default status
+      'Active'   // default status
     ];
     
     sheet.appendRow(row);
@@ -425,7 +421,7 @@ function calculateAge(dobString) {
   return age;
 }
 
-// ==================== MAS'UL REGISTRATION (with atomic ID generation and archiving) ====================
+// ==================== MAS'UL REGISTRATION (with archiving) ====================
 function registerMasul(data, user) {
   if (user.role !== 'Admin') throw new Error('Only Admin can register Mas\'ul');
 
@@ -463,7 +459,7 @@ function registerMasul(data, user) {
     }
     if (!found) throw new Error('Member not found');
 
-    // --- ARCHIVE THE MEMBER ---
+    // Archive the member (mark status as 'Mas\'ul')
     const headers = memberData[0];
     const statusColIdx = headers.indexOf('Status');
     if (statusColIdx !== -1) {
@@ -478,7 +474,6 @@ function registerMasul(data, user) {
       'Archived as Mas\'ul (registered via X-Ghalibun)'
     ]);
   } else if (data.source === 'proposed') {
-    // Atomic ID generation for proposed mas'ul
     const lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
@@ -537,7 +532,7 @@ function registerMasul(data, user) {
     throw new Error('Invalid source');
   }
 
-  // If source is X-Ghalibun, proceed without new ID (existing code)
+  // If source is X-Ghalibun (outside proposed block), continue to add to Masuls
   const masulRecruitmentId = nextMasulRecruitmentId(data.branch, data.year);
   let photoURL = '';
   if (data.photoBase64) {
@@ -579,21 +574,24 @@ function registerMasul(data, user) {
   return { success: true, intizarId, masulRecruitmentId, originalMemberRecruitmentId };
 }
 
-// ==================== GET MEMBERS (with search & filters) ====================
+// ==================== GET MEMBERS (excludes archived) ====================
 function getMembers(user, page = 1, pageSize = 50, search = '', filters = {}) {
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
-  let allRows = data.slice(1); // exclude headers
+  let allRows = data.slice(1);
 
-  // Filter by role
+  // Role filtering
   if (user.role === 'Zonal Mas\'ul') {
     allRows = allRows.filter(row => row[12] === user.zone);
   } else if (user.role === 'Branch Mas\'ul') {
     allRows = allRows.filter(row => row[13] === user.branchCode);
   }
 
-  // Apply search filter
+  // Exclude archived members (Status = 'Mas\'ul')
+  allRows = allRows.filter(row => row[22] !== 'Mas\'ul');
+
+  // Search filter
   if (search && search.trim() !== '') {
     const term = search.trim().toLowerCase();
     allRows = allRows.filter(row => {
@@ -603,7 +601,7 @@ function getMembers(user, page = 1, pageSize = 50, search = '', filters = {}) {
     });
   }
 
-  // Apply advanced filters
+  // Advanced filters
   if (filters.level) {
     allRows = allRows.filter(row => row[15] === filters.level);
   }
@@ -631,26 +629,26 @@ function getMembers(user, page = 1, pageSize = 50, search = '', filters = {}) {
   return { success: true, members, total, page, pageSize };
 }
 
-// ==================== GET MASULS (with search & filters) ====================
+// ==================== GET MASULS ====================
 function getMasuls(user, page = 1, pageSize = 50, search = '', filters = {}) {
   if (user.role !== 'Admin') throw new Error('Only Admin can view Mas\'ul list');
 
   const sheet = getSpreadsheet().getSheetByName('Masuls');
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
-  let allRows = data.slice(1).filter(row => row[0]); // exclude empty
+  let allRows = data.slice(1).filter(row => row[0]);
 
-  // Apply search filter
+  // Search filter
   if (search && search.trim() !== '') {
     const term = search.trim().toLowerCase();
     allRows = allRows.filter(row => {
-      return (row[2] && row[2].toLowerCase().includes(term)) || // FullName
-             (row[0] && row[0].toLowerCase().includes(term)) || // IntizarID
-             (row[1] && row[1].toLowerCase().includes(term));   // MasulRecruitmentID
+      return (row[2] && row[2].toLowerCase().includes(term)) ||
+             (row[0] && row[0].toLowerCase().includes(term)) ||
+             (row[1] && row[1].toLowerCase().includes(term));
     });
   }
 
-  // Apply advanced filters
+  // Advanced filters
   if (filters.rank) {
     allRows = allRows.filter(row => row[15] === filters.rank);
   }
@@ -712,7 +710,7 @@ function getBranches(user, zoneFilter) {
   return { success: true, branches };
 }
 
-// ==================== PROMOTIONS (with history logging) ====================
+// ==================== PROMOTIONS (prevents archived members, logs to history) ====================
 function promoteMember(intizarId, user) {
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues();
@@ -726,6 +724,11 @@ function promoteMember(intizarId, user) {
   }
   if (!member) throw new Error('Member not found');
 
+  // Deny promotion for archived members
+  if (member[22] && member[22] !== 'Active') {
+    throw new Error('Member is archived and cannot be promoted');
+  }
+
   if (user.role === 'Zonal Mas\'ul' && member[12] !== user.zone) {
     throw new Error('You can only promote members in your own zone');
   }
@@ -738,7 +741,6 @@ function promoteMember(intizarId, user) {
 
   const newLevel = levelOrder[idx + 1];
 
-  // Update JSON history in the member row (backward compatibility)
   let history = [];
   try { history = JSON.parse(member[17] || '[]'); } catch (e) { history = []; }
   history.push({ date: new Date(), from: currentLevel, to: newLevel, by: user.role });
@@ -788,7 +790,6 @@ function promoteMasul(intizarId, user) {
 
   const newRank = rankOrder[idx + 1];
 
-  // Update JSON history in the masul row
   let history = [];
   try { history = JSON.parse(masul[18] || '[]'); } catch (e) { history = []; }
   history.push({ date: new Date(), from: currentRank, to: newRank, by: 'Admin' });
@@ -796,7 +797,6 @@ function promoteMasul(intizarId, user) {
   sheet.getRange(rowIndex, 16).setValue(newRank);
   sheet.getRange(rowIndex, 19).setValue(JSON.stringify(history));
 
-  // Log to normalised PromotionHistory sheet
   const promoHist = getSpreadsheet().getSheetByName('PromotionHistory');
   promoHist.appendRow([
     new Date(), intizarId, 'Masul',
@@ -830,7 +830,6 @@ function transferMember(intizarId, newBranchCode, user) {
   const oldBranch = member[13];
   const newZone = getBranchZone(newBranchCode);
 
-  // Update JSON transfer history in the member row
   let transferHistory = [];
   try { transferHistory = JSON.parse(member[18] || '[]'); } catch (e) { transferHistory = []; }
   transferHistory.push({ date: new Date(), fromBranch: oldBranch, toBranch: newBranchCode, by: 'Admin' });
@@ -839,7 +838,6 @@ function transferMember(intizarId, newBranchCode, user) {
   sheet.getRange(rowIndex, 13).setValue(newZone);
   sheet.getRange(rowIndex, 19).setValue(JSON.stringify(transferHistory));
 
-  // Log to normalised TransferHistory sheet
   const transHist = getSpreadsheet().getSheetByName('TransferHistory');
   transHist.appendRow([
     new Date(), intizarId, 'Member',
@@ -875,7 +873,6 @@ function transferMasul(intizarId, newBranchCode, user) {
   sheet.getRange(rowIndex, 14).setValue(newBranchCode);
   sheet.getRange(rowIndex, 13).setValue(newZone);
 
-  // Log to normalised TransferHistory sheet
   const transHist = getSpreadsheet().getSheetByName('TransferHistory');
   transHist.appendRow([
     new Date(), intizarId, 'Masul',
@@ -1047,13 +1044,17 @@ function exportData(type, user) {
   return { success: true, csv, filename: sheetName + '_' + new Date().toISOString() + '.csv' };
 }
 
-// ==================== GET SINGLE MEMBER ====================
+// ==================== GET SINGLE MEMBER (deny if archived) ====================
 function getMember(intizarId, user) {
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === intizarId) {
+      // Deny if not active
+      if (data[i][22] && data[i][22] !== 'Active') {
+        throw new Error('Member is no longer active');
+      }
       if (user.role === 'Zonal Mas\'ul' && data[i][12] !== user.zone) {
         throw new Error('Access denied');
       }
@@ -1084,13 +1085,16 @@ function getMasul(intizarId, user) {
   throw new Error('Mas\'ul not found');
 }
 
-// ==================== DASHBOARD STATISTICS (enhanced) ====================
+// ==================== DASHBOARD STATISTICS (excludes archived members) ====================
 function getDashboardStats(user) {
   const membersSheet = getSpreadsheet().getSheetByName('Members');
   const masulsSheet = getSpreadsheet().getSheetByName('Masuls');
 
   let membersData = membersSheet.getDataRange().getValues().slice(1);
   let masulsData = masulsSheet.getDataRange().getValues().slice(1);
+
+  // Only active members for statistics
+  membersData = membersData.filter(row => row[22] === 'Active');
 
   // Role filtering
   if (user.role === 'Zonal Mas\'ul') {
@@ -1154,7 +1158,9 @@ function getZoneStats(user) {
   const zonesSheet = getSpreadsheet().getSheetByName('Zones');
   const membersSheet = getSpreadsheet().getSheetByName('Members');
   const zones = zonesSheet.getDataRange().getValues().slice(1);
-  const members = membersSheet.getDataRange().getValues().slice(1);
+  let members = membersSheet.getDataRange().getValues().slice(1);
+  // Only active members
+  members = members.filter(m => m[22] === 'Active');
 
   const stats = zones.map(zone => {
     const zoneName = zone[1];
@@ -1174,7 +1180,8 @@ function getBranchStats(user) {
   const branchesSheet = getSpreadsheet().getSheetByName('Branches');
   const membersSheet = getSpreadsheet().getSheetByName('Members');
   const branches = branchesSheet.getDataRange().getValues().slice(1);
-  const members = membersSheet.getDataRange().getValues().slice(1);
+  let members = membersSheet.getDataRange().getValues().slice(1);
+  members = members.filter(m => m[22] === 'Active');
 
   const stats = branches.map(branch => {
     const branchCode = branch[0];
@@ -1274,7 +1281,6 @@ function updateMember(intizarId, newData, user) {
     }
   }
 
-  // Validations
   if (newData.dob) {
     const age = calculateAge(newData.dob);
     if (age < 7) throw new Error('Member must be at least 7 years old');
