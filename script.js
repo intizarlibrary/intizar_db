@@ -1,4 +1,3 @@
-
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl6RqpKXCDe5JHRKqj0oHLTyHaKnRYLLgkBVmqgNqdnRqzRinVIiZt1U4w4V063fJJw/exec';
 const PAGE_SIZE = 50;
@@ -369,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutLink) {
         logoutLink.addEventListener('click', (e) => {
             e.preventDefault();
-            sessionStorage.clear(); // Clear all cached data
+            sessionStorage.clear();
             sessionStorage.removeItem('user');
             window.location.href = 'index.html';
         });
@@ -406,8 +405,6 @@ async function initializeDashboard() {
     await loadMemberList(1, '');
     await loadFilterOptions();
     loadZonesForDropdowns();
-
-    // Search on button click only
 }
 
 function setupNavigation() {
@@ -513,7 +510,8 @@ async function loadFilterOptions(forceRefresh = false) {
             populateSelect('filterMemberLevel', result.levels, true);
             populateSelect('filterMemberBranch', result.branches, true);
             populateSelect('filterMemberZone', result.zones, true);
-            populateSelect('filterMasulRank', result.ranks.Brother, true);
+            // FIX: use result.ranks directly (flat array) instead of result.ranks.Brother
+            populateSelect('filterMasulRank', result.ranks, true);
             populateSelect('filterMasulBranch', result.branches, true);
             populateSelect('filterMasulZone', result.zones, true);
             return;
@@ -528,7 +526,8 @@ async function loadFilterOptions(forceRefresh = false) {
         populateSelect('filterMemberLevel', result.levels, true);
         populateSelect('filterMemberBranch', result.branches, true);
         populateSelect('filterMemberZone', result.zones, true);
-        populateSelect('filterMasulRank', result.ranks.Brother, true);
+        // FIX: use result.ranks directly (flat array) instead of result.ranks.Brother
+        populateSelect('filterMasulRank', result.ranks, true);
         populateSelect('filterMasulBranch', result.branches, true);
         populateSelect('filterMasulZone', result.zones, true);
     } catch (err) {
@@ -1028,7 +1027,6 @@ function openPrintWindow(content, title) {
 
     const logoAbsolute = new URL('logo.png', window.location.href).href;
 
-    // Write a clean HTML document with a small delay before printing
     printWindow.document.write(`
         <html>
         <head>
@@ -1050,7 +1048,6 @@ function openPrintWindow(content, title) {
         <body>
             <div class="id-card">${content}</div>
             <script>
-                // Set fallback for images
                 document.querySelectorAll('img').forEach(img => {
                     if (!img.src || img.src === '') {
                         img.src = '${logoAbsolute}';
@@ -1060,7 +1057,6 @@ function openPrintWindow(content, title) {
                         this.onerror = null;
                     };
                 });
-                // Wait a moment for images to load, then print
                 setTimeout(function() {
                     window.print();
                     window.onafterprint = function() { window.close(); };
@@ -1148,12 +1144,10 @@ async function editMember(intizarId) {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
 
-        // Fill all fields
         document.getElementById('editMemberIntizarId').value = member.IntizarID;
         document.getElementById('editMemberFullName').value = member.FullName;
         document.getElementById('editMemberFatherName').value = member.FatherName;
         document.getElementById('editMemberGender').value = member.Gender;
-        // FIX: format DOB for date input
         document.getElementById('editMemberDob').value = formatDateForInput(member.DOB);
         document.getElementById('editMemberPlaceOfBirth').value = member.PlaceOfBirth || '';
         document.getElementById('editMemberPhone').value = member.Phone;
@@ -1167,16 +1161,13 @@ async function editMember(intizarId) {
         document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone;
         document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress;
 
-        // Ensure zones and branches are loaded
         await loadZonesForDropdowns(false);
         
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
         
-        // Set zone (dropdown will have the correct value now)
         zoneSelect.value = member.Zone;
         
-        // Manually populate branches for this zone using cached map
         branchSelect.innerHTML = '<option value="">Select Branch</option>';
         const branchesForZone = Object.entries(branchZoneMap)
             .filter(([code, z]) => z === member.Zone)
@@ -1188,7 +1179,6 @@ async function editMember(intizarId) {
             branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
         });
         
-        // Set branch value
         branchSelect.value = member.Branch;
 
         showModal('editMemberModal');
@@ -1211,7 +1201,6 @@ async function editMasul(intizarId) {
         document.getElementById('editMasulFullName').value = masul.FullName;
         document.getElementById('editMasulFatherName').value = masul.FatherName;
         document.getElementById('editMasulGender').value = masul.Gender;
-        // FIX: format DOB for date input
         document.getElementById('editMasulDob').value = formatDateForInput(masul.DOB);
         document.getElementById('editMasulPlaceOfBirth').value = masul.PlaceOfBirth || '';
         document.getElementById('editMasulPhone').value = masul.Phone;
@@ -1254,7 +1243,7 @@ async function editMasul(intizarId) {
 function formatDateForInput(dateString) {
     if (!dateString) return '';
     const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString; // fallback
+    if (isNaN(d.getTime())) return dateString;
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -1732,7 +1721,6 @@ function initializeRegistrationPage() {
         }
     }
 
-    // MODIFIED: Member form submission – now shows confirmation first
     document.getElementById('memberForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -1746,11 +1734,10 @@ function initializeRegistrationPage() {
             data.photoBase64 = await fileToBase64(photoFile);
             data.photoName = photoFile.name;
         }
-        pendingMemberData = data;   // store for confirmation
+        pendingMemberData = data;
         showRegistrationConfirm(data, 'member');
     });
 
-    // MODIFIED: Mas'ul form submission – confirmation first
     document.getElementById('masulForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -1777,7 +1764,6 @@ function initializeRegistrationPage() {
     });
 }
 
-// NEW: Show confirmation modal with registration preview
 function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
@@ -1805,7 +1791,6 @@ function closeRegistrationConfirmModal() {
     pendingMasulData = null;
 }
 
-// NEW: Submit the registration after user confirms
 async function submitConfirmedRegistration() {
     if (pendingMemberData) {
         try {
