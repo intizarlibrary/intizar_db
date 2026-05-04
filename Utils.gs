@@ -26,7 +26,7 @@ function ensureSheetsExist() {
       'IntizarID', 'RecruitmentID', 'FullName', 'FatherName', 'Gender', 'DOB',
       'PlaceOfBirth', 'Phone', 'Email', 'Address', 'State', 'LGA', 'Zone',
       'Branch', 'Year', 'Level', 'PhotoURL', 'PromotionHistory', 'TransferHistory',
-      'GuardianName', 'GuardianPhone', 'GuardianAddress'
+      'GuardianName', 'GuardianPhone', 'GuardianAddress', 'Status'  // NEW: for archiving
     ],
     Masuls: [
       'IntizarID', 'MasulRecruitmentID', 'FullName', 'FatherName', 'Gender', 'DOB',
@@ -38,7 +38,10 @@ function ensureSheetsExist() {
     Branches: ['BranchCode', 'BranchName', 'Zone', 'Status'],
     Config: ['Key', 'Value'],
     AuditLog: ['Timestamp', 'User', 'Action', 'Details'],
-    BranchCounters: ['BranchCode', 'LastSerial']
+    BranchCounters: ['BranchCode', 'LastSerial'],
+    // NEW: dedicated history sheets (normalised)
+    PromotionHistory: ['Timestamp', 'IntizarID', 'Type', 'From', 'To', 'By', 'Details'],
+    TransferHistory:  ['Timestamp', 'IntizarID', 'Type', 'FromBranch', 'ToBranch', 'Zone', 'By']
   };
 
   for (let name in sheets) {
@@ -135,25 +138,8 @@ function logAudit(user, action, details) {
 }
 
 // ==================== ID GENERATION (atomic) ====================
-function nextIntizarId() {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    let curr = parseInt(getConfigValue('global_intizar') || '0');
-    curr++;
-    setConfig('global_intizar', curr.toString());
-    return 'MTZR/' + curr.toString().padStart(5, '0');
-  } finally {
-    lock.releaseLock();
-  }
-}
 
-/**
- * Generates a member recruitment ID using the branch code and the year from the registration form.
- * @param {string} branchCode - The branch code.
- * @param {string|number} recruitmentYear - The year entered during registration (e.g., "2025").
- * @returns {string} Formatted recruitment ID.
- */
+// ==================== MEMBER RECRUITMENT ID ====================
 function nextMemberRecruitmentId(branchCode, recruitmentYear) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -162,14 +148,14 @@ function nextMemberRecruitmentId(branchCode, recruitmentYear) {
     const data = sheet.getDataRange().getValues();
     const year = recruitmentYear.toString().slice(-2);
 
-    // Count all members belonging to this branch (ignore year)
+    // Count all members belonging to this branch
     let serial = 0;
     for (let i = 1; i < data.length; i++) {
-      if (data[i][13] === branchCode) { // Column 13 = Branch
+      if (data[i][13] === branchCode) {
         serial++;
       }
     }
-    serial++; // next number
+    serial++;
     const padded = String(serial).padStart(3, '0');
     return `INT/${branchCode}/${year}/${padded}`;
   } finally {
@@ -177,12 +163,7 @@ function nextMemberRecruitmentId(branchCode, recruitmentYear) {
   }
 }
 
-/**
- * Generates a Mas'ul recruitment ID using the branch code and the year from the registration form.
- * @param {string} branchCode - The branch code.
- * @param {string|number} recruitmentYear - The year entered during registration.
- * @returns {string} Formatted recruitment ID.
- */
+// ==================== MAS'UL RECRUITMENT ID ====================
 function nextMasulRecruitmentId(branchCode, recruitmentYear) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -194,7 +175,7 @@ function nextMasulRecruitmentId(branchCode, recruitmentYear) {
     // Count ALL mas'uls (global)
     let serial = 0;
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0]) serial++; // any row with IntizarID
+      if (data[i][0]) serial++;
     }
     serial++;
     const padded = String(serial).padStart(3, '0');
@@ -280,9 +261,9 @@ function login(role, code) {
   throw new Error('Invalid role');
 }
 
-// ==================== PHOTO UPLOAD TO DRIVE (Fixed: uses thumbnail URL) ====================
+// ==================== PHOTO UPLOAD TO DRIVE ====================
 function savePhotoToDrive(base64Data, fileName) {
-  let mimeType = 'image/jpeg'; // default
+  let mimeType = 'image/jpeg';
   try {
     const folderName = 'Intizarul_Photos';
     const folders = DriveApp.getFoldersByName(folderName);
@@ -306,7 +287,7 @@ function savePhotoToDrive(base64Data, fileName) {
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const fileId = file.getId();
-    // Use thumbnail URL for reliable image display (works in <img> tags)
+    // Use thumbnail URL for reliable image display
     return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
   } catch (e) {
     console.warn('Drive upload failed, using base64: ' + e.toString());
@@ -314,7 +295,7 @@ function savePhotoToDrive(base64Data, fileName) {
   }
 }
 
-// ==================== MEMBER REGISTRATION (with duplicate check) ====================
+// ==================== MEMBER REGISTRATION (with atomic ID generation) ====================
 function registerMember(data, user) {
   // Permission checks
   if (user.role === 'Branch Mas\'ul' && data.branch !== user.branchCode) {
@@ -348,78 +329,91 @@ function registerMember(data, user) {
     throw new Error('Entry level must be Bakiyatullah, Ansarullah, or Ghalibun');
   }
 
-  // ========== DUPLICATE CHECK (all fields except photo) ==========
+  // Duplicate check (all fields except photo)
   const sheet = getSpreadsheet().getSheetByName('Members');
   const existingRows = sheet.getDataRange().getValues(); // includes headers
   const dataRows = existingRows.slice(1);
 
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
-    // Compare each field (using same indices as columns)
-    if (row[2] === data.fullName &&               // FullName
-        row[3] === data.fatherName &&             // FatherName
-        row[4] === data.gender &&                  // Gender
-        row[5] === data.dob &&                      // DOB
-        (row[6] || '') === (data.placeOfBirth || '') && // PlaceOfBirth (optional)
-        row[7] === data.phone &&                    // Phone
-        (row[8] || '') === (data.email || '') &&    // Email (optional)
-        row[9] === data.address &&                   // Address
-        row[10] === data.state &&                     // State
-        row[11] === data.lga &&                        // LGA
-        row[12] === data.zone &&                       // Zone
-        row[13] === data.branch &&                      // Branch
-        row[14].toString() === data.year.toString() &&  // Year
-        row[15] === data.entryLevel &&                   // EntryLevel
-        row[19] === data.guardianName &&                  // GuardianName
-        row[20] === data.guardianPhone &&                  // GuardianPhone
-        row[21] === data.guardianAddress) {                 // GuardianAddress
-      // All fields match → duplicate
+    if (row[2] === data.fullName &&
+        row[3] === data.fatherName &&
+        row[4] === data.gender &&
+        row[5] === data.dob &&
+        (row[6] || '') === (data.placeOfBirth || '') &&
+        row[7] === data.phone &&
+        (row[8] || '') === (data.email || '') &&
+        row[9] === data.address &&
+        row[10] === data.state &&
+        row[11] === data.lga &&
+        row[12] === data.zone &&
+        row[13] === data.branch &&
+        row[14].toString() === data.year.toString() &&
+        row[15] === data.entryLevel &&
+        row[19] === data.guardianName &&
+        row[20] === data.guardianPhone &&
+        row[21] === data.guardianAddress) {
       throw new Error('Duplicate registration detected. This person is already registered with Intizar ID: ' + row[0]);
     }
   }
 
-  // ========== PROCEED WITH REGISTRATION ==========
-  const intizarId = nextIntizarId();
-  const recruitmentId = nextMemberRecruitmentId(data.branch, data.year);
-
-  let photoURL = '';
-  if (data.photoBase64) {
-    if (!data.photoName || !data.photoName.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      throw new Error('Only image files (JPG, PNG, GIF) are allowed');
+  // Atomic ID generation and row append
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    let currentIntizar = parseInt(getConfigValue('global_intizar') || '0');
+    let nextIntizar = currentIntizar + 1;
+    const intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
+    
+    const recruitmentId = nextMemberRecruitmentId(data.branch, data.year);
+    
+    let photoURL = '';
+    if (data.photoBase64) {
+      if (!data.photoName || !data.photoName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+        throw new Error('Only image files (JPG, PNG, GIF) are allowed');
+      }
+      photoURL = savePhotoToDrive(data.photoBase64, data.photoName);
     }
-    photoURL = savePhotoToDrive(data.photoBase64, data.photoName);
+    
+    const row = [
+      intizarId,
+      recruitmentId,
+      data.fullName,
+      data.fatherName,
+      data.gender,
+      data.dob,
+      data.placeOfBirth || '',
+      data.phone,
+      data.email || '',
+      data.address,
+      data.state,
+      data.lga,
+      data.zone,
+      data.branch,
+      data.year,
+      data.entryLevel,
+      photoURL,
+      JSON.stringify([{ date: new Date(), level: data.entryLevel, action: 'Registered' }]),
+      '[]',
+      data.guardianName,
+      data.guardianPhone,
+      data.guardianAddress,
+      'Active'   // NEW: default status
+    ];
+    
+    sheet.appendRow(row);
+    
+    setConfig('global_intizar', nextIntizar.toString());
+    
+    logAudit(user.role + ':' + (user.branch || user.zone || 'Admin'), 'MEMBER_REGISTERED',
+      `Intizar ID: ${intizarId}, Name: ${data.fullName}`);
+    
+    return { success: true, intizarId, recruitmentId };
+  } catch (err) {
+    throw err;
+  } finally {
+    lock.releaseLock();
   }
-
-  const row = [
-    intizarId,
-    recruitmentId,
-    data.fullName,
-    data.fatherName,
-    data.gender,
-    data.dob,
-    data.placeOfBirth || '',
-    data.phone,
-    data.email || '',
-    data.address,
-    data.state,
-    data.lga,
-    data.zone,
-    data.branch,
-    data.year,
-    data.entryLevel,
-    photoURL,
-    JSON.stringify([{ date: new Date(), level: data.entryLevel, action: 'Registered' }]),
-    '[]',
-    data.guardianName,
-    data.guardianPhone,
-    data.guardianAddress
-  ];
-
-  sheet.appendRow(row);
-  logAudit(user.role + ':' + (user.branch || user.zone || 'Admin'), 'MEMBER_REGISTERED',
-    `Intizar ID: ${intizarId}, Name: ${data.fullName}`);
-
-  return { success: true, intizarId, recruitmentId };
 }
 
 function calculateAge(dobString) {
@@ -431,7 +425,7 @@ function calculateAge(dobString) {
   return age;
 }
 
-// ==================== MAS'UL REGISTRATION ====================
+// ==================== MAS'UL REGISTRATION (with atomic ID generation and archiving) ====================
 function registerMasul(data, user) {
   if (user.role !== 'Admin') throw new Error('Only Admin can register Mas\'ul');
 
@@ -450,6 +444,8 @@ function registerMasul(data, user) {
 
   let intizarId = '';
   let originalMemberRecruitmentId = '';
+  let memberRowIndex = -1;
+
   if (data.source === 'X-Ghalibun') {
     if (!data.intizarId) throw new Error('Intizar ID required for X-Ghalibun');
     const memberSheet = getSpreadsheet().getSheetByName('Members');
@@ -461,31 +457,88 @@ function registerMasul(data, user) {
         found = true;
         intizarId = data.intizarId;
         originalMemberRecruitmentId = memberData[i][1];
+        memberRowIndex = i + 1;
         break;
       }
     }
     if (!found) throw new Error('Member not found');
+
+    // --- ARCHIVE THE MEMBER ---
+    const headers = memberData[0];
+    const statusColIdx = headers.indexOf('Status');
+    if (statusColIdx !== -1) {
+      memberSheet.getRange(memberRowIndex, statusColIdx + 1).setValue('Mas\'ul');
+    }
+    // Log the transition in PromotionHistory
+    const promoHistorySheet = getSpreadsheet().getSheetByName('PromotionHistory');
+    promoHistorySheet.appendRow([
+      new Date(), intizarId, 'Member',
+      'X-Ghalibun', 'Mas\'ul',
+      user.role,
+      'Archived as Mas\'ul (registered via X-Ghalibun)'
+    ]);
   } else if (data.source === 'proposed') {
-    intizarId = nextIntizarId();
+    // Atomic ID generation for proposed mas'ul
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      let currentIntizar = parseInt(getConfigValue('global_intizar') || '0');
+      let nextIntizar = currentIntizar + 1;
+      intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
+      
+      const masulRecruitmentId = nextMasulRecruitmentId(data.branch, data.year);
+      
+      let photoURL = '';
+      if (data.photoBase64) {
+        if (!data.photoName || !data.photoName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+          throw new Error('Only image files (JPG, PNG, GIF) are allowed');
+        }
+        photoURL = savePhotoToDrive(data.photoBase64, data.photoName);
+      }
+      
+      const row = [
+        intizarId,
+        masulRecruitmentId,
+        data.fullName,
+        data.fatherName,
+        data.gender,
+        data.dob,
+        data.placeOfBirth || '',
+        data.phone,
+        data.email || '',
+        data.address,
+        data.state,
+        data.lga,
+        data.zone,
+        data.branch,
+        data.year,
+        data.currentRank,
+        photoURL,
+        'proposed',
+        JSON.stringify([{ date: new Date(), rank: data.currentRank, action: 'Registered' }]),
+        ''
+      ];
+      
+      const sheet = getSpreadsheet().getSheetByName('Masuls');
+      sheet.appendRow(row);
+      
+      setConfig('global_intizar', nextIntizar.toString());
+      
+      logAudit('Admin', 'MASUL_REGISTERED',
+        `Intizar ID: ${intizarId}, Name: ${data.fullName}, Source: proposed`);
+      
+      return { success: true, intizarId, masulRecruitmentId, originalMemberRecruitmentID: '' };
+    } catch (err) {
+      throw err;
+    } finally {
+      lock.releaseLock();
+    }
   } else {
     throw new Error('Invalid source');
   }
 
-  const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
-  const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
-  const allowedEntryBrother = ['Musa\'id', 'Areef', 'Muqaddam'];
-  const allowedEntrySister = ['Musa\'ida', 'Areefa', 'Muqadama'];
-
-  if (data.gender === 'Brother') {
-    if (!allowedEntryBrother.includes(data.currentRank)) throw new Error('Entry rank for Brother must be Musa\'id, Areef, or Muqaddam');
-  } else if (data.gender === 'Sister') {
-    if (!allowedEntrySister.includes(data.currentRank)) throw new Error('Entry rank for Sister must be Musa\'ida, Areefa, or Muqadama');
-  } else {
-    throw new Error('Invalid gender');
-  }
-
+  // If source is X-Ghalibun, proceed without new ID (existing code)
   const masulRecruitmentId = nextMasulRecruitmentId(data.branch, data.year);
-
   let photoURL = '';
   if (data.photoBase64) {
     if (!data.photoName || !data.photoName.match(/\.(jpg|jpeg|png|gif)$/i)) {
@@ -659,7 +712,7 @@ function getBranches(user, zoneFilter) {
   return { success: true, branches };
 }
 
-// ==================== PROMOTIONS ====================
+// ==================== PROMOTIONS (with history logging) ====================
 function promoteMember(intizarId, user) {
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues();
@@ -685,12 +738,22 @@ function promoteMember(intizarId, user) {
 
   const newLevel = levelOrder[idx + 1];
 
+  // Update JSON history in the member row (backward compatibility)
   let history = [];
   try { history = JSON.parse(member[17] || '[]'); } catch (e) { history = []; }
   history.push({ date: new Date(), from: currentLevel, to: newLevel, by: user.role });
 
   sheet.getRange(rowIndex, 16).setValue(newLevel);
   sheet.getRange(rowIndex, 18).setValue(JSON.stringify(history));
+
+  // Log to normalised PromotionHistory sheet
+  const promoHist = getSpreadsheet().getSheetByName('PromotionHistory');
+  promoHist.appendRow([
+    new Date(), intizarId, 'Member',
+    currentLevel, newLevel,
+    user.role,
+    `Promoted from ${currentLevel} to ${newLevel}`
+  ]);
 
   logAudit(user.role + ':' + (user.zone || user.branch || 'Admin'), 'MEMBER_PROMOTED',
     `Intizar ID: ${intizarId}, from ${currentLevel} to ${newLevel}`);
@@ -725,6 +788,7 @@ function promoteMasul(intizarId, user) {
 
   const newRank = rankOrder[idx + 1];
 
+  // Update JSON history in the masul row
   let history = [];
   try { history = JSON.parse(masul[18] || '[]'); } catch (e) { history = []; }
   history.push({ date: new Date(), from: currentRank, to: newRank, by: 'Admin' });
@@ -732,12 +796,21 @@ function promoteMasul(intizarId, user) {
   sheet.getRange(rowIndex, 16).setValue(newRank);
   sheet.getRange(rowIndex, 19).setValue(JSON.stringify(history));
 
+  // Log to normalised PromotionHistory sheet
+  const promoHist = getSpreadsheet().getSheetByName('PromotionHistory');
+  promoHist.appendRow([
+    new Date(), intizarId, 'Masul',
+    currentRank, newRank,
+    'Admin',
+    `Promoted from ${currentRank} to ${newRank}`
+  ]);
+
   logAudit('Admin', 'MASUL_PROMOTED', `Intizar ID: ${intizarId}, from ${currentRank} to ${newRank}`);
 
   return { success: true, newRank };
 }
 
-// ==================== TRANSFERS ====================
+// ==================== TRANSFERS (with history logging) ====================
 function transferMember(intizarId, newBranchCode, user) {
   if (user.role !== 'Admin') throw new Error('Only Admin can transfer members');
   if (!isValidBranchCode(newBranchCode)) throw new Error('Invalid branch code');
@@ -757,6 +830,7 @@ function transferMember(intizarId, newBranchCode, user) {
   const oldBranch = member[13];
   const newZone = getBranchZone(newBranchCode);
 
+  // Update JSON transfer history in the member row
   let transferHistory = [];
   try { transferHistory = JSON.parse(member[18] || '[]'); } catch (e) { transferHistory = []; }
   transferHistory.push({ date: new Date(), fromBranch: oldBranch, toBranch: newBranchCode, by: 'Admin' });
@@ -764,6 +838,15 @@ function transferMember(intizarId, newBranchCode, user) {
   sheet.getRange(rowIndex, 14).setValue(newBranchCode);
   sheet.getRange(rowIndex, 13).setValue(newZone);
   sheet.getRange(rowIndex, 19).setValue(JSON.stringify(transferHistory));
+
+  // Log to normalised TransferHistory sheet
+  const transHist = getSpreadsheet().getSheetByName('TransferHistory');
+  transHist.appendRow([
+    new Date(), intizarId, 'Member',
+    oldBranch, newBranchCode,
+    newZone,
+    'Admin'
+  ]);
 
   logAudit('Admin', 'MEMBER_TRANSFERRED', `Intizar ID: ${intizarId} to ${newBranchCode}`);
 
@@ -791,6 +874,15 @@ function transferMasul(intizarId, newBranchCode, user) {
 
   sheet.getRange(rowIndex, 14).setValue(newBranchCode);
   sheet.getRange(rowIndex, 13).setValue(newZone);
+
+  // Log to normalised TransferHistory sheet
+  const transHist = getSpreadsheet().getSheetByName('TransferHistory');
+  transHist.appendRow([
+    new Date(), intizarId, 'Masul',
+    oldBranch, newBranchCode,
+    newZone,
+    'Admin'
+  ]);
 
   logAudit('Admin', 'MASUL_TRANSFERRED', `Intizar ID: ${intizarId} to ${newBranchCode}`);
 
@@ -1024,7 +1116,6 @@ function getDashboardStats(user) {
     branchCounts[branch] = (branchCounts[branch] || 0) + 1;
   });
 
-  // Original stats
   const totalMembers = membersData.length;
   const totalMasuls = masulsData.length;
   const totalCombined = totalMembers + totalMasuls;
@@ -1075,7 +1166,6 @@ function getZoneStats(user) {
       sisters: zoneMembers.filter(m => m[4] === 'Sister').length
     };
   });
-  // Include zones with zero members
   return { success: true, stats };
 }
 
@@ -1100,7 +1190,6 @@ function getBranchStats(user) {
       sisters: branchMembers.filter(m => m[4] === 'Sister').length
     };
   });
-  // Include branches with zero members
   return { success: true, stats };
 }
 
@@ -1108,7 +1197,7 @@ function getBranchStats(user) {
 function getDistinctBranches() {
   const sheet = getSpreadsheet().getSheetByName('Branches');
   const data = sheet.getDataRange().getValues().slice(1);
-  const branches = [...new Set(data.map(row => row[1]))]; // branch names
+  const branches = [...new Set(data.map(row => row[1]))];
   return branches;
 }
 
@@ -1121,7 +1210,7 @@ function getDistinctZones() {
 function getDistinctLevels() {
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues().slice(1);
-  return [...new Set(data.map(row => row[15]))]; // Level column
+  return [...new Set(data.map(row => row[15]))];
 }
 
 function getDistinctGenders() {
@@ -1131,7 +1220,7 @@ function getDistinctGenders() {
 function getDistinctRanks() {
   const sheet = getSpreadsheet().getSheetByName('Masuls');
   const data = sheet.getDataRange().getValues().slice(1);
-  return [...new Set(data.map(row => row[15]))]; // CurrentRank column
+  return [...new Set(data.map(row => row[15]))];
 }
 
 // ==================== SPREADSHEET URL FOR ADMIN ====================
@@ -1139,6 +1228,140 @@ function getSpreadsheetUrl(user) {
   if (user.role !== 'Admin') throw new Error('Only Admin can access spreadsheet URL');
   const url = getSpreadsheet().getUrl();
   return { success: true, url };
+}
+
+// ==================== UPDATE MEMBER (Admin only) ====================
+function updateMember(intizarId, newData, user) {
+  if (user.role !== 'Admin') throw new Error('Only Admin can edit members');
+  
+  const sheet = getSpreadsheet().getSheetByName('Members');
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === intizarId) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  if (rowIndex === -1) throw new Error('Member not found');
+
+  const existingRow = data[rowIndex - 1];
+  const updateRow = [...existingRow];
+
+  const fieldMap = {
+    fullName: 2,
+    fatherName: 3,
+    gender: 4,
+    dob: 5,
+    placeOfBirth: 6,
+    phone: 7,
+    email: 8,
+    address: 9,
+    state: 10,
+    lga: 11,
+    zone: 12,
+    branch: 13,
+    year: 14,
+    level: 15,
+    guardianName: 19,
+    guardianPhone: 20,
+    guardianAddress: 21
+  };
+
+  for (let [field, value] of Object.entries(newData)) {
+    if (field in fieldMap && value !== undefined) {
+      updateRow[fieldMap[field]] = value;
+    }
+  }
+
+  // Validations
+  if (newData.dob) {
+    const age = calculateAge(newData.dob);
+    if (age < 7) throw new Error('Member must be at least 7 years old');
+  }
+  if (newData.branch || newData.zone) {
+    const branch = newData.branch || existingRow[13];
+    const zone = newData.zone || existingRow[12];
+    const branchZone = getBranchZone(branch);
+    if (branchZone !== zone) throw new Error('Branch does not belong to selected zone');
+  }
+  if (newData.level && !['Bakiyatullah','Ansarullah','Ghalibun','X-Ghalibun'].includes(newData.level)) {
+    throw new Error('Invalid level');
+  }
+
+  const range = sheet.getRange(rowIndex, 1, 1, updateRow.length);
+  range.setValues([updateRow]);
+
+  logAudit('Admin', 'MEMBER_UPDATED', `Intizar ID: ${intizarId}`);
+  return { success: true };
+}
+
+// ==================== UPDATE MASUL (Admin only) ====================
+function updateMasul(intizarId, newData, user) {
+  if (user.role !== 'Admin') throw new Error('Only Admin can edit masuls');
+  
+  const sheet = getSpreadsheet().getSheetByName('Masuls');
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === intizarId) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  if (rowIndex === -1) throw new Error('Masul not found');
+
+  const existingRow = data[rowIndex - 1];
+  const updateRow = [...existingRow];
+
+  const fieldMap = {
+    fullName: 2,
+    fatherName: 3,
+    gender: 4,
+    dob: 5,
+    placeOfBirth: 6,
+    phone: 7,
+    email: 8,
+    address: 9,
+    state: 10,
+    lga: 11,
+    zone: 12,
+    branch: 13,
+    year: 14,
+    currentRank: 15
+  };
+
+  for (let [field, value] of Object.entries(newData)) {
+    if (field in fieldMap && value !== undefined) {
+      updateRow[fieldMap[field]] = value;
+    }
+  }
+
+  if (newData.dob) {
+    const age = calculateAge(newData.dob);
+    if (age < 18) throw new Error('Mas\'ul must be at least 18 years old');
+  }
+  if (newData.branch || newData.zone) {
+    const branch = newData.branch || existingRow[13];
+    const zone = newData.zone || existingRow[12];
+    const branchZone = getBranchZone(branch);
+    if (branchZone !== zone) throw new Error('Branch does not belong to selected zone');
+  }
+  if (newData.currentRank) {
+    const gender = newData.gender || existingRow[4];
+    const allowedRanks = gender === 'Brother' 
+      ? ['Musa\'id','Areef','Muqaddam','Ra\'id','Raqeeb','Mulazim','Muhafiz','Ameed','Aqeeda','Qaid']
+      : ['Musa\'ida','Areefa','Muqadama','Ra\'ida','Raqeeba','Mulazima','Muhafiza','Ameeda','Aqeeda','Qaida'];
+    if (!allowedRanks.includes(newData.currentRank)) {
+      throw new Error(`Invalid rank for ${gender}`);
+    }
+  }
+
+  const range = sheet.getRange(rowIndex, 1, 1, updateRow.length);
+  range.setValues([updateRow]);
+
+  logAudit('Admin', 'MASUL_UPDATED', `Intizar ID: ${intizarId}`);
+  return { success: true };
 }
 
 // ==================== MANUAL INITIALIZATION FUNCTIONS ====================
