@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl6RqpKXCDe5JHRKqj0oHLTyHaKnRYLLgkBVmqgNqdnRqzRinVIiZt1U4w4V063fJJw/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2a6s6TvXBlmqmYaWCC0RJu4Lx6wQScIGxbJbdgYqxIh9BiulGZ091W2Dkz0Ma7N9FSQ/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -1656,7 +1656,7 @@ async function transferMasul(intizarId) {
 }
 
 // ==================== REGISTRATION PAGE ====================
-function initializeRegistrationPage() {
+async function initializeRegistrationPage() {
     if (!currentUser) return;
 
     if (currentUser.role !== 'Admin') {
@@ -1668,7 +1668,8 @@ function initializeRegistrationPage() {
         document.getElementById('masulFormContainer').style.display = 'none';
     }
 
-    loadZonesForDropdowns();
+    // Ensure zones and branches are fully loaded before we try to lock the selects
+    await loadZonesForDropdowns();
     setDOBLimits();
 
     const masulGender = document.getElementById('masulGender');
@@ -1691,33 +1692,23 @@ function initializeRegistrationPage() {
         });
     }
 
+    // Branch Mas'ul lock – now works because the dropdowns are populated
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.querySelector('select[name="branch"]');
         const zoneField = document.querySelector('select[name="zone"]');
         if (branchField && zoneField) {
-            setTimeout(() => {
-                const branchCode = currentUser.branchCode;
-                const zoneName = branchZoneMap[branchCode];
-                if (zoneName) {
-                    for (let opt of zoneField.options) {
-                        if (opt.value === zoneName) {
-                            opt.selected = true;
-                            zoneField.disabled = true;
-                            break;
-                        }
-                    }
-                    zoneField.dispatchEvent(new Event('change'));
-                    setTimeout(() => {
-                        for (let opt of branchField.options) {
-                            if (opt.value === branchCode) {
-                                opt.selected = true;
-                                branchField.disabled = true;
-                                break;
-                            }
-                        }
-                    }, 500);
-                }
-            }, 1000);
+            const branchCode = currentUser.branchCode;
+            const zoneName = branchZoneMap[branchCode];   // this map is now filled
+            if (zoneName) {
+                zoneField.value = zoneName;
+                zoneField.disabled = true;
+                zoneField.dispatchEvent(new Event('change'));
+                // Wait a tiny moment for the branch list to update, then lock
+                setTimeout(() => {
+                    branchField.value = branchCode;
+                    branchField.disabled = true;
+                }, 100);
+            }
         }
     }
 
