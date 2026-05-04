@@ -1,6 +1,6 @@
 
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby76v97VP7e-M4WXjlC5odxkQs4AQ_OYoZhdBHbB4XGHQZ3sSlLEYuwv7OnjXgitXRluA/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl6RqpKXCDe5JHRKqj0oHLTyHaKnRYLLgkBVmqgNqdnRqzRinVIiZt1U4w4V063fJJw/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
