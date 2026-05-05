@@ -1655,7 +1655,7 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== REGISTRATION PAGE ====================
+// ==================== REGISTRATION PAGE (FIXED) ====================
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
@@ -1668,50 +1668,57 @@ async function initializeRegistrationPage() {
         document.getElementById('masulFormContainer').style.display = 'none';
     }
 
-    // Ensure zones and branches are fully loaded before we try to lock the selects
+    // 1. Load zones & branch map FIRST and wait for completion
     await loadZonesForDropdowns();
     setDOBLimits();
 
+    // Rank options for Mas'ul gender change
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
             const gender = this.value;
             const rankSelect = document.getElementById('masulRank');
-            const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
-            const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
+            const brotherRanks = ['Musa\'id','Areef','Muqaddam','Ra\'id','Raqeeb','Mulazim','Muhafiz','Ameed','Aqeeda','Qaid'];
+            const sisterRanks = ['Musa\'ida','Areefa','Muqadama','Ra\'ida','Raqeeba','Mulazima','Muhafiza','Ameeda','Aqeeda','Qaida'];
             rankSelect.innerHTML = '<option value="">Select Rank</option>';
-            if (gender === 'Brother') {
-                brotherRanks.forEach(rank => {
-                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
-                });
-            } else if (gender === 'Sister') {
-                sisterRanks.forEach(rank => {
-                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
-                });
-            }
+            const ranks = gender === 'Brother' ? brotherRanks : sisterRanks;
+            ranks.forEach(rank => {
+                rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+            });
         });
     }
 
-    // Branch Mas'ul lock – now works because the dropdowns are populated
+    // 2. Branch Mas'ul auto‑select (reliable now because map is ready)
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.querySelector('select[name="branch"]');
         const zoneField = document.querySelector('select[name="zone"]');
         if (branchField && zoneField) {
             const branchCode = currentUser.branchCode;
-            const zoneName = branchZoneMap[branchCode];   // this map is now filled
+            const zoneName = branchZoneMap[branchCode];
+
             if (zoneName) {
                 zoneField.value = zoneName;
                 zoneField.disabled = true;
-                zoneField.dispatchEvent(new Event('change'));
-                // Wait a tiny moment for the branch list to update, then lock
-                setTimeout(() => {
-                    branchField.value = branchCode;
-                    branchField.disabled = true;
-                }, 100);
+
+                // Directly populate branch dropdown instead of relying on setTimeout
+                branchField.innerHTML = '<option value="">Select Branch</option>';
+                const branchesForZone = Object.entries(branchZoneMap)
+                    .filter(([code, z]) => z === zoneName)
+                    .map(([code]) => {
+                        const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                        return { code, name };
+                    });
+                branchesForZone.forEach(b => {
+                    branchField.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+                });
+
+                branchField.value = branchCode;
+                branchField.disabled = true;
             }
         }
     }
 
+    // 3. Form submission handlers
     document.getElementById('memberForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
