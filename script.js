@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initSidebar();
             initializeDashboard();
         } else if (window.location.pathname.includes('registration.html')) {
-            initializeRegistrationPage();  // still a sync call, but the function is async and handles itself
+            initializeRegistrationPage();
         }
     } else {
         if (!window.location.pathname.includes('index.html')) {
@@ -588,8 +588,10 @@ async function loadZonesForDropdowns(forceRefresh = false) {
         const branchMap = {};
         const nameToCode = {};
         
+        // IMPORTANT: Do not send currentUser to getBranches, otherwise
+        // Zonal Mas'ul would only see their own zone's branches.
         for (let zone of zones) {
-            const branchRes = await apiRequest('getBranches', { zone: zone.zoneName }, currentUser);
+            const branchRes = await apiRequest('getBranches', { zone: zone.zoneName });
             branchRes.branches.forEach(b => {
                 if (b.status === 'Active') {
                     branchMap[b.branchCode] = zone.zoneName;
@@ -645,18 +647,12 @@ function attachZoneChangeListeners() {
     });
 }
 
-/**
- * 🔧 FIXED: Always find the branch select that belongs to the same form as the zone select.
- */
 async function zoneChangeHandler(event) {
     const zone = event.target.value;
-    const zoneSelect = event.target;
-    const form = zoneSelect.closest('form');               // the registration form (member or masul)
-    if (!form) return;
-    
-    const branchSelect = form.querySelector('select[name="branch"]');
+    const branchSelect = event.target.closest('fieldset') ?
+        event.target.closest('fieldset').parentElement.querySelector('select[name="branch"]') :
+        document.querySelector('select[name="branch"]');
     if (!branchSelect) return;
-
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
@@ -1661,11 +1657,10 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== REGISTRATION PAGE (PRESELECTION REMOVED) ====================
+// ==================== REGISTRATION PAGE ====================
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
-    // Show / hide forms based on role (mask for non-Admin)
     if (currentUser.role !== 'Admin') {
         document.querySelector('.role-selector').style.display = 'none';
         document.getElementById('masulFormContainer').style.display = 'none';
@@ -1675,30 +1670,70 @@ async function initializeRegistrationPage() {
         document.getElementById('masulFormContainer').style.display = 'none';
     }
 
-    // Load zones & branches for dropdowns
+    // Ensure zones and branches are fully loaded before we try to lock the selects
     await loadZonesForDropdowns();
     setDOBLimits();
 
-    // Rank options for Mas'ul gender change
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
             const gender = this.value;
             const rankSelect = document.getElementById('masulRank');
-            const brotherRanks = ['Musa\'id','Areef','Muqaddam','Ra\'id','Raqeeb','Mulazim','Muhafiz','Ameed','Aqeeda','Qaid'];
-            const sisterRanks = ['Musa\'ida','Areefa','Muqadama','Ra\'ida','Raqeeba','Mulazima','Muhafiza','Ameeda','Aqeeda','Qaida'];
+            const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
+            const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
             rankSelect.innerHTML = '<option value="">Select Rank</option>';
-            const ranks = gender === 'Brother' ? brotherRanks : sisterRanks;
-            ranks.forEach(rank => {
-                rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
-            });
+            if (gender === 'Brother') {
+                brotherRanks.forEach(rank => {
+                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+                });
+            } else if (gender === 'Sister') {
+                sisterRanks.forEach(rank => {
+                    rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
+                });
+            }
         });
     }
 
-    // NO preselection of zone/branch – user must pick manually (like Admin)
-    // The backend will enforce restrictions for Branch Mas'ul / Zonal Mas'ul
+    // Branch Mas'ul lock – uses hidden inputs to guarantee submission of zone/branch
+    if (currentUser.role === 'Branch Mas\'ul') {
+        const branchField = document.querySelector('select[name="branch"]');
+        const zoneField = document.querySelector('select[name="zone"]');
+        if (branchField && zoneField) {
+            const branchCode = currentUser.branchCode;
+            const zoneName = branchZoneMap[branchCode];
+            if (zoneName) {
+                // Set visible selects
+                zoneField.value = zoneName;
+                zoneField.dispatchEvent(new Event('change'));
+                branchField.value = branchCode;
+                zoneField.disabled = true;
+                branchField.disabled = true;
 
-    // Form submission handlers (no disabled‑field workaround needed)
+                // Add hidden inputs so the values are actually submitted
+                const form = branchField.closest('form');
+                if (form) {
+                    let hiddenZone = form.querySelector('input[name="zone"][type="hidden"]');
+                    if (!hiddenZone) {
+                        hiddenZone = document.createElement('input');
+                        hiddenZone.type = 'hidden';
+                        hiddenZone.name = 'zone';
+                        form.appendChild(hiddenZone);
+                    }
+                    hiddenZone.value = zoneName;
+
+                    let hiddenBranch = form.querySelector('input[name="branch"][type="hidden"]');
+                    if (!hiddenBranch) {
+                        hiddenBranch = document.createElement('input');
+                        hiddenBranch.type = 'hidden';
+                        hiddenBranch.name = 'branch';
+                        form.appendChild(hiddenBranch);
+                    }
+                    hiddenBranch.value = branchCode;
+                }
+            }
+        }
+    }
+
     document.getElementById('memberForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -1742,7 +1777,6 @@ async function initializeRegistrationPage() {
     });
 }
 
-// ==================== SUBMIT CONFIRMATION ====================
 function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
@@ -1776,6 +1810,22 @@ async function submitConfirmedRegistration() {
             const result = await apiRequest('registerMember', { data: pendingMemberData }, currentUser);
             showSuccessModal(pendingMemberData.fullName, result.intizarId, result.recruitmentId, pendingMemberData.zone, pendingMemberData.branch);
             document.getElementById('memberForm').reset();
+
+            // Clean up hidden inputs and re‑enable selects for Branch Mas'ul
+            const form = document.querySelector('#memberForm');
+            if (form) {
+                const hiddenZone = form.querySelector('input[name="zone"][type="hidden"]');
+                if (hiddenZone) hiddenZone.remove();
+                const hiddenBranch = form.querySelector('input[name="branch"][type="hidden"]');
+                if (hiddenBranch) hiddenBranch.remove();
+            }
+            if (currentUser.role === 'Branch Mas\'ul') {
+                document.querySelector('select[name="branch"]').disabled = false;
+                document.querySelector('select[name="zone"]').disabled = false;
+                // Re‑lock immediately for the next registration
+                initializeRegistrationPage();
+            }
+
             pendingMemberData = null;
             closeRegistrationConfirmModal();
         } catch (err) {
