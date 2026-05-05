@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initSidebar();
             initializeDashboard();
         } else if (window.location.pathname.includes('registration.html')) {
-            initializeRegistrationPage();
+            initializeRegistrationPage();  // still a sync call, but the function is async and handles itself
         }
     } else {
         if (!window.location.pathname.includes('index.html')) {
@@ -645,12 +645,18 @@ function attachZoneChangeListeners() {
     });
 }
 
+/**
+ * 🔧 FIXED: Always find the branch select that belongs to the same form as the zone select.
+ */
 async function zoneChangeHandler(event) {
     const zone = event.target.value;
-    const branchSelect = event.target.closest('fieldset') ?
-        event.target.closest('fieldset').parentElement.querySelector('select[name="branch"]') :
-        document.querySelector('select[name="branch"]');
+    const zoneSelect = event.target;
+    const form = zoneSelect.closest('form');               // the registration form (member or masul)
+    if (!form) return;
+    
+    const branchSelect = form.querySelector('select[name="branch"]');
     if (!branchSelect) return;
+
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
@@ -1655,10 +1661,11 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== REGISTRATION PAGE (FIXED) ====================
+// ==================== REGISTRATION PAGE (FIXED with preselect support) ====================
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
+    // Show / hide forms based on role
     if (currentUser.role !== 'Admin') {
         document.querySelector('.role-selector').style.display = 'none';
         document.getElementById('masulFormContainer').style.display = 'none';
@@ -1668,11 +1675,11 @@ async function initializeRegistrationPage() {
         document.getElementById('masulFormContainer').style.display = 'none';
     }
 
-    // 1. Load zones & branch map FIRST and wait for completion
+    // 1. Load zone & branch data (await ensures it's ready)
     await loadZonesForDropdowns();
     setDOBLimits();
 
-    // Rank options for Mas'ul gender change
+    // --- Rank options for Mas'ul gender change ---
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
@@ -1688,19 +1695,23 @@ async function initializeRegistrationPage() {
         });
     }
 
-    // 2. Branch Mas'ul auto‑select (reliable now because map is ready)
+    // 2. Pre‑select zone / branch for Branch Mas'ul and Zonal Mas'ul
+    //    We target the currently visible form (member form is default for non‑admin).
+    const visibleForm = document.querySelector('#memberFormContainer form, #masulFormContainer:not([style*="display: none"]) form');
+    if (!visibleForm) return;   // safety
+
     if (currentUser.role === 'Branch Mas\'ul') {
-        const branchField = document.querySelector('select[name="branch"]');
-        const zoneField = document.querySelector('select[name="zone"]');
-        if (branchField && zoneField) {
+        const zoneField = visibleForm.querySelector('select[name="zone"]');
+        const branchField = visibleForm.querySelector('select[name="branch"]');
+        if (zoneField && branchField) {
             const branchCode = currentUser.branchCode;
             const zoneName = branchZoneMap[branchCode];
-
             if (zoneName) {
+                // Set zone and lock it
                 zoneField.value = zoneName;
                 zoneField.disabled = true;
 
-                // Directly populate branch dropdown instead of relying on setTimeout
+                // Populate branch dropdown for that zone (directly, no event needed)
                 branchField.innerHTML = '<option value="">Select Branch</option>';
                 const branchesForZone = Object.entries(branchZoneMap)
                     .filter(([code, z]) => z === zoneName)
@@ -1712,9 +1723,16 @@ async function initializeRegistrationPage() {
                     branchField.innerHTML += `<option value="${b.code}">${b.name}</option>`;
                 });
 
+                // Select the branch and lock it
                 branchField.value = branchCode;
                 branchField.disabled = true;
             }
+        }
+    } else if (currentUser.role === 'Zonal Mas\'ul') {
+        const zoneField = visibleForm.querySelector('select[name="zone"]');
+        if (zoneField) {
+            zoneField.value = currentUser.zone;
+            zoneField.disabled = true;
         }
     }
 
@@ -1762,6 +1780,9 @@ async function initializeRegistrationPage() {
     });
 }
 
+// ... (rest of the file remains exactly the same – submitConfirmedRegistration, modals, etc.)
+
+// ==================== SUBMIT CONFIRMATION ====================
 function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
