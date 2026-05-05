@@ -1661,11 +1661,11 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== REGISTRATION PAGE (FIXED with preselect & disabled‑field capture) ====================
+// ==================== REGISTRATION PAGE (PRESELECTION REMOVED) ====================
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
-    // Show / hide forms based on role
+    // Show / hide forms based on role (mask for non-Admin)
     if (currentUser.role !== 'Admin') {
         document.querySelector('.role-selector').style.display = 'none';
         document.getElementById('masulFormContainer').style.display = 'none';
@@ -1675,11 +1675,11 @@ async function initializeRegistrationPage() {
         document.getElementById('masulFormContainer').style.display = 'none';
     }
 
-    // 1. Load zone & branch data (await ensures it's ready)
+    // Load zones & branches for dropdowns
     await loadZonesForDropdowns();
     setDOBLimits();
 
-    // --- Rank options for Mas'ul gender change ---
+    // Rank options for Mas'ul gender change
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
@@ -1695,60 +1695,10 @@ async function initializeRegistrationPage() {
         });
     }
 
-    // 2. Pre‑select zone / branch for Branch Mas'ul and Zonal Mas'ul
-    const visibleForm = document.querySelector('#memberFormContainer form, #masulFormContainer:not([style*="display: none"]) form');
-    if (!visibleForm) return;
+    // NO preselection of zone/branch – user must pick manually (like Admin)
+    // The backend will enforce restrictions for Branch Mas'ul / Zonal Mas'ul
 
-    if (currentUser.role === 'Branch Mas\'ul') {
-        const zoneField = visibleForm.querySelector('select[name="zone"]');
-        const branchField = visibleForm.querySelector('select[name="branch"]');
-        if (zoneField && branchField) {
-            const branchCode = currentUser.branchCode;
-            const zoneName = branchZoneMap[branchCode];
-            if (zoneName) {
-                zoneField.value = zoneName;
-                zoneField.disabled = true;
-
-                // Populate branch dropdown for that zone
-                branchField.innerHTML = '<option value="">Select Branch</option>';
-                const branchesForZone = Object.entries(branchZoneMap)
-                    .filter(([code, z]) => z === zoneName)
-                    .map(([code]) => {
-                        const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-                        return { code, name };
-                    });
-                branchesForZone.forEach(b => {
-                    branchField.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-                });
-
-                branchField.value = branchCode;
-                branchField.disabled = true;
-            }
-        }
-    } else if (currentUser.role === 'Zonal Mas\'ul') {
-        const zoneField = visibleForm.querySelector('select[name="zone"]');
-        const branchField = visibleForm.querySelector('select[name="branch"]');
-        if (zoneField) {
-            zoneField.value = currentUser.zone;
-            zoneField.disabled = true;
-
-            // Populate branch dropdown for the locked zone (so the user can pick one)
-            if (branchField) {
-                branchField.innerHTML = '<option value="">Select Branch</option>';
-                const branchesForZone = Object.entries(branchZoneMap)
-                    .filter(([code, z]) => z === currentUser.zone)
-                    .map(([code]) => {
-                        const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-                        return { code, name };
-                    });
-                branchesForZone.forEach(b => {
-                    branchField.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-                });
-            }
-        }
-    }
-
-    // 3. Form submission handlers – FIX: manually read disabled selects
+    // Form submission handlers (no disabled‑field workaround needed)
     document.getElementById('memberForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -1762,19 +1712,6 @@ async function initializeRegistrationPage() {
             data.photoBase64 = await fileToBase64(photoFile);
             data.photoName = photoFile.name;
         }
-
-        // If the user is a Branch Mas'ul or Zonal Mas'ul, manually add locked fields to data
-        if (currentUser.role === 'Branch Mas\'ul') {
-            const branchField = document.querySelector('select[name="branch"]:disabled');
-            if (branchField) data.branch = branchField.value;
-            const zoneField = document.querySelector('select[name="zone"]:disabled');
-            if (zoneField) data.zone = zoneField.value;
-        } else if (currentUser.role === 'Zonal Mas\'ul') {
-            const zoneField = document.querySelector('select[name="zone"]:disabled');
-            if (zoneField) data.zone = zoneField.value;
-            // branch is not disabled, so FormData already contains it
-        }
-
         pendingMemberData = data;
         showRegistrationConfirm(data, 'member');
     });
@@ -1792,18 +1729,6 @@ async function initializeRegistrationPage() {
             data.photoBase64 = await fileToBase64(photoFile);
             data.photoName = photoFile.name;
         }
-
-        // Same safety for Mas'ul form (only Admin can access this form, but just in case)
-        if (currentUser.role === 'Branch Mas\'ul') {
-            const branchField = document.querySelector('select[name="branch"]:disabled');
-            if (branchField) data.branch = branchField.value;
-            const zoneField = document.querySelector('select[name="zone"]:disabled');
-            if (zoneField) data.zone = zoneField.value;
-        } else if (currentUser.role === 'Zonal Mas\'ul') {
-            const zoneField = document.querySelector('select[name="zone"]:disabled');
-            if (zoneField) data.zone = zoneField.value;
-        }
-
         pendingMasulData = data;
         showRegistrationConfirm(data, 'masul');
     });
@@ -1816,8 +1741,6 @@ async function initializeRegistrationPage() {
         }
     });
 }
-
-// ... (rest of the file – submitConfirmedRegistration, modals, etc.)
 
 // ==================== SUBMIT CONFIRMATION ====================
 function showRegistrationConfirm(data, type) {
@@ -1855,10 +1778,6 @@ async function submitConfirmedRegistration() {
             document.getElementById('memberForm').reset();
             pendingMemberData = null;
             closeRegistrationConfirmModal();
-            if (currentUser.role === 'Branch Mas\'ul') {
-                document.querySelector('select[name="branch"]').disabled = false;
-                document.querySelector('select[name="zone"]').disabled = false;
-            }
         } catch (err) {
             showMessage('Registration Failed', err.message);
         }
