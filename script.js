@@ -151,24 +151,39 @@ function closePromptModal() {
     document.getElementById('promptModal').style.display = 'none';
 }
 
-// ==================== API REQUEST ====================
+// ==================== API REQUEST (FIXED with better error handling) ====================
 async function apiRequest(action, data = {}, user = null) {
     showLoader();
     try {
         const payload = { action, ...data };
         if (user) payload.user = user;
+
         const formBody = new URLSearchParams();
         formBody.append('payload', JSON.stringify(payload));
+
         const response = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
             body: formBody.toString()
         });
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error || 'Unknown error');
+
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
         }
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Unknown error occurred');
+        }
+
         return result;
+    } catch (err) {
+        console.error('API Request failed:', err);
+        throw err;
     } finally {
         hideLoader();
     }
@@ -510,7 +525,6 @@ async function loadFilterOptions(forceRefresh = false) {
             populateSelect('filterMemberLevel', result.levels, true);
             populateSelect('filterMemberBranch', result.branches, true);
             populateSelect('filterMemberZone', result.zones, true);
-            // FIX: use result.ranks directly (flat array) instead of result.ranks.Brother
             populateSelect('filterMasulRank', result.ranks, true);
             populateSelect('filterMasulBranch', result.branches, true);
             populateSelect('filterMasulZone', result.zones, true);
@@ -526,7 +540,6 @@ async function loadFilterOptions(forceRefresh = false) {
         populateSelect('filterMemberLevel', result.levels, true);
         populateSelect('filterMemberBranch', result.branches, true);
         populateSelect('filterMemberZone', result.zones, true);
-        // FIX: use result.ranks directly (flat array) instead of result.ranks.Brother
         populateSelect('filterMasulRank', result.ranks, true);
         populateSelect('filterMasulBranch', result.branches, true);
         populateSelect('filterMasulZone', result.zones, true);
@@ -588,8 +601,6 @@ async function loadZonesForDropdowns(forceRefresh = false) {
         const branchMap = {};
         const nameToCode = {};
         
-        // IMPORTANT: Do not send currentUser to getBranches, otherwise
-        // Zonal Mas'ul would only see their own zone's branches.
         for (let zone of zones) {
             const branchRes = await apiRequest('getBranches', { zone: zone.zoneName });
             branchRes.branches.forEach(b => {
@@ -1143,50 +1154,81 @@ function screenshotCurrentMasul() {
 // ==================== EDIT FUNCTIONS (ADMIN ONLY) with reliable branch setting ====================
 async function editMember(intizarId) {
     try {
+        showLoader();
         const result = await apiRequest('getMember', { intizarId }, currentUser);
+        if (!result || !result.member) {
+            throw new Error('No member data received from server');
+        }
         const member = result.member;
+        console.log('Editing member:', member);
 
-        document.getElementById('editMemberIntizarId').value = member.IntizarID;
-        document.getElementById('editMemberFullName').value = member.FullName;
-        document.getElementById('editMemberFatherName').value = member.FatherName;
-        document.getElementById('editMemberGender').value = member.Gender;
+        // Populate form fields
+        document.getElementById('editMemberIntizarId').value = member.IntizarID || '';
+        document.getElementById('editMemberFullName').value = member.FullName || '';
+        document.getElementById('editMemberFatherName').value = member.FatherName || '';
+        document.getElementById('editMemberGender').value = member.Gender || 'Brother';
         document.getElementById('editMemberDob').value = formatDateForInput(member.DOB);
         document.getElementById('editMemberPlaceOfBirth').value = member.PlaceOfBirth || '';
-        document.getElementById('editMemberPhone').value = member.Phone;
+        document.getElementById('editMemberPhone').value = member.Phone || '';
         document.getElementById('editMemberEmail').value = member.Email || '';
-        document.getElementById('editMemberAddress').value = member.Address;
-        document.getElementById('editMemberState').value = member.State;
-        document.getElementById('editMemberLga').value = member.LGA;
-        document.getElementById('editMemberYear').value = member.Year;
-        document.getElementById('editMemberLevel').value = member.Level;
-        document.getElementById('editMemberGuardianName').value = member.GuardianName;
-        document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone;
-        document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress;
+        document.getElementById('editMemberAddress').value = member.Address || '';
+        document.getElementById('editMemberState').value = member.State || '';
+        document.getElementById('editMemberLga').value = member.LGA || '';
+        document.getElementById('editMemberYear').value = member.Year || '';
+        document.getElementById('editMemberLevel').value = member.Level || 'Bakiyatullah';
+        document.getElementById('editMemberGuardianName').value = member.GuardianName || '';
+        document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone || '';
+        document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress || '';
 
+        // Load zones and branches
         await loadZonesForDropdowns(false);
-        
+
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
-        
-        zoneSelect.value = member.Zone;
-        
+
+        // Set zone
+        if (member.Zone) {
+            zoneSelect.value = member.Zone;
+        }
+
+        // Populate branches for that zone
         branchSelect.innerHTML = '<option value="">Select Branch</option>';
-        const branchesForZone = Object.entries(branchZoneMap)
-            .filter(([code, z]) => z === member.Zone)
-            .map(([code]) => {
-                const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-                return { code, name };
+        if (member.Zone && branchZoneMap) {
+            const branchesForZone = Object.entries(branchZoneMap)
+                .filter(([code, z]) => z === member.Zone)
+                .map(([code]) => {
+                    const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                    return { code, name: name || code };
+                });
+            branchesForZone.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.code;
+                opt.textContent = b.name;
+                branchSelect.appendChild(opt);
             });
-        branchesForZone.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-        });
-        
-        branchSelect.value = member.Branch;
+            // Set branch if exists, else add disabled placeholder
+            if (member.Branch) {
+                const exists = Array.from(branchSelect.options).some(o => o.value === member.Branch);
+                if (exists) {
+                    branchSelect.value = member.Branch;
+                } else {
+                    const fallback = document.createElement('option');
+                    fallback.value = member.Branch;
+                    fallback.textContent = member.Branch + ' (inactive)';
+                    fallback.disabled = true;
+                    branchSelect.appendChild(fallback);
+                    branchSelect.value = member.Branch;
+                    showMessage('Notice', 'This branch is currently inactive. Contact admin if needed.');
+                }
+            }
+        }
 
         showModal('editMemberModal');
     } catch (err) {
         console.error('Edit member error:', err);
-        showMessage('Error', err.message);
+        showMessage('Error', 'Failed to load member: ' + err.message);
+    } finally {
+        hideLoader();
     }
 }
 
@@ -1196,49 +1238,80 @@ function closeEditMemberModal() {
 
 async function editMasul(intizarId) {
     try {
+        showLoader();
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
+        if (!result || !result.masul) {
+            throw new Error('No masul data received from server');
+        }
         const masul = result.masul;
+        console.log('Editing masul:', masul);
 
-        document.getElementById('editMasulIntizarId').value = masul.IntizarID;
-        document.getElementById('editMasulFullName').value = masul.FullName;
-        document.getElementById('editMasulFatherName').value = masul.FatherName;
-        document.getElementById('editMasulGender').value = masul.Gender;
+        document.getElementById('editMasulIntizarId').value = masul.IntizarID || '';
+        document.getElementById('editMasulFullName').value = masul.FullName || '';
+        document.getElementById('editMasulFatherName').value = masul.FatherName || '';
+        document.getElementById('editMasulGender').value = masul.Gender || 'Brother';
         document.getElementById('editMasulDob').value = formatDateForInput(masul.DOB);
         document.getElementById('editMasulPlaceOfBirth').value = masul.PlaceOfBirth || '';
-        document.getElementById('editMasulPhone').value = masul.Phone;
+        document.getElementById('editMasulPhone').value = masul.Phone || '';
         document.getElementById('editMasulEmail').value = masul.Email || '';
-        document.getElementById('editMasulAddress').value = masul.Address;
-        document.getElementById('editMasulState').value = masul.State;
-        document.getElementById('editMasulLga').value = masul.LGA;
-        document.getElementById('editMasulYear').value = masul.Year;
-        document.getElementById('editMasulRank').value = masul.CurrentRank;
+        document.getElementById('editMasulAddress').value = masul.Address || '';
+        document.getElementById('editMasulState').value = masul.State || '';
+        document.getElementById('editMasulLga').value = masul.LGA || '';
+        document.getElementById('editMasulYear').value = masul.Year || '';
 
         await loadZonesForDropdowns(false);
-        
+
         const zoneSelect = document.getElementById('editMasulZone');
         const branchSelect = document.getElementById('editMasulBranch');
-        
-        zoneSelect.value = masul.Zone;
-        
+
+        if (masul.Zone) {
+            zoneSelect.value = masul.Zone;
+        }
+
         branchSelect.innerHTML = '<option value="">Select Branch</option>';
-        const branchesForZone = Object.entries(branchZoneMap)
-            .filter(([code, z]) => z === masul.Zone)
-            .map(([code]) => {
-                const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-                return { code, name };
+        if (masul.Zone && branchZoneMap) {
+            const branchesForZone = Object.entries(branchZoneMap)
+                .filter(([code, z]) => z === masul.Zone)
+                .map(([code]) => {
+                    const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
+                    return { code, name: name || code };
+                });
+            branchesForZone.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.code;
+                opt.textContent = b.name;
+                branchSelect.appendChild(opt);
             });
-        branchesForZone.forEach(b => {
-            branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-        });
-        
-        branchSelect.value = masul.Branch;
+            if (masul.Branch) {
+                const exists = Array.from(branchSelect.options).some(o => o.value === masul.Branch);
+                if (exists) {
+                    branchSelect.value = masul.Branch;
+                } else {
+                    const fallback = document.createElement('option');
+                    fallback.value = masul.Branch;
+                    fallback.textContent = masul.Branch + ' (inactive)';
+                    fallback.disabled = true;
+                    branchSelect.appendChild(fallback);
+                    branchSelect.value = masul.Branch;
+                    showMessage('Notice', 'This branch is currently inactive. Contact admin if needed.');
+                }
+            }
+        }
 
         updateMasulRankOptions(masul.Gender);
+        document.getElementById('editMasulRank').value = masul.CurrentRank || '';
+
         showModal('editMasulModal');
     } catch (err) {
         console.error('Edit masul error:', err);
-        showMessage('Error', err.message);
+        showMessage('Error', 'Failed to load masul: ' + err.message);
+    } finally {
+        hideLoader();
     }
+}
+
+function closeEditMasulModal() {
+    document.getElementById('editMasulModal').style.display = 'none';
 }
 
 // NEW HELPER: Format a date string for <input type="date"> (YYYY-MM-DD)
@@ -1261,10 +1334,6 @@ function updateMasulRankOptions(gender) {
     ranks.forEach(rank => {
         rankSelect.innerHTML += `<option value="${rank}">${rank}</option>`;
     });
-}
-
-function closeEditMasulModal() {
-    document.getElementById('editMasulModal').style.display = 'none';
 }
 
 // ==================== DASHBOARD STATS & CHARTS ====================
