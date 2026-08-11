@@ -8,7 +8,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Chart.js for dashboard charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+    </script>
 </head>
 <body class="dashboard-container">
 
@@ -16,7 +20,11 @@
     <header class="dashboard-header">
         <div class="header-left">
             <button class="toggle-btn" id="sidebarToggleBtn" title="Toggle Side Navigation" aria-label="Toggle Sidebar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
             </button>
             <img src="logo.png" alt="Logo" class="header-logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'52\' height=\'52\' viewBox=\'0 0 52 52\'><circle cx=\'26\' cy=\'26\' r=\'24\' fill=\'%23155B2F\'/><text x=\'26\' y=\'32\' font-size=\'12\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'">
             <div class="header-title">
@@ -27,7 +35,11 @@
         <div class="user-info">
             <span id="userRoleBadge">Role: Admin</span>
             <button type="button" class="btn btn-sm btn-secondary" onclick="logout()" style="margin-left: 0.8rem;">
-                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <svg class="btn-icon" viewBox="0 0 24 24">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
                 Logout
             </button>
         </div>
@@ -37,66 +49,124 @@
         <!-- Sidebar Backdrop Overlay for Mobile -->
         <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 
-        <!-- ENHANCED COLLAPSIBLE SIDEBAR -->
+        <!-- ENHANCED COLLAPSIBLE SIDEBAR with data-section attributes -->
         <aside id="sidebar" class="sidebar">
             <ul class="sidebar-menu">
                 <li>
-                    <a href="#" class="active" onclick="switchSection('overview', event)" data-tooltip="Overview">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></span>
+                    <a href="#" class="active" data-section="overview" onclick="switchSection('overview', event)" data-tooltip="Overview">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                            </svg>
+                        </span>
                         <span class="menu-text">Overview</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="switchSection('members', event)" data-tooltip="Members Registry">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                    <a href="#" data-section="members" onclick="switchSection('members', event)" data-tooltip="Members Registry">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </span>
                         <span class="menu-text">Members</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="switchSection('graduates', event)" data-tooltip="Graduate (Al-Mahdi Community)">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg></span>
+                    <a href="#" data-section="graduates" onclick="switchSection('graduates', event)" data-tooltip="Graduate (Al-Mahdi Community)">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                            </svg>
+                        </span>
                         <span class="menu-text">Graduate (Al-Mahdi)</span>
                     </a>
                 </li>
                 <li class="admin-only">
-                    <a href="#" onclick="switchSection('masuls', event)" data-tooltip="Mas'ulin Management">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+                    <a href="#" data-section="masuls" onclick="switchSection('masuls', event)" data-tooltip="Mas'ulin Management">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </span>
                         <span class="menu-text">Mas'ul</span>
                     </a>
                 </li>
                 <li class="admin-only">
-                    <a href="#" onclick="switchSection('zones', event)" data-tooltip="Zones Directory">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                    <a href="#" data-section="zones" onclick="switchSection('zones', event)" data-tooltip="Zones Directory">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                        </span>
                         <span class="menu-text">Zones</span>
                     </a>
                 </li>
                 <li class="admin-only">
-                    <a href="#" onclick="switchSection('branches', event)" data-tooltip="Branches Directory">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg></span>
+                    <a href="#" data-section="branches" onclick="switchSection('branches', event)" data-tooltip="Branches Directory">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <line x1="6" y1="3" x2="6" y2="15"></line>
+                                <circle cx="18" cy="6" r="3"></circle>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <path d="M18 9a9 9 0 0 1-9 9"></path>
+                            </svg>
+                        </span>
                         <span class="menu-text">Branches</span>
                     </a>
                 </li>
                 <li>
                     <a href="registration.html" data-tooltip="Registration Panel">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </span>
                         <span class="menu-text">Register New</span>
                     </a>
                 </li>
                 <li class="admin-only">
-                    <a href="#" onclick="switchSection('audit', event)" data-tooltip="Audit Log">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
+                    <a href="#" data-section="audit" onclick="switchSection('audit', event)" data-tooltip="Audit Log">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </span>
                         <span class="menu-text">Audit Log</span>
                     </a>
                 </li>
                 <li class="admin-only">
-                    <a href="#" onclick="switchSection('config', event)" data-tooltip="Settings & Config">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+                    <a href="#" data-section="config" onclick="switchSection('config', event)" data-tooltip="Settings & Config">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                </path>
+                            </svg>
+                        </span>
                         <span class="menu-text">Settings</span>
                     </a>
                 </li>
                 <li class="admin-only">
-                    <a href="#" onclick="switchSection('export', event)" data-tooltip="Export Data">
-                        <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></span>
+                    <a href="#" data-section="export" onclick="switchSection('export', event)" data-tooltip="Export Data">
+                        <span class="menu-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </span>
                         <span class="menu-text">Export Data</span>
                     </a>
                 </li>
@@ -107,7 +177,7 @@
         <main class="main-content">
 
             <!-- OVERVIEW SECTION -->
-            <section id="overviewSection" class="dashboard-section">
+            <section id="overviewSection" class="dashboard-section section-content">
                 <h2 class="page-title">Executive Dashboard Overview</h2>
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -135,21 +205,24 @@
                 <div class="charts-grid">
                     <div class="chart-card">
                         <h4>Members Level Breakdown</h4>
-                        <div id="levelBreakdown" style="padding:0.5rem;"></div>
+                        <canvas id="levelChart" style="max-height:250px; width:100%;"></canvas>
                     </div>
                     <div class="chart-card">
                         <h4>Zone Distribution Summary</h4>
-                        <div id="zoneBreakdown" style="padding:0.5rem;"></div>
+                        <canvas id="zoneChart" style="max-height:250px; width:100%;"></canvas>
                     </div>
                 </div>
             </section>
 
             <!-- MEMBERS LIST SECTION -->
-            <section id="membersSection" class="dashboard-section" style="display: none;">
+            <section id="membersSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
                     <h2 class="page-title" style="margin-bottom: 0;">Members Registry</h2>
                     <a href="registration.html" class="btn btn-sm">
-                        <svg class="btn-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
                         Register New Member
                     </a>
                 </div>
@@ -157,7 +230,10 @@
                 <div class="search-bar">
                     <input type="text" id="memberSearchInput" placeholder="Search by Full Name, Intizar ID, Recruitment ID, Father Name, Phone..." onkeyup="handleMemberSearch()">
                     <button type="button" onclick="loadMembersList()">
-                        <svg class="btn-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
                         Search
                     </button>
                 </div>
@@ -176,12 +252,15 @@
                         <option value="Brother">Brother</option>
                         <option value="Sister">Sister</option>
                     </select>
-                    <select id="filterZone" onchange="loadMembersList()">
-                        <option value="">All Zones</option>
-                    </select>
-                    <select id="filterBranch" onchange="loadMembersList()">
-                        <option value="">All Branches</option>
-                    </select>
+                    <!-- Zone + Branch wrapped in zone-branch-group for consistent handling -->
+                    <div class="zone-branch-group" style="display:inline-flex; gap:0.5rem; align-items:center;">
+                        <select id="filterZone" onchange="loadMembersList()">
+                            <option value="">All Zones</option>
+                        </select>
+                        <select id="filterBranch" onchange="loadMembersList()">
+                            <option value="">All Branches</option>
+                        </select>
+                    </div>
                     <button type="button" class="btn btn-sm btn-secondary" onclick="resetMemberFilters()">Reset Filters</button>
                 </div>
 
@@ -210,7 +289,7 @@
             </section>
 
             <!-- GRADUATE (AL-MAHDI COMMUNITY) SECTION -->
-            <section id="graduatesSection" class="dashboard-section" style="display: none;">
+            <section id="graduatesSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
                     <h2 class="page-title" style="margin-bottom: 0;">Graduate — Al-Mahdi Community</h2>
                 </div>
@@ -219,7 +298,10 @@
                 <div class="search-bar">
                     <input type="text" id="graduateSearchInput" placeholder="Search Graduates by Name, Intizar ID, Phone, Branch..." onkeyup="handleGraduateSearch()">
                     <button type="button" onclick="loadGraduatesList()">
-                        <svg class="btn-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
                         Search
                     </button>
                 </div>
@@ -249,11 +331,14 @@
             </section>
 
             <!-- MAS'ULIN SECTION (ADMIN ONLY) -->
-            <section id="masulsSection" class="dashboard-section" style="display: none;">
+            <section id="masulsSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
                     <h2 class="page-title" style="margin-bottom: 0;">Mas'ulin Management Registry</h2>
                     <a href="registration.html" class="btn btn-sm">
-                        <svg class="btn-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
                         Register New Mas'ul
                     </a>
                 </div>
@@ -261,7 +346,10 @@
                 <div class="search-bar">
                     <input type="text" id="masulSearchInput" placeholder="Search Mas'ulin by Name, Intizar ID, Mas'ul Recruitment ID, Rank..." onkeyup="handleMasulSearch()">
                     <button type="button" onclick="loadMasulsList()">
-                        <svg class="btn-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
                         Search
                     </button>
                 </div>
@@ -291,7 +379,7 @@
             </section>
 
             <!-- ZONES SECTION -->
-            <section id="zonesSection" class="dashboard-section" style="display: none;">
+            <section id="zonesSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <h2 class="page-title" style="margin-bottom: 0;">Zones Directory</h2>
                     <button type="button" class="btn btn-sm" onclick="openAddZoneModal()">Add New Zone</button>
@@ -312,7 +400,7 @@
             </section>
 
             <!-- BRANCHES SECTION -->
-            <section id="branchesSection" class="dashboard-section" style="display: none;">
+            <section id="branchesSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <h2 class="page-title" style="margin-bottom: 0;">Branches Directory</h2>
                     <button type="button" class="btn btn-sm" onclick="openAddBranchModal()">Add New Branch</button>
@@ -334,7 +422,7 @@
             </section>
 
             <!-- AUDIT LOG SECTION -->
-            <section id="auditSection" class="dashboard-section" style="display: none;">
+            <section id="auditSection" class="dashboard-section section-content" style="display: none;">
                 <h2 class="page-title">System Audit Log</h2>
                 <div class="table-responsive">
                     <table>
@@ -352,7 +440,7 @@
             </section>
 
             <!-- CONFIG SECTION -->
-            <section id="configSection" class="dashboard-section" style="display: none;">
+            <section id="configSection" class="dashboard-section section-content" style="display: none;">
                 <h2 class="page-title">System Configuration</h2>
                 <div class="form-section">
                     <div style="margin-bottom: 1.5rem;">
@@ -368,7 +456,7 @@
             </section>
 
             <!-- EXPORT DATA SECTION -->
-            <section id="exportSection" class="dashboard-section" style="display: none;">
+            <section id="exportSection" class="dashboard-section section-content" style="display: none;">
                 <h2 class="page-title">Export & Database Operations</h2>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
                     <div class="card" style="background: white; color: var(--black); border: 1px solid var(--border-color);">
@@ -397,7 +485,19 @@
         </main>
     </div>
 
-    <!-- ID CARD PRINT MODAL -->
+    <!-- ============================================================ -->
+    <!-- VIEW MODAL (for displaying member/masul details)             -->
+    <!-- ============================================================ -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close" onclick="closeViewModal()">&times;</span>
+            <div id="viewContent"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ID CARD PRINT MODAL                                           -->
+    <!-- ============================================================ -->
     <div id="idCardModal" class="modal">
         <div class="modal-content" style="max-width: 540px;">
             <span class="close" onclick="closeIdCardModal()">&times;</span>
@@ -422,11 +522,18 @@
             </div>
             <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.2rem; flex-wrap: wrap;">
                 <button type="button" onclick="printIdCardDirectly()">
-                    <svg class="btn-icon" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    <svg class="btn-icon" viewBox="0 0 24 24">
+                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                        <rect x="6" y="14" width="12" height="8"></rect>
+                    </svg>
                     Print Card
                 </button>
                 <button type="button" class="btn" style="background:#0D9488;" onclick="screenshotIdCard()">
-                    <svg class="btn-icon" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    <svg class="btn-icon" viewBox="0 0 24 24">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
                     Download Image
                 </button>
                 <button type="button" class="btn-secondary" onclick="closeIdCardModal()">Close</button>
@@ -434,13 +541,15 @@
         </div>
     </div>
 
-    <!-- MEMBER EDIT MODAL -->
+    <!-- ============================================================ -->
+    <!-- EDIT MEMBER MODAL (IDs aligned with script expectations)      -->
+    <!-- ============================================================ -->
     <div id="editMemberModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close" onclick="closeEditMemberModal()">&times;</span>
             <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Member Information</h3>
-            <form id="editMemberForm" onsubmit="handleEditMemberSubmit(event)">
-                <input type="hidden" id="editMemberIntizarId">
+            <form id="editMemberForm">
+                <input type="hidden" id="editMemIntizarId">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
                     <div>
                         <label for="editMemFullName">Full Name</label>
@@ -466,7 +575,86 @@
         </div>
     </div>
 
-    <!-- CUSTOM MESSAGE & CONFIRM MODALS -->
+    <!-- ============================================================ -->
+    <!-- EDIT MAS'UL MODAL (expanded to match script fields)           -->
+    <!-- ============================================================ -->
+    <div id="editMasulModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close" onclick="closeEditMasulModal()">&times;</span>
+            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Mas'ul Information</h3>
+            <form id="editMasulForm">
+                <input type="hidden" id="editMasulIntizarId">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                    <div>
+                        <label for="editMasulFullName">Full Name</label>
+                        <input type="text" id="editMasulFullName" required>
+                    </div>
+                    <div>
+                        <label for="editMasulFatherName">Father Name</label>
+                        <input type="text" id="editMasulFatherName" required>
+                    </div>
+                    <div>
+                        <label for="editMasulDOB">Date of Birth</label>
+                        <input type="date" id="editMasulDOB" required>
+                    </div>
+                    <div>
+                        <label for="editMasulPhone">Phone Number</label>
+                        <input type="tel" id="editMasulPhone" required>
+                    </div>
+                    <div>
+                        <label for="editMasulEmail">Email</label>
+                        <input type="email" id="editMasulEmail">
+                    </div>
+                    <div>
+                        <label for="editMasulAddress">Address</label>
+                        <input type="text" id="editMasulAddress" required>
+                    </div>
+                    <div>
+                        <label for="editMasulState">State</label>
+                        <input type="text" id="editMasulState" required>
+                    </div>
+                    <div>
+                        <label for="editMasulLGA">LGA</label>
+                        <input type="text" id="editMasulLGA" required>
+                    </div>
+                    <div>
+                        <label for="editMasulYear">Year</label>
+                        <input type="number" id="editMasulYear" min="2000" max="2099" required>
+                    </div>
+                    <div>
+                        <label for="editMasulRank">Rank</label>
+                        <select id="editMasulRank" required>
+                            <option value="">Select Rank</option>
+                            <option value="Zone Mas'ul">Zone Mas'ul</option>
+                            <option value="Branch Mas'ul">Branch Mas'ul</option>
+                            <option value="Central Mas'ul">Central Mas'ul</option>
+                            <option value="Deputy Mas'ul">Deputy Mas'ul</option>
+                            <option value="Coordinator">Coordinator</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editMasulZone">Zone</label>
+                        <select id="editMasulZone" required>
+                            <option value="">Select Zone</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editMasulBranch">Branch</label>
+                        <select id="editMasulBranch" required>
+                            <option value="">Select Branch</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- CUSTOM MESSAGE & CONFIRM MODALS                              -->
+    <!-- ============================================================ -->
     <div id="messageModal" class="modal">
         <div class="modal-content" style="max-width: 450px; text-align: center;">
             <span class="close" onclick="closeMessageModal()">&times;</span>
