@@ -245,6 +245,35 @@ function initSidebar() {
     });
 }
 
+function toggleSidebar(forceState) {
+    console.log('toggleSidebar called', forceState);
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    const overlay = document.getElementById('sidebarOverlay');
+    if (window.innerWidth <= 768) {
+        if (typeof forceState === 'boolean') {
+            if (forceState) {
+                sidebar.classList.add('mobile-open');
+                if (overlay) overlay.classList.add('show');
+            } else {
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('show');
+            }
+        } else {
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('show');
+        }
+        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+    } else {
+        if (typeof forceState === 'boolean') {
+            if (forceState) sidebar.classList.remove('collapsed');
+            else sidebar.classList.add('collapsed');
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
+    }
+}
+
 // ==================== LOGIN & INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
     // Inject dynamic styles
@@ -371,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check authentication
     if (currentUser) {
         if (window.location.pathname.includes('dashboard.html')) {
+            // Always initialize sidebar, regardless of login state (Fix 2)
             initSidebar();
             initializeDashboard();
         } else if (window.location.pathname.includes('registration.html')) {
@@ -452,12 +482,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Handle any inline onclick for logout in registration page
+    // Handle logout in registration page
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
             logout();
+        });
+    }
+
+    // ---- Registration form listeners (Fix 3: remove inline onsubmit, use addEventListener) ----
+    const regMemberForm = document.getElementById('regMemberForm');
+    if (regMemberForm) {
+        regMemberForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(regMemberForm);
+            const data = Object.fromEntries(formData.entries());
+            const photoFile = formData.get('photo');
+            if (photoFile && photoFile.size > 0) {
+                if (photoFile.size > 2 * 1024 * 1024) {
+                    showMessage('File Too Large', 'File size must be less than 2 MB');
+                    return;
+                }
+                data.photoBase64 = await fileToBase64(photoFile);
+                data.photoName = photoFile.name;
+            }
+            pendingMemberData = data;
+            showRegistrationConfirm(data, 'member');
+        });
+    }
+
+    const regMasulForm = document.getElementById('regMasulForm');
+    if (regMasulForm) {
+        regMasulForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(regMasulForm);
+            const data = Object.fromEntries(formData.entries());
+            const photoFile = formData.get('photo');
+            if (photoFile && photoFile.size > 0) {
+                if (photoFile.size > 2 * 1024 * 1024) {
+                    showMessage('File Too Large', 'File size must be less than 2 MB');
+                    return;
+                }
+                data.photoBase64 = await fileToBase64(photoFile);
+                data.photoName = photoFile.name;
+            }
+            pendingMasulData = data;
+            showRegistrationConfirm(data, 'masul');
         });
     }
 });
@@ -516,7 +587,7 @@ function switchSection(sectionId, e) {
     const target = document.getElementById(targetId);
     if (!target) return;
 
-    // Hide all sections (use .dashboard-section to match HTML)
+    // Hide all sections
     const allSections = document.querySelectorAll('.dashboard-section');
     allSections.forEach(sec => sec.style.display = 'none');
 
@@ -663,11 +734,9 @@ function attachZoneChangeListeners() {
 
 async function zoneChangeHandler(event) {
     const zone = event.target.value;
-    // Find the branch select: look for .zone-branch-group or fieldset container
     let container = event.target.closest('.zone-branch-group');
     if (!container) container = event.target.closest('fieldset');
     if (!container) {
-        // If no container, try to find a sibling branch select
         const branchSelect = event.target.closest('.zone-branch-group')?.querySelector('select[name="branch"]') ||
                            event.target.closest('fieldset')?.querySelector('select[name="branch"]') ||
                            event.target.parentElement?.querySelector('select[name="branch"]');
@@ -686,7 +755,6 @@ async function zoneChangeHandler(event) {
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
-    // Use cached branches
     const branches = currentBranches.filter(b => b.zone === zone);
     branches.forEach(b => {
         branchSelect.innerHTML += `<option value="${b.branchCode}">${b.branchName} (${b.branchCode})</option>`;
@@ -1323,7 +1391,6 @@ async function editMember(intizarId) {
         }
         const member = result.member;
 
-        // Use the IDs from dashboard.html (editMember...)
         document.getElementById('editMemberIntizarId').value = member.IntizarID || '';
         document.getElementById('editMemberFullName').value = member.FullName || '';
         document.getElementById('editMemberFatherName').value = member.FatherName || '';
@@ -1347,7 +1414,6 @@ async function editMember(intizarId) {
         const branchSelect = document.getElementById('editMemberBranch');
         if (member.Zone) zoneSelect.value = member.Zone;
 
-        // Trigger branch population for the zone
         zoneSelect.dispatchEvent(new Event('change'));
         setTimeout(() => {
             if (member.Branch) branchSelect.value = member.Branch;
@@ -1375,7 +1441,6 @@ async function editMasul(intizarId) {
         }
         const masul = result.masul;
 
-        // Check if edit masul modal exists; if not, fallback to view
         if (!document.getElementById('editMasulModal')) {
             showMessage('Notice', 'Edit Mas\'ul functionality is not available in this interface. Please use the view option.');
             viewMasul(intizarId);
@@ -1473,7 +1538,6 @@ async function loadDashboardStats() {
         const gradEl = document.getElementById('statTotalGraduates');
         if (gradEl) gradEl.innerText = stats.levelCounts?.Graduate || 0;
 
-        // Only update charts if canvas elements exist
         if (document.getElementById('levelChart')) {
             updateLevelChart(stats.levelCounts);
         }
@@ -1648,7 +1712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Edit Member Form - using HTML IDs (editMember...)
+    // Edit Member Form
     const editMemberForm = document.getElementById('editMemberForm');
     if (editMemberForm) {
         editMemberForm.addEventListener('submit', async (e) => {
@@ -1853,7 +1917,6 @@ async function loadConfig() {
     }
 }
 
-// Save system config (called from button)
 window.saveSystemConfig = async function() {
     const newAdminCode = document.getElementById('configAdminCode').value;
     const newPrefix = document.getElementById('configPrefix').value;
@@ -1937,19 +2000,14 @@ async function transferMasul(intizarId) {
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
-    // Hide role selector if not admin (optional)
     if (currentUser.role !== 'Admin') {
-        // If there is a role selector container, hide it
         const roleSelector = document.querySelector('.role-selector');
         if (roleSelector) roleSelector.style.display = 'none';
-        // Show only member form by default for non-admin
         const memberContainer = document.getElementById('memberRegistrationForm');
         const masulContainer = document.getElementById('masulRegistrationForm');
         if (memberContainer) memberContainer.style.display = 'block';
         if (masulContainer) masulContainer.style.display = 'none';
     } else {
-        // Admin sees both but only one active
-        // Use switchRegistrationTab if available, else default to member
         if (typeof switchRegistrationTab === 'function') {
             switchRegistrationTab('member');
         } else {
@@ -1963,7 +2021,6 @@ async function initializeRegistrationPage() {
     await loadZonesForDropdowns();
     setDOBLimits();
 
-    // Masul rank dropdown by gender
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
@@ -1984,7 +2041,6 @@ async function initializeRegistrationPage() {
         });
     }
 
-    // Branch Mas'ul lock
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.getElementById('memBranch');
         const zoneField = document.getElementById('memZone');
@@ -1995,7 +2051,6 @@ async function initializeRegistrationPage() {
                 const branch = branches.branches.find(b => b.branchCode === branchCode);
                 if (branch) {
                     zoneField.value = branch.zone;
-                    // Dispatch change to populate branch dropdown
                     zoneField.dispatchEvent(new Event('change'));
                     setTimeout(() => {
                         branchField.value = branchCode;
@@ -2008,113 +2063,9 @@ async function initializeRegistrationPage() {
             }
         }
     }
-
-    // Registration form submissions are handled by inline onclick functions (handleMemberRegistrationSubmit, handleMasulRegistrationSubmit)
-    // We'll define those if not already.
 }
 
-// These functions are called from registration.html forms' onsubmit
-window.handleMemberRegistrationSubmit = async function(e) {
-    if (e) e.preventDefault();
-    const form = document.getElementById('regMemberForm');
-    if (!form) {
-        // Fallback to memberForm if exists
-        const altForm = document.getElementById('memberForm');
-        if (altForm) {
-            // Trigger the existing listener
-            altForm.dispatchEvent(new Event('submit'));
-            return;
-        }
-        showMessage('Error', 'Member registration form not found.');
-        return;
-    }
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-    const photoFile = formData.get('photo');
-    if (photoFile && photoFile.size > 0) {
-        if (photoFile.size > 2 * 1024 * 1024) {
-            showMessage('File Too Large', 'File size must be less than 2 MB');
-            return;
-        }
-        data.photoBase64 = await fileToBase64(photoFile);
-        data.photoName = photoFile.name;
-    }
-    pendingMemberData = data;
-    showRegistrationConfirm(data, 'member');
-};
-
-window.handleMasulRegistrationSubmit = async function(e) {
-    if (e) e.preventDefault();
-    const form = document.getElementById('regMasulForm');
-    if (!form) {
-        // Fallback to masulForm
-        const altForm = document.getElementById('masulForm');
-        if (altForm) {
-            altForm.dispatchEvent(new Event('submit'));
-            return;
-        }
-        showMessage('Error', 'Masul registration form not found.');
-        return;
-    }
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-    const photoFile = formData.get('photo');
-    if (photoFile && photoFile.size > 0) {
-        if (photoFile.size > 2 * 1024 * 1024) {
-            showMessage('File Too Large', 'File size must be less than 2 MB');
-            return;
-        }
-        data.photoBase64 = await fileToBase64(photoFile);
-        data.photoName = photoFile.name;
-    }
-    pendingMasulData = data;
-    showRegistrationConfirm(data, 'masul');
-};
-
-// Fallback: also attach listeners to forms with IDs memberForm and masulForm if they exist (for backward compatibility)
-document.addEventListener('DOMContentLoaded', () => {
-    const memberForm = document.getElementById('memberForm');
-    if (memberForm && !memberForm.hasAttribute('data-listener')) {
-        memberForm.setAttribute('data-listener', 'true');
-        memberForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(memberForm);
-            const data = Object.fromEntries(formData.entries());
-            const photoFile = formData.get('photo');
-            if (photoFile && photoFile.size > 0) {
-                if (photoFile.size > 2 * 1024 * 1024) {
-                    showMessage('File Too Large', 'File size must be less than 2 MB');
-                    return;
-                }
-                data.photoBase64 = await fileToBase64(photoFile);
-                data.photoName = photoFile.name;
-            }
-            pendingMemberData = data;
-            showRegistrationConfirm(data, 'member');
-        });
-    }
-    const masulForm = document.getElementById('masulForm');
-    if (masulForm && !masulForm.hasAttribute('data-listener')) {
-        masulForm.setAttribute('data-listener', 'true');
-        masulForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(masulForm);
-            const data = Object.fromEntries(formData.entries());
-            const photoFile = formData.get('photo');
-            if (photoFile && photoFile.size > 0) {
-                if (photoFile.size > 2 * 1024 * 1024) {
-                    showMessage('File Too Large', 'File size must be less than 2 MB');
-                    return;
-                }
-                data.photoBase64 = await fileToBase64(photoFile);
-                data.photoName = photoFile.name;
-            }
-            pendingMasulData = data;
-            showRegistrationConfirm(data, 'masul');
-        });
-    }
-});
-
+// Registration confirmation state
 let pendingMemberData = null;
 let pendingMasulData = null;
 
@@ -2122,7 +2073,6 @@ function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
     if (!modal || !content) {
-        // Fallback: show confirmation via confirm
         const msg = `Confirm ${type} registration:\nName: ${data.fullName}\nFather: ${data.fatherName}\nGender: ${data.gender}\nZone: ${data.zone}\nBranch: ${data.branch}`;
         if (confirm(msg)) {
             submitConfirmedRegistration();
@@ -2159,7 +2109,7 @@ async function submitConfirmedRegistration() {
         try {
             const result = await apiRequest('registerMember', { data: pendingMemberData }, currentUser);
             showSuccessModal(pendingMemberData.fullName, result.intizarId, result.recruitmentId, pendingMemberData.zone, pendingMemberData.branch);
-            const form = document.getElementById('regMemberForm') || document.getElementById('memberForm');
+            const form = document.getElementById('regMemberForm');
             if (form) form.reset();
             pendingMemberData = null;
             closeRegistrationConfirmModal();
@@ -2170,7 +2120,7 @@ async function submitConfirmedRegistration() {
         try {
             const result = await apiRequest('registerMasul', { data: pendingMasulData }, currentUser);
             showSuccessModal(pendingMasulData.fullName, result.intizarId, result.masulRecruitmentId, pendingMasulData.zone, pendingMasulData.branch);
-            const form = document.getElementById('regMasulForm') || document.getElementById('masulForm');
+            const form = document.getElementById('regMasulForm');
             if (form) form.reset();
             pendingMasulData = null;
             closeRegistrationConfirmModal();
@@ -2181,7 +2131,6 @@ async function submitConfirmedRegistration() {
 }
 
 function toggleRegistrationForm() {
-    // This function is called from registration.html tab buttons
     const tab = document.querySelector('.tab-btn.active')?.dataset.tab || 'member';
     const memberContainer = document.getElementById('memberRegistrationForm');
     const masulContainer = document.getElementById('masulRegistrationForm');
@@ -2195,7 +2144,6 @@ function toggleRegistrationForm() {
 }
 
 function switchRegistrationTab(tab) {
-    // Update active tab
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.tab === tab) btn.classList.add('active');
@@ -2224,35 +2172,6 @@ function setDOBLimits() {
     const masulDob = document.getElementById('masulDob');
     if (memberDob) memberDob.setAttribute('max', maxDateMember);
     if (masulDob) masulDob.setAttribute('max', maxDateMasul);
-}
-
-// ==================== SIDEBAR TOGGLE GLOBAL ====================
-function toggleSidebar(forceState) {
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-    const overlay = document.getElementById('sidebarOverlay');
-    if (window.innerWidth <= 768) {
-        if (typeof forceState === 'boolean') {
-            if (forceState) {
-                sidebar.classList.add('mobile-open');
-                if (overlay) overlay.classList.add('show');
-            } else {
-                sidebar.classList.remove('mobile-open');
-                if (overlay) overlay.classList.remove('show');
-            }
-        } else {
-            sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('show');
-        }
-        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-    } else {
-        if (typeof forceState === 'boolean') {
-            if (forceState) sidebar.classList.remove('collapsed');
-            else sidebar.classList.add('collapsed');
-        } else {
-            sidebar.classList.toggle('collapsed');
-        }
-    }
 }
 
 // ==================== CLOSE MODALS ====================
@@ -2338,10 +2257,7 @@ window.logout = function() {
     currentUser = null;
     window.location.href = 'index.html';
 };
-// Alias for openLiveGoogleSheet
 window.openLiveGoogleSheet = window.openSpreadsheet;
-// Alias for printIdCardDirectly and screenshotIdCard – we can reuse printCurrentMember/Masul if we store current card data, but we don't have that.
-// We'll define simple placeholders.
 window.printIdCardDirectly = function() {
     if (lastViewedMember) printCurrentMember();
     else if (lastViewedMasul) printCurrentMasul();
