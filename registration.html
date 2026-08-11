@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registration - INTIZARUL IMAMUL MUNTAZAR</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+    </script>
 </head>
 <body>
     <header>
-        <img src="logo.png" alt="Logo" class="logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\' viewBox=\'0 0 70 70\'><circle cx=\'35\' cy=\'35\' r=\'33\' fill=\'%23155B2F\'/><text x=\'35\' y=\'42\' font-size=\'14\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'">
+        <img src="logo.png" alt="Logo" class="logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\' viewBox=\'0 0 70 70\'><circle cx=\'35\' cy=\'35\' r=\'33\' fill=\'%23155B2F\'/><text x=\'35\' y=\'42\' font-size=\'14\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'" />
         <div class="title">
             <h1>إنتظار ٱلإمام ٱلمنتظر</h1>
             <p class="ajami">Registration System</p>
@@ -22,7 +23,7 @@
     <nav class="navbar">
         <a href="dashboard.html">Dashboard</a>
         <a href="registration.html" class="active">Registration</a>
-        <a href="#" id="logoutBtn" onclick="logout()">Logout</a>
+        <a href="#" id="logoutBtn">Logout</a>
     </nav>
 
     <main>
@@ -44,21 +45,21 @@
         <div id="memberFormContainer">
             <div id="memberRegistrationForm" class="form-section">
                 <h3 style="color: var(--dark-olive); margin-bottom: 1.5rem; border-bottom: 2px solid var(--gold); padding-bottom: 0.5rem;">Register New Muntazir / Member</h3>
-                <form id="memberForm" onsubmit="handleMemberRegistrationSubmit(event)">
+                <form id="regMemberForm">
                     <fieldset>
                         <legend>Personal Details</legend>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div>
                                 <label for="memFullName">Full Name *</label>
-                                <input type="text" id="memFullName" placeholder="e.g. Ibrahim Abubakar" required>
+                                <input type="text" id="memFullName" name="fullName" placeholder="e.g. Ibrahim Abubakar" required />
                             </div>
                             <div>
                                 <label for="memFatherName">Father's Name *</label>
-                                <input type="text" id="memFatherName" placeholder="e.g. Abubakar Sadik" required>
+                                <input type="text" id="memFatherName" name="fatherName" placeholder="e.g. Abubakar Sadik" required />
                             </div>
                             <div>
                                 <label for="memGender">Gender *</label>
-                                <select id="memGender" required>
+                                <select id="memGender" name="gender" required>
                                     <option value="" disabled selected>-- Select --</option>
                                     <option value="Brother">Brother</option>
                                     <option value="Sister">Sister</option>
@@ -66,19 +67,19 @@
                             </div>
                             <div>
                                 <label for="memDOB">Date of Birth * (Age 7+)</label>
-                                <input type="date" id="memDOB" required>
+                                <input type="date" id="memDOB" name="dob" required />
                             </div>
                             <div>
                                 <label for="memPOB">Place of Birth</label>
-                                <input type="text" id="memPOB" placeholder="e.g. Kano">
+                                <input type="text" id="memPOB" name="placeOfBirth" placeholder="e.g. Kano" />
                             </div>
                             <div>
                                 <label for="memPhone">Phone Number *</label>
-                                <input type="tel" id="memPhone" placeholder="08012345678" required>
+                                <input type="tel" id="memPhone" name="phone" placeholder="08012345678" required />
                             </div>
                             <div>
                                 <label for="memEmail">Email Address</label>
-                                <input type="email" id="memEmail" placeholder="example@domain.com">
+                                <input type="email" id="memEmail" name="email" placeholder="example@domain.com" />
                             </div>
                         </div>
                     </fieldset>
@@ -88,42 +89,41 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div style="grid-column: 1 / -1;">
                                 <label for="memAddress">Residential Address *</label>
-                                <input type="text" id="memAddress" placeholder="e.g. No. 12 Zoo Road, Kano" required>
+                                <input type="text" id="memAddress" name="address" placeholder="e.g. No. 12 Zoo Road, Kano" required />
                             </div>
                             <div>
                                 <label for="memState">State *</label>
-                                <input type="text" id="memState" placeholder="e.g. Kano" required>
+                                <input type="text" id="memState" name="state" placeholder="e.g. Kano" required />
                             </div>
                             <div>
                                 <label for="memLGA">LGA (Local Government Area) *</label>
-                                <input type="text" id="memLGA" placeholder="e.g. Kano Municipal" required>
+                                <input type="text" id="memLGA" name="lga" placeholder="e.g. Kano Municipal" required />
                             </div>
                         </div>
                     </fieldset>
 
                     <fieldset>
                         <legend>Organizational Information</legend>
-                        <!-- Zone and Branch wrapped in zone-branch-group for consistent handling -->
                         <div class="zone-branch-group" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div>
                                 <label for="memZone">Zone *</label>
-                                <select id="memZone" required onchange="handleRegZoneChange('mem')">
+                                <select id="memZone" name="zone" required onchange="handleRegZoneChange('mem')">
                                     <option value="" disabled selected>-- Select Zone --</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="memBranch">Branch *</label>
-                                <select id="memBranch" required>
+                                <select id="memBranch" name="branch" required>
                                     <option value="" disabled selected>-- Select Branch --</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="memYear">Recruitment Year *</label>
-                                <input type="number" id="memYear" min="2000" max="2099" required>
+                                <input type="number" id="memYear" name="year" min="2000" max="2099" required />
                             </div>
                             <div>
                                 <label for="memEntryLevel">Entry Level *</label>
-                                <select id="memEntryLevel" required>
+                                <select id="memEntryLevel" name="entryLevel" required>
                                     <option value="Bakiyatullah">Bakiyatullah</option>
                                     <option value="Ansarullah">Ansarullah</option>
                                     <option value="Ghalibun">Ghalibun</option>
@@ -137,15 +137,15 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div>
                                 <label for="memGuardianName">Guardian Name *</label>
-                                <input type="text" id="memGuardianName" placeholder="e.g. Abubakar Sadik" required>
+                                <input type="text" id="memGuardianName" name="guardianName" placeholder="e.g. Abubakar Sadik" required />
                             </div>
                             <div>
                                 <label for="memGuardianPhone">Guardian Phone *</label>
-                                <input type="tel" id="memGuardianPhone" placeholder="08012345678" required>
+                                <input type="tel" id="memGuardianPhone" name="guardianPhone" placeholder="08012345678" required />
                             </div>
                             <div style="grid-column: 1 / -1;">
                                 <label for="memGuardianAddress">Guardian Address *</label>
-                                <input type="text" id="memGuardianAddress" placeholder="e.g. No. 12 Zoo Road, Kano" required>
+                                <input type="text" id="memGuardianAddress" name="guardianAddress" placeholder="e.g. No. 12 Zoo Road, Kano" required />
                             </div>
                         </div>
                     </fieldset>
@@ -154,7 +154,7 @@
                         <legend>Photo Upload</legend>
                         <div>
                             <label for="memPhoto">Upload Photo (JPG / PNG)</label>
-                            <input type="file" id="memPhoto" accept="image/*">
+                            <input type="file" id="memPhoto" name="photo" accept="image/*" />
                         </div>
                     </fieldset>
 
@@ -169,13 +169,13 @@
         <div id="masulFormContainer">
             <div id="masulRegistrationForm" class="form-section" style="display: none;">
                 <h3 style="color: var(--dark-olive); margin-bottom: 1.5rem; border-bottom: 2px solid var(--gold); padding-bottom: 0.5rem;">Register New Mas'ul (Admin Access)</h3>
-                <form id="masulForm" onsubmit="handleMasulRegistrationSubmit(event)">
+                <form id="regMasulForm">
                     <fieldset>
                         <legend>Mas'ul Candidate Origin / Source</legend>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div>
                                 <label for="masSource">Candidate Source *</label>
-                                <select id="masSource" required onchange="handleMasulSourceChange()">
+                                <select id="masSource" name="source" required onchange="handleMasulSourceChange()">
                                     <option value="Proposed Mas'ul">Proposed Mas'ul (External Candidate)</option>
                                     <option value="X-Ghalibun">X-Ghalibun (Existing Member)</option>
                                     <option value="Graduate">Graduate (Al-Mahdi Community)</option>
@@ -183,7 +183,7 @@
                             </div>
                             <div id="existingIntizarIdContainer" style="display: none;">
                                 <label for="masExistingIntizarId">Member Intizar ID (MTZR/XXXXX) *</label>
-                                <input type="text" id="masExistingIntizarId" placeholder="e.g. MTZR/00001">
+                                <input type="text" id="masExistingIntizarId" name="intizarId" placeholder="e.g. MTZR/00001" />
                                 <button type="button" class="btn btn-sm" style="margin-top:0.4rem;" onclick="fetchExistingMemberForMasul()">Lookup Member</button>
                             </div>
                         </div>
@@ -194,15 +194,15 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div>
                                 <label for="masFullName">Full Name *</label>
-                                <input type="text" id="masFullName" placeholder="e.g. Usman Ali" required>
+                                <input type="text" id="masFullName" name="fullName" placeholder="e.g. Usman Ali" required />
                             </div>
                             <div>
                                 <label for="masFatherName">Father's Name *</label>
-                                <input type="text" id="masFatherName" placeholder="e.g. Ali Bello" required>
+                                <input type="text" id="masFatherName" name="fatherName" placeholder="e.g. Ali Bello" required />
                             </div>
                             <div>
                                 <label for="masGender">Gender *</label>
-                                <select id="masGender" required onchange="updateMasulRankOptions()">
+                                <select id="masGender" name="gender" required onchange="updateMasulRankOptions()">
                                     <option value="" disabled selected>-- Select --</option>
                                     <option value="Brother">Brother</option>
                                     <option value="Sister">Sister</option>
@@ -210,19 +210,19 @@
                             </div>
                             <div>
                                 <label for="masDOB">Date of Birth * (Age 18+)</label>
-                                <input type="date" id="masDOB" required>
+                                <input type="date" id="masDOB" name="dob" required />
                             </div>
                             <div>
                                 <label for="masPOB">Place of Birth</label>
-                                <input type="text" id="masPOB" placeholder="e.g. Kaduna">
+                                <input type="text" id="masPOB" name="placeOfBirth" placeholder="e.g. Kaduna" />
                             </div>
                             <div>
                                 <label for="masPhone">Phone Number *</label>
-                                <input type="tel" id="masPhone" placeholder="08012345678" required>
+                                <input type="tel" id="masPhone" name="phone" placeholder="08012345678" required />
                             </div>
                             <div>
                                 <label for="masEmail">Email Address</label>
-                                <input type="email" id="masEmail" placeholder="example@domain.com">
+                                <input type="email" id="masEmail" name="email" placeholder="example@domain.com" />
                             </div>
                         </div>
                     </fieldset>
@@ -232,42 +232,41 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div style="grid-column: 1 / -1;">
                                 <label for="masAddress">Residential Address *</label>
-                                <input type="text" id="masAddress" placeholder="e.g. No. 45 Ahmadu Bello Way, Kaduna" required>
+                                <input type="text" id="masAddress" name="address" placeholder="e.g. No. 45 Ahmadu Bello Way, Kaduna" required />
                             </div>
                             <div>
                                 <label for="masState">State *</label>
-                                <input type="text" id="masState" placeholder="e.g. Kaduna" required>
+                                <input type="text" id="masState" name="state" placeholder="e.g. Kaduna" required />
                             </div>
                             <div>
                                 <label for="masLGA">LGA (Local Government Area) *</label>
-                                <input type="text" id="masLGA" placeholder="e.g. Kaduna North" required>
+                                <input type="text" id="masLGA" name="lga" placeholder="e.g. Kaduna North" required />
                             </div>
                         </div>
                     </fieldset>
 
                     <fieldset>
                         <legend>Organizational Rank & Branch</legend>
-                        <!-- Zone and Branch wrapped in zone-branch-group -->
                         <div class="zone-branch-group" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                             <div>
                                 <label for="masZone">Zone *</label>
-                                <select id="masZone" required onchange="handleRegZoneChange('mas')">
+                                <select id="masZone" name="zone" required onchange="handleRegZoneChange('mas')">
                                     <option value="" disabled selected>-- Select Zone --</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="masBranch">Branch *</label>
-                                <select id="masBranch" required>
+                                <select id="masBranch" name="branch" required>
                                     <option value="" disabled selected>-- Select Branch --</option>
                                 </select>
                             </div>
                             <div>
                                 <label for="masYear">Year *</label>
-                                <input type="number" id="masYear" min="2000" max="2099" required>
+                                <input type="number" id="masYear" name="year" min="2000" max="2099" required />
                             </div>
                             <div>
                                 <label for="masRank">Current Rank *</label>
-                                <select id="masRank" required>
+                                <select id="masRank" name="currentRank" required>
                                     <option value="" disabled selected>-- Select Gender First --</option>
                                 </select>
                             </div>
@@ -278,7 +277,7 @@
                         <legend>Photo Upload</legend>
                         <div>
                             <label for="masPhoto">Upload Photo (JPG / PNG)</label>
-                            <input type="file" id="masPhoto" accept="image/*">
+                            <input type="file" id="masPhoto" name="photo" accept="image/*" />
                         </div>
                     </fieldset>
 
@@ -294,7 +293,7 @@
     <!-- MODALS                                                       -->
     <!-- ============================================================ -->
 
-    <!-- Message Modal (general purpose) -->
+    <!-- Message Modal -->
     <div id="messageModal" class="modal">
         <div class="modal-content" style="max-width: 450px; text-align: center;">
             <span class="close" onclick="closeMessageModal()">&times;</span>
@@ -304,7 +303,7 @@
         </div>
     </div>
 
-    <!-- Confirm Modal (for actions requiring confirmation) -->
+    <!-- Confirm Modal -->
     <div id="confirmModal" class="modal">
         <div class="modal-content" style="max-width: 450px; text-align: center;">
             <span class="close" onclick="closeConfirmModal()">&times;</span>
@@ -317,7 +316,7 @@
         </div>
     </div>
 
-    <!-- Registration Confirmation Modal (shows before final submission) -->
+    <!-- Registration Confirmation Modal -->
     <div id="registrationConfirmModal" class="modal">
         <div class="modal-content" style="max-width: 500px; text-align: center;">
             <span class="close" onclick="closeRegistrationConfirmModal()">&times;</span>
@@ -330,7 +329,7 @@
         </div>
     </div>
 
-    <!-- Success Modal (shown after successful registration) -->
+    <!-- Success Modal -->
     <div id="successModal" class="modal">
         <div class="modal-content" style="max-width: 500px; text-align: center;">
             <span class="close" onclick="closeSuccessModal()">&times;</span>
