@@ -1,9 +1,4 @@
-/**
- * INTIZARUL IMAMUL MUNTAZAR – Frontend Logic & Application Engine (script.js)
- * Supports Google Apps Script live backend only.
- * Includes Graduate (Al-Mahdi) management, safe multi-field search,
- * collapsible sidebar navigation, and ID printing.
- */
+
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxZPOn5xCpGlJrGjX92hrbCDeGqk3HqCfVhlTes9IbRJHUgIqBCU3dhsMaYJrWg7wcO4g/exec';
