@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>INTIZARUL IMAMUL MUNTAZAR</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Font Awesome for eye icon and other icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <!-- Preloader Overlay with Surah Al-Asr animation -->
@@ -18,31 +20,33 @@
         </div>
     </div>
 
-    <!-- Main Page Content (hidden until animation finishes) -->
+    <!-- Main Page Content -->
     <div id="page-content" style="display: none;">
-        <header>
-            <img src="logo.png" alt="Logo" class="logo">
-            <div class="title">
-                <h1>إنتظار ٱلإمام ٱلمنتظر</h1>
-                <p class="ajami">تربير رحي د غنغر جكى</p>
-            </div>
-        </header>
+        <div class="sticky-header-wrapper">
+            <header>
+                <img src="logo.png" alt="Logo" class="logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\' viewBox=\'0 0 70 70\'><circle cx=\'35\' cy=\'35\' r=\'33\' fill=\'%23155B2F\'/><text x=\'35\' y=\'42\' font-size=\'14\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'">
+                <div class="title">
+                    <h1>إنتظار ٱلإمام ٱلمنتظر</h1>
+                    <p class="ajami">تربير رحي د غنغر جكى</p>
+                </div>
+            </header>
 
-        <nav class="navbar">
-            <a href="index.html">Home</a>
-            <a href="#" id="loginLink">Login</a>
-            <a href="#about">About</a>
-        </nav>
+            <nav class="navbar">
+                <a href="index.html" class="active">Home</a>
+                <a href="#" id="loginLink">Login</a>
+                <a href="#about-section">About</a>
+            </nav>
+        </div>
 
         <main>
             <section class="hero">
                 <div class="hero-images">
                     <div class="hero-img-container">
-                        <img src="imam-mahdi.jpg" alt="Imam Mahdi" class="hero-img">
+                        <img src="imam-mahdi.jpg" alt="Imam Mahdi" class="hero-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'260\' height=\'180\' viewBox=\'0 0 260 180\'><rect width=\'260\' height=\'180\' fill=\'%23155B2F\'/><text x=\'130\' y=\'95\' font-size=\'16\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\'>الإمام المهدي (عج)</text></svg>'">
                         <p class="img-caption">الإمام المهدي (عج)</p>
                     </div>
                     <div class="hero-img-container">
-                        <img src="sayyid-zakzaky.jpg" alt="Sayyid Zakzaky" class="hero-img">
+                        <img src="sayyid-zakzaky.jpg" alt="Sayyid Zakzaky" class="hero-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'260\' height=\'180\' viewBox=\'0 0 260 180\'><rect width=\'260\' height=\'180\' fill=\'%23155B2F\'/><text x=\'130\' y=\'95\' font-size=\'16\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\'>السيد إبراهيم زكزكي</text></svg>'">
                         <p class="img-caption">السيد إبراهيم زكزكي</p>
                     </div>
                 </div>
@@ -52,40 +56,41 @@
                 </div>
             </section>
 
-            <section class="info-cards">
+            <section id="about-section" class="info-cards">
                 <div class="card">
-                    <h3>About</h3>
+                    <h3>About Intizarul Imamul Muntazar</h3>
                     <p>Intizarul Imamul Muntazar motsi ne na tarbiyya ga yara ‘yan ƙasa da shekaru 17, ƙarƙashin Mu’assasatu Abul Fadlil Abbas, karkashin jagorancin Sheikh Ibraheem Zakzaky. An kafa shi ne domin gina ruhin yara, tunaninsu da halayensu bisa koyarwar Musulunci. Yana aiki tare da gida, makaranta da al’umma domin shirya su don taimakon Sahibul Asr Waz-Zaman (AJF).</p>
                 </div>
                 <div class="card">
                     <h3>Vision</h3>
-                    <p>Samar wa Imam Mahdi (AJF) mataimaka nagartattu.</p>
+                    <p>Samar wa Imam Mahdi (AJF) mataimaka nagartattu masu ilimi, tarbiyya, juriya da amana.</p>
                 </div>
                 <div class="card">
                     <h3>Mission</h3>
                     <p>Bai wa yara ‘yan ƙasa da shekara 17 tarbiyyar ruhi, jiki da tunani, domin su zama na gari kuma shiryayyu don taimakon Sahibul Asr Waz-Zaman (AJF) karkashin wilaya.</p>
-                    <p><strong>Motto:</strong> Inculcating Spiritual and Physical Discipline (Tarbiyyar Ruhi da Gangar Jiki)</p>
+                    <p style="margin-top: 1rem; color: var(--gold-light);"><strong>Motto:</strong> Inculcating Spiritual and Physical Discipline (Tarbiyyar Ruhi da Gangar Jiki)</p>
                 </div>
             </section>
         </main>
 
-        <footer id="about">
-            <p>INTIZARUL IMAMUL MUNTAZAR</p>
-            <p>Contact: info@intizarul.org | +234 800 123 4567</p>
+        <footer style="background-color: var(--black); color: var(--white); text-align: center; padding: 1.8rem; margin-top: 3rem;">
+            <p><strong>INTIZARUL IMAMUL MUNTAZAR</strong></p>
+            <p style="font-size: 0.9rem; color: #CBD5E1; margin-top: 0.4rem;">Mu'assasatu Abul Fadlil Abbas (AS)</p>
+            <p style="font-size: 0.85rem; color: #94A3B8; margin-top: 0.3rem;">Contact: info@intizarul.org | +234 800 123 4567</p>
         </footer>
     </div>
 
-    <!-- Enhanced Login Modal with password visibility toggle -->
+    <!-- Login Modal -->
     <div id="loginModal" class="modal">
-        <div class="modal-content login-modal">
+        <div class="modal-content" style="max-width: 420px;">
             <span class="close">&times;</span>
-            <div class="login-header">
-                <img src="logo.png" alt="Logo" class="logo">
-                <h2>Welcome Back</h2>
-                <p>Please login to continue</p>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img src="logo.png" alt="Logo" style="height: 70px; margin-bottom: 0.5rem;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\' viewBox=\'0 0 70 70\'><circle cx=\'35\' cy=\'35\' r=\'33\' fill=\'%23155B2F\'/><text x=\'35\' y=\'42\' font-size=\'14\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'">
+                <h2 style="color: var(--dark-olive); font-size: 1.6rem;">Welcome Back</h2>
+                <p style="color: #64748B; font-size: 0.9rem;">Please login to access management system</p>
             </div>
             <form id="loginForm">
-                <div class="form-group">
+                <div style="margin-bottom: 1.2rem;">
                     <label for="role">Select Role</label>
                     <select id="role" name="role" required>
                         <option value="" disabled selected>-- Select your role --</option>
@@ -94,49 +99,52 @@
                         <option value="Branch Mas'ul">Branch Mas'ul</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div style="margin-bottom: 1.5rem;">
                     <label for="accessCode">Access Code</label>
                     <div class="password-wrapper">
                         <input type="password" id="accessCode" name="accessCode" placeholder="Enter your code" required>
-                        <i class="fas fa-eye toggle-password" id="togglePasswordIcon"></i>
+                        <span class="toggle-password" id="togglePasswordBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </span>
                     </div>
                 </div>
-                <button type="submit" class="login-btn">Login</button>
+                <button type="submit" style="width: 100%; justify-content: center; padding: 0.8rem;">Login</button>
             </form>
-            <div class="login-footer">
-                <p>Authorized personnel only</p>
-            </div>
         </div>
     </div>
 
-    <!-- Custom Modals (message, confirm, prompt) -->
+    <!-- Custom Modals -->
     <div id="messageModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
             <span class="close" onclick="closeMessageModal()">&times;</span>
-            <h3 id="messageModalTitle">Message</h3>
-            <p id="messageModalText"></p>
+            <h3 id="messageModalTitle" style="color: var(--dark-olive); margin-bottom: 0.8rem;">Message</h3>
+            <p id="messageModalText" style="margin-bottom: 1.5rem; color: var(--black);"></p>
             <button onclick="closeMessageModal()">OK</button>
         </div>
     </div>
 
     <div id="confirmModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
             <span class="close" onclick="closeConfirmModal()">&times;</span>
-            <h3 id="confirmModalTitle">Confirm</h3>
-            <p id="confirmModalText"></p>
-            <button id="confirmOkBtn">Yes</button>
-            <button id="confirmCancelBtn">No</button>
+            <h3 id="confirmModalTitle" style="color: var(--dark-olive); margin-bottom: 0.8rem;">Confirm</h3>
+            <p id="confirmModalText" style="margin-bottom: 1.5rem; color: var(--black);"></p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button id="confirmOkBtn">Yes</button>
+                <button id="confirmCancelBtn" class="btn-secondary">No</button>
+            </div>
         </div>
     </div>
 
     <div id="promptModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 450px;">
             <span class="close" onclick="closePromptModal()">&times;</span>
-            <h3 id="promptModalTitle">Input</h3>
-            <p id="promptModalText"></p>
-            <input type="text" id="promptInput">
-            <button id="promptOkBtn">OK</button>
-            <button id="promptCancelBtn">Cancel</button>
+            <h3 id="promptModalTitle" style="color: var(--dark-olive); margin-bottom: 0.8rem;">Input</h3>
+            <p id="promptModalText" style="margin-bottom: 1rem;"></p>
+            <input type="text" id="promptInput" style="margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button id="promptOkBtn">OK</button>
+                <button id="promptCancelBtn" class="btn-secondary">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -146,21 +154,5 @@
     </div>
 
     <script src="script.js"></script>
-    <script>
-        // Optional: ensure the password toggle works without double wrapping.
-        // (The HTML already provides the wrapper and icon, so we just add the click handler.)
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggleIcon = document.getElementById('togglePasswordIcon');
-            const passwordInput = document.getElementById('accessCode');
-            if (toggleIcon && passwordInput) {
-                toggleIcon.addEventListener('click', function() {
-                    const type = passwordInput.type === 'password' ? 'text' : 'password';
-                    passwordInput.type = type;
-                    this.classList.toggle('fa-eye');
-                    this.classList.toggle('fa-eye-slash');
-                });
-            }
-        });
-    </script>
 </body>
 </html>

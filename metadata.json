@@ -1,0 +1,6 @@
+{
+  "name": "Intizarul Imamul Muntazar Organizational Member Management System",
+  "description": "Organizational member-management and administrative database system for Intizarul Imamul Muntazar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
