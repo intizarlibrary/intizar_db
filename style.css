@@ -22,7 +22,8 @@ html {
     scroll-behavior: smooth;
 }
 
-html, body {
+html,
+body {
     height: 100%;
     margin: 0;
     display: flex;
@@ -41,7 +42,10 @@ body {
 body::after {
     content: "";
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background-image: url('logo.png');
     background-repeat: no-repeat;
     background-position: center;
@@ -164,7 +168,8 @@ header {
     gap: 0.5rem;
 }
 
-.navbar a:hover, .navbar a.active {
+.navbar a:hover,
+.navbar a.active {
     background-color: var(--gold);
     color: var(--black);
 }
@@ -331,8 +336,8 @@ main {
 }
 
 .toggle-btn {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     color: var(--white);
     cursor: pointer;
@@ -366,7 +371,7 @@ main {
     gap: 0.5rem;
 }
 
-/* ========== ENHANCED COLLAPSIBLE SIDEBAR ========== */
+/* ========== SIDEBAR – Cleaned ========== */
 .dashboard-body {
     display: flex;
     flex: 1;
@@ -376,18 +381,19 @@ main {
 .sidebar {
     width: 260px;
     background-color: var(--dark-olive);
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
     overflow-y: auto;
     overflow-x: hidden;
     color: var(--white);
-    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
     height: calc(100vh - 68px);
     position: sticky;
     top: 68px;
     z-index: 900;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Desktop collapsed state */
 .sidebar.collapsed {
     width: 72px;
 }
@@ -414,7 +420,7 @@ main {
 }
 
 .sidebar-menu a:hover {
-    background-color: rgba(255,255,255,0.08);
+    background-color: rgba(255, 255, 255, 0.08);
     color: var(--white);
     border-left-color: var(--gold-light);
 }
@@ -452,7 +458,7 @@ main {
     font-size: 0.98rem;
 }
 
-/* Collapsed sidebar behavior */
+/* Collapsed sidebar text hidden */
 .sidebar.collapsed .sidebar-menu span.menu-text {
     opacity: 0;
     pointer-events: none;
@@ -510,7 +516,7 @@ main {
     border-radius: 10px;
     text-align: center;
     box-shadow: var(--shadow-sm);
-    border: 1px solid rgba(201,168,124,0.3);
+    border: 1px solid rgba(201, 168, 124, 0.3);
     transition: transform 0.2s;
 }
 
@@ -587,7 +593,8 @@ main {
     border: 1px solid var(--border-color);
 }
 
-.filter-bar select, .filter-bar input {
+.filter-bar select,
+.filter-bar input {
     min-width: 130px;
     padding: 0.55rem 0.8rem;
     border: 1px solid #CBD5E1;
@@ -596,8 +603,9 @@ main {
     background: white;
 }
 
-/* ========== BUTTONS WITH PROFESSIONAL SVG ICONS ========== */
-button, .btn {
+/* ========== BUTTONS ========== */
+button,
+.btn {
     background-color: var(--dark-olive);
     color: var(--white);
     border: none;
@@ -613,7 +621,8 @@ button, .btn {
     gap: 0.4rem;
 }
 
-button:hover, .btn:hover {
+button:hover,
+.btn:hover {
     background-color: var(--gold);
     color: var(--black);
 }
@@ -641,6 +650,28 @@ button.btn-sm {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+/* Tab buttons */
+.tab-bar .tab-btn {
+    border-radius: 6px 6px 0 0;
+    background: #E2E8F0;
+    color: #1E293B;
+}
+
+.tab-bar .tab-btn.active {
+    background: var(--dark-olive);
+    color: var(--white);
+}
+
+.tab-bar .tab-btn.btn-secondary {
+    background: #CBD5E1;
+    color: #1E293B;
+}
+
+.tab-bar .tab-btn.btn-secondary.active {
+    background: var(--dark-olive);
+    color: var(--white);
 }
 
 /* ========== TABLES ========== */
@@ -765,7 +796,9 @@ label {
     font-size: 0.92rem;
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
     width: 100%;
     padding: 0.75rem 0.95rem;
     border: 1.5px solid #CBD5E1;
@@ -777,16 +810,21 @@ input, select, textarea {
     box-sizing: border-box;
 }
 
-input::placeholder, textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
     color: #94A3B8;
     font-size: 0.9rem;
 }
 
-input:hover, select:hover, textarea:hover {
+input:hover,
+select:hover,
+textarea:hover {
     border-color: #94A3B8;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
     outline: none;
     border-color: var(--dark-olive);
     box-shadow: 0 0 0 3px rgba(21, 91, 47, 0.18);
@@ -827,7 +865,7 @@ input:focus, select:focus, textarea:focus {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.55);
+    background-color: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
     overflow-y: auto;
 }
@@ -920,9 +958,11 @@ input:focus, select:focus, textarea:focus {
 /* Global Loader */
 .loader-overlay {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.4);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -939,14 +979,25 @@ input:focus, select:focus, textarea:focus {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* ========== PRINT MEDIA STYLING ========== */
 @media print {
-    .navbar, footer, button, .close, .sidebar,
-    .dashboard-header, .search-bar, .filter-bar, .no-print {
+    .navbar,
+    footer,
+    button,
+    .close,
+    .sidebar,
+    .dashboard-header,
+    .search-bar,
+    .filter-bar,
+    .no-print {
         display: none !important;
     }
     body {
@@ -973,6 +1024,7 @@ input:focus, select:focus, textarea:focus {
         padding: 1rem;
     }
 
+    /* Sidebar becomes a slide-out drawer on mobile */
     .sidebar {
         position: fixed;
         left: -270px;
@@ -980,15 +1032,36 @@ input:focus, select:focus, textarea:focus {
         bottom: 0;
         height: 100vh;
         z-index: 1500;
-        transition: left 0.3s ease;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 260px;
+        /* fixed width on mobile */
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
     }
 
     .sidebar.mobile-open {
         left: 0;
     }
 
+    /* Overlay for mobile */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1400;
+        transition: opacity 0.25s ease;
+    }
+
+    .sidebar-overlay.show {
+        display: block;
+    }
+
+    /* On mobile we never use collapsed mode – the drawer is either open or closed */
     .sidebar.collapsed {
-        width: 260px; /* Keep standard width on mobile drawer */
+        width: 260px;
     }
 
     .sidebar.collapsed .sidebar-menu span.menu-text {
@@ -996,16 +1069,13 @@ input:focus, select:focus, textarea:focus {
         display: inline;
     }
 
-    .sidebar-overlay {
-        display: none;
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 1400;
+    .sidebar.collapsed .sidebar-menu a {
+        padding: 0.85rem 1.4rem;
+        justify-content: flex-start;
     }
 
-    .sidebar-overlay.show {
-        display: block;
+    .sidebar.collapsed .sidebar-menu .menu-icon {
+        margin-right: 1.1rem;
     }
 
     .main-content {
@@ -1022,5 +1092,46 @@ input:focus, select:focus, textarea:focus {
 
     .stats-grid {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    /* Adjust filter bar on mobile */
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-bar select,
+    .filter-bar input {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .search-bar {
+        flex-direction: column;
+    }
+
+    .search-bar input {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .zone-branch-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .zone-branch-group select {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .tab-bar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .tab-bar .tab-btn {
+        width: 100%;
+        justify-content: center;
     }
 }
