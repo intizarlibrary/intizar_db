@@ -217,24 +217,29 @@ function hidePreloader() {
     }
 }
 
-// ==================== SIDEBAR TOGGLE ====================
+// ==================== SIDEBAR TOGGLE (FIXED) ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebarToggleBtn');
     if (!sidebar || !toggleBtn) return;
+    
+    const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
     toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleSidebar();
     });
+    
     document.addEventListener('click', (e) => {
-        if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
+        if (isMobile() && sidebar.classList.contains('mobile-open')) {
             if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
                 toggleSidebar(false);
             }
         }
     });
+    
     window.addEventListener('resize', () => {
-        if (window.innerWidth > 768) {
+        if (!isMobile()) {
             sidebar.classList.remove('mobile-open');
             document.body.style.overflow = '';
             const overlay = document.getElementById('sidebarOverlay');
@@ -707,7 +712,7 @@ function handleRegZoneChange(prefix) {
     });
 }
 
-// ==================== MEMBERS LIST ====================
+// ==================== MEMBERS LIST (FIXED COLUMNS) ====================
 async function loadMembersList(page = 1, search = '', filters = {}) {
     currentMemberPage = page;
     currentMemberSearch = search;
@@ -727,7 +732,7 @@ function renderMemberListTable(members) {
     if (!tbody) return;
     tbody.innerHTML = '';
     if (!members || members.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No members found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem;">No members found.</td></tr>';
         return;
     }
     members.forEach(member => {
@@ -735,7 +740,10 @@ function renderMemberListTable(members) {
         row.insertCell().innerText = member.IntizarID || '';
         row.insertCell().innerText = member.RecruitmentID || '';
         row.insertCell().innerText = member.FullName || '';
+        row.insertCell().innerText = member.FatherName || '';    // Fixed: Added missing column
+        row.insertCell().innerText = member.Gender || '';        // Fixed: Added missing column
         row.insertCell().innerText = member.Level || '';
+        row.insertCell().innerText = member.Zone || '';          // Fixed: Added missing column
         row.insertCell().innerText = member.Branch || '';
         const actions = row.insertCell();
         actions.innerHTML = `
@@ -919,7 +927,7 @@ async function proposeGraduateAsMasul(intizarId) {
     }
 }
 
-// ==================== MASULS LIST ====================
+// ==================== MASULS LIST (FIXED COLUMNS) ====================
 async function loadMasuls(page = 1, search = '', filters = {}) {
     currentMasulPage = page;
     currentMasulSearch = search;
@@ -939,15 +947,18 @@ function renderMasulTable(masuls) {
     if (!tbody) return;
     tbody.innerHTML = '';
     if (!masuls || masuls.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No Mas\'ulin found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem;">No Mas\'ulin found.</td></tr>';
         return;
     }
     masuls.forEach(masul => {
         const row = tbody.insertRow();
         row.insertCell().innerText = masul.IntizarID || '';
         row.insertCell().innerText = masul.MasulRecruitmentID || '';
+        row.insertCell().innerText = masul.OriginalMemberRecruitmentID || ''; // Fixed: Added missing column
         row.insertCell().innerText = masul.FullName || '';
         row.insertCell().innerText = masul.CurrentRank || '';
+        row.insertCell().innerText = masul.Source || '';                      // Fixed: Added missing column
+        row.insertCell().innerText = masul.Zone || '';                        // Fixed: Added missing column
         row.insertCell().innerText = masul.Branch || '';
         const actions = row.insertCell();
         actions.innerHTML = `
@@ -1769,17 +1780,22 @@ async function enableBranch(branchCode) {
     }
 }
 
-// ==================== LOAD ZONES ====================
+// ==================== LOAD ZONES (FIXED COLUMNS) ====================
 async function loadZones() {
     try {
         const result = await apiRequest('getZones', {}, currentUser);
         const tbody = document.querySelector('#zonesTableBody');
         if (!tbody) return;
         tbody.innerHTML = '';
+        if (!result.zones || result.zones.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">No zones found.</td></tr>';
+            return;
+        }
         result.zones.forEach(zone => {
             const row = tbody.insertRow();
-            row.insertCell().innerText = zone.zoneName;
-            row.insertCell().innerText = zone.status;
+            row.insertCell().innerText = zone.zoneId || '';        // Fixed: Added missing column
+            row.insertCell().innerText = zone.zoneName || '';
+            row.insertCell().innerText = zone.status || '';
             const actions = row.insertCell();
             actions.innerHTML = `
                 <button onclick="editZone('${zone.zoneId}', '${zone.zoneName}')">Edit</button>
@@ -1933,7 +1949,7 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== REGISTRATION PAGE ====================
+// ==================== REGISTRATION PAGE (FIXED IDS) ====================
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
@@ -1966,12 +1982,12 @@ async function initializeRegistrationPage() {
     await loadZonesForDropdowns();
     setDOBLimits();
 
-    // Masul rank dropdown by gender
-    const masulGender = document.getElementById('masulGender');
+    // Masul rank dropdown by gender (FIXED: Corrected 'masGender' and 'masRank' IDs)
+    const masulGender = document.getElementById('masGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
             const gender = this.value;
-            const rankSelect = document.getElementById('masulRank');
+            const rankSelect = document.getElementById('masRank');
             const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
             const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
             rankSelect.innerHTML = '<option value="">Select Rank</option>';
@@ -2183,12 +2199,14 @@ function setDOBLimits() {
     if (masulDob) masulDob.setAttribute('max', maxDateMasul);
 }
 
-// ==================== SIDEBAR TOGGLE GLOBAL ====================
+// ==================== SIDEBAR TOGGLE GLOBAL (FIXED) ====================
 function toggleSidebar(forceState) {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     const overlay = document.getElementById('sidebarOverlay');
-    if (window.innerWidth <= 768) {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches; // Fixed: Using matchMedia
+
+    if (isMobile) {
         if (typeof forceState === 'boolean') {
             if (forceState) {
                 sidebar.classList.add('mobile-open');
