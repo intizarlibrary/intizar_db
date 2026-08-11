@@ -10,7 +10,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxZPOn5xCpGlJrG
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
-let currentUser = JSON.parse(localStorage.getItem('iim_user')) || null;
+let currentUser = JSON.parse(sessionStorage.getItem('iim_user')) || null;
 let currentMembers = [];
 let currentMasuls = [];
 let currentGraduates = [];
@@ -19,6 +19,10 @@ let currentBranches = [];
 let memberSearchTerm = '';
 let graduateSearchTerm = '';
 let masulSearchTerm = '';
+let currentMemberPage = 1;
+let currentMasulPage = 1;
+let currentMemberFilters = {};
+let currentMasulFilters = {};
 
 // ==================== LOADER ====================
 let pendingRequests = 0;
@@ -216,7 +220,7 @@ function hidePreloader() {
 // ==================== SIDEBAR TOGGLE ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
-    const toggleBtn = document.getElementById('toggleSidebar');
+    const toggleBtn = document.getElementById('sidebarToggleBtn'); // fixed ID
     if (!sidebar || !toggleBtn) return;
     toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -400,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const result = await apiRequest('login', { role, code });
                     currentUser = result.user;
-                    localStorage.setItem('iim_user', JSON.stringify(currentUser));
+                    sessionStorage.setItem('iim_user', JSON.stringify(currentUser));
                     window.location.href = 'dashboard.html';
                 } catch (err) {
                     showMessage('Login Failed', err.message);
@@ -409,12 +413,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Password toggle (eye icon)
+    const togglePassBtn = document.getElementById('togglePasswordBtn');
+    if (togglePassBtn) {
+        togglePassBtn.addEventListener('click', function() {
+            const input = document.getElementById('accessCode');
+            if (input) {
+                input.type = input.type === 'password' ? 'text' : 'password';
+                // Optionally toggle icon if you have two states
+            }
+        });
+    }
+
     // Logout
     const logoutLink = document.getElementById('logoutLink');
     if (logoutLink) {
         logoutLink.addEventListener('click', (e) => {
             e.preventDefault();
-            localStorage.removeItem('iim_user');
+            sessionStorage.removeItem('iim_user');
             currentUser = null;
             window.location.href = 'index.html';
         });
@@ -456,104 +472,64 @@ async function initializeDashboard() {
         document.querySelectorAll('.branch-only').forEach(el => el.style.display = 'block');
     }
 
-    setupNavigation();
-    showSection('membersSection');
+    // No setupNavigation() – we rely on inline onclick in HTML
+    // Show default section (overview)
+    switchSection('overview');
     await loadDashboardStats();
-    await loadMemberList(1, '');
+    await loadMembersList(1, ''); // load members for members section
     await loadFilterOptions();
     loadZonesForDropdowns();
 }
 
-function setupNavigation() {
-    document.getElementById('navMembers').addEventListener('click', (e) => {
-        e.preventDefault();
-        showSection('membersSection');
-        loadDashboardStats();
-    });
-    document.getElementById('navMemberList').addEventListener('click', (e) => {
-        e.preventDefault();
-        showSection('memberListSection');
-        document.getElementById('memberListSearch').value = '';
-        resetMemberFilters();
-        loadMemberList(1, '');
-    });
-    const navMasulin = document.getElementById('navMasulin');
-    if (navMasulin) {
-        navMasulin.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('masulSection');
-            document.getElementById('masulSearch').value = '';
-            resetMasulFilters();
-            loadMasuls(1, '');
-        });
-    }
-    const navZones = document.getElementById('navZones');
-    if (navZones) {
-        navZones.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('zonesSection');
-            loadZones();
-        });
-    }
-    const navBranches = document.getElementById('navBranches');
-    if (navBranches) {
-        navBranches.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('branchesSection');
-            loadBranches();
-        });
-    }
-    const navAudit = document.getElementById('navAudit');
-    if (navAudit) {
-        navAudit.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('auditSection');
-            loadAuditLog();
-        });
-    }
-    const navConfig = document.getElementById('navConfig');
-    if (navConfig) {
-        navConfig.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('configSection');
-            loadConfig();
-        });
-    }
-    const navExport = document.getElementById('navExport');
-    if (navExport) {
-        navExport.addEventListener('click', (e) => {
-            e.preventDefault();
-            showSection('exportSection');
-        });
-    }
-}
-
-function showSection(sectionId) {
-    const sections = [
-        'membersSection', 'memberListSection', 'masulSection', 'zonesSection',
-        'branchesSection', 'auditSection', 'configSection', 'exportSection'
-    ];
-    sections.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-    document.getElementById(sectionId).style.display = 'block';
-
-    document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
-    const navMap = {
-        membersSection: 'navMembers',
-        memberListSection: 'navMemberList',
-        masulSection: 'navMasulin',
-        zonesSection: 'navZones',
-        branchesSection: 'navBranches',
-        auditSection: 'navAudit',
-        configSection: 'navConfig',
-        exportSection: 'navExport'
+// ==================== SECTION SWITCHING ====================
+function switchSection(sectionId, e) {
+    if (e) e.preventDefault();
+    const map = {
+        overview: 'overviewSection',
+        members: 'membersSection',
+        graduates: 'graduatesSection',
+        masuls: 'masulsSection',
+        zones: 'zonesSection',
+        branches: 'branchesSection',
+        audit: 'auditSection',
+        config: 'configSection',
+        export: 'exportSection'
     };
-    const navId = navMap[sectionId];
-    if (navId) {
-        const navLink = document.getElementById(navId);
-        if (navLink) navLink.classList.add('active');
+    const targetId = map[sectionId];
+    if (!targetId) return;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    // Hide all sections
+    const allSections = document.querySelectorAll('.section-content');
+    allSections.forEach(sec => sec.style.display = 'none');
+
+    // Show target
+    target.style.display = 'block';
+
+    // Update active class on sidebar links
+    document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
+    // Find the link that matches the sectionId (data-section attribute)
+    const link = document.querySelector(`.sidebar-menu a[data-section="${sectionId}"]`);
+    if (link) link.classList.add('active');
+
+    // Additional logic for specific sections
+    if (sectionId === 'members') {
+        loadMembersList(currentMemberPage, document.getElementById('memberSearchInput')?.value || '', currentMemberFilters);
+    } else if (sectionId === 'masuls') {
+        loadMasuls(currentMasulPage, document.getElementById('masulSearchInput')?.value || '', currentMasulFilters);
+    } else if (sectionId === 'graduates') {
+        loadGraduatesList();
+    } else if (sectionId === 'zones') {
+        loadZones();
+    } else if (sectionId === 'branches') {
+        loadBranches();
+    } else if (sectionId === 'audit') {
+        loadAuditLog();
+    } else if (sectionId === 'config') {
+        loadConfig();
+    } else if (sectionId === 'overview') {
+        loadDashboardStats();
     }
 }
 
@@ -561,9 +537,9 @@ function showSection(sectionId) {
 async function loadFilterOptions() {
     try {
         const result = await apiRequest('getFilterOptions', {}, currentUser);
-        populateSelect('filterMemberLevel', result.levels, true);
-        populateSelect('filterMemberBranch', result.branches, true);
-        populateSelect('filterMemberZone', result.zones, true);
+        populateSelect('filterLevel', result.levels, true);
+        populateSelect('filterBranch', result.branches, true);
+        populateSelect('filterZone', result.zones, true);
         populateSelect('filterMasulRank', result.ranks, true);
         populateSelect('filterMasulBranch', result.branches, true);
         populateSelect('filterMasulZone', result.zones, true);
@@ -672,7 +648,10 @@ async function zoneChangeHandler(event) {
 }
 
 // ==================== MEMBERS LIST ====================
-async function loadMemberList(page = 1, search = '', filters = {}) {
+async function loadMembersList(page = 1, search = '', filters = {}) {
+    currentMemberPage = page;
+    currentMemberSearch = search;
+    currentMemberFilters = filters;
     try {
         const result = await apiRequest('getMembers', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
         renderMemberListTable(result.members);
@@ -714,49 +693,41 @@ function renderMemberListPagination(total, page) {
     const totalPages = Math.ceil(total / PAGE_SIZE);
     let html = '';
     for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadMemberList(${i}, '${currentMemberSearch || ''}', ${JSON.stringify(currentMemberFilters || {}).replace(/"/g, '&quot;')})">${i}</button>`;
+        html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadMembersList(${i}, '${currentMemberSearch || ''}', ${JSON.stringify(currentMemberFilters || {}).replace(/"/g, '&quot;')})">${i}</button>`;
     }
     html += `<span> Total: ${total}</span>`;
     container.innerHTML = html;
 }
 
 function applyMemberFilters() {
-    const branchDropdown = document.getElementById('filterMemberBranch')?.value || '';
-    const branchManual = document.getElementById('filterMemberBranchManual')?.value || '';
-    const zoneDropdown = document.getElementById('filterMemberZone')?.value || '';
-    const zoneManual = document.getElementById('filterMemberZoneManual')?.value || '';
-
+    // Use actual select IDs from HTML (no manual inputs)
     const filters = {
-        level: document.getElementById('filterMemberLevel')?.value || '',
-        gender: document.getElementById('filterMemberGender')?.value || '',
-        branch: branchManual || branchDropdown,
-        zone: zoneManual || zoneDropdown
+        level: document.getElementById('filterLevel')?.value || '',
+        gender: document.getElementById('filterGender')?.value || '',
+        branch: document.getElementById('filterBranch')?.value || '',
+        zone: document.getElementById('filterZone')?.value || ''
     };
-    const search = document.getElementById('memberListSearch')?.value || '';
-    loadMemberList(1, search, filters);
+    const search = document.getElementById('memberSearchInput')?.value || '';
+    loadMembersList(1, search, filters);
 }
 
 function resetMemberFilters() {
-    ['filterMemberLevel', 'filterMemberGender', 'filterMemberBranch', 'filterMemberZone'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    ['filterMemberBranchManual', 'filterMemberZoneManual'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
+    document.getElementById('filterLevel').value = '';
+    document.getElementById('filterGender').value = '';
+    document.getElementById('filterBranch').value = '';
+    document.getElementById('filterZone').value = '';
     applyMemberFilters();
 }
 
 function searchMemberList() {
-    const search = document.getElementById('memberListSearch')?.value || '';
-    loadMemberList(1, search, currentMemberFilters || {});
+    const search = document.getElementById('memberSearchInput')?.value || '';
+    loadMembersList(1, search, currentMemberFilters || {});
 }
 
 function clearMemberListSearch() {
-    const el = document.getElementById('memberListSearch');
+    const el = document.getElementById('memberSearchInput');
     if (el) el.value = '';
-    loadMemberList(1, '', {});
+    loadMembersList(1, '', {});
 }
 
 // ==================== GRADUATES LIST ====================
@@ -885,7 +856,7 @@ async function proposeGraduateAsMasul(intizarId) {
         if (result.success) {
             showMessage('Success', `${member.FullName} has been proposed as Mas'ul with rank "${rank}".`);
             loadGraduatesList();
-            if (document.getElementById('masulSection')) loadMasuls(1, '', {});
+            if (document.getElementById('masulsSection')) loadMasuls(1, '', {});
             loadDashboardStats();
         }
     } catch (err) {
@@ -895,6 +866,9 @@ async function proposeGraduateAsMasul(intizarId) {
 
 // ==================== MASULS LIST ====================
 async function loadMasuls(page = 1, search = '', filters = {}) {
+    currentMasulPage = page;
+    currentMasulSearch = search;
+    currentMasulFilters = filters;
     try {
         const result = await apiRequest('getMasuls', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
         renderMasulTable(result.masuls);
@@ -943,40 +917,31 @@ function renderMasulPagination(total, page) {
 }
 
 function applyMasulFilters() {
-    const branchDropdown = document.getElementById('filterMasulBranch')?.value || '';
-    const branchManual = document.getElementById('filterMasulBranchManual')?.value || '';
-    const zoneDropdown = document.getElementById('filterMasulZone')?.value || '';
-    const zoneManual = document.getElementById('filterMasulZoneManual')?.value || '';
-
     const filters = {
         rank: document.getElementById('filterMasulRank')?.value || '',
         gender: document.getElementById('filterMasulGender')?.value || '',
-        branch: branchManual || branchDropdown,
-        zone: zoneManual || zoneDropdown
+        branch: document.getElementById('filterMasulBranch')?.value || '',
+        zone: document.getElementById('filterMasulZone')?.value || ''
     };
-    const search = document.getElementById('masulSearch')?.value || '';
+    const search = document.getElementById('masulSearchInput')?.value || '';
     loadMasuls(1, search, filters);
 }
 
 function resetMasulFilters() {
-    ['filterMasulRank', 'filterMasulGender', 'filterMasulBranch', 'filterMasulZone'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    ['filterMasulBranchManual', 'filterMasulZoneManual'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
+    document.getElementById('filterMasulRank').value = '';
+    document.getElementById('filterMasulGender').value = '';
+    document.getElementById('filterMasulBranch').value = '';
+    document.getElementById('filterMasulZone').value = '';
     applyMasulFilters();
 }
 
 function searchMasulList() {
-    const search = document.getElementById('masulSearch')?.value || '';
+    const search = document.getElementById('masulSearchInput')?.value || '';
     loadMasuls(1, search, currentMasulFilters || {});
 }
 
 function clearMasulListSearch() {
-    const el = document.getElementById('masulSearch');
+    const el = document.getElementById('masulSearchInput');
     if (el) el.value = '';
     loadMasuls(1, '', {});
 }
@@ -986,6 +951,7 @@ async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
+        lastViewedMember = member;
 
         let promotionList = '';
         try {
@@ -1068,6 +1034,7 @@ async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
         const masul = result.masul;
+        lastViewedMasul = masul;
 
         let promotionList = '';
         try {
@@ -1777,7 +1744,7 @@ async function promoteMember(intizarId) {
     try {
         const result = await apiRequest('promoteMember', { intizarId }, currentUser);
         showMessage('Success', `Member promoted to ${result.newLevel}`);
-        loadMemberList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
+        loadMembersList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
         loadDashboardStats();
         loadGraduatesList();
     } catch (err) {
@@ -1804,7 +1771,7 @@ async function transferMember(intizarId) {
     try {
         await apiRequest('transferMember', { intizarId, newBranchCode: newBranch }, currentUser);
         showMessage('Success', 'Member transferred');
-        loadMemberList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
+        loadMembersList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
     } catch (err) {
         showMessage('Error', err.message);
     }
@@ -2063,7 +2030,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await apiRequest('updateMember', { intizarId, data }, currentUser);
                 showMessage('Success', 'Member updated successfully');
                 closeEditMemberModal();
-                loadMemberList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
+                loadMembersList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
             } catch (err) {
                 showMessage('Error', err.message);
             }
@@ -2149,7 +2116,7 @@ window.openSpreadsheet = async function() {
     }
 };
 window.exportData = exportData;
-window.loadMemberList = loadMemberList;
+window.loadMembersList = loadMembersList;
 window.loadMasuls = loadMasuls;
 window.loadGraduatesList = loadGraduatesList;
 window.loadZones = loadZones;
@@ -2207,7 +2174,7 @@ window.toggleSidebar = function(forceState) {
     }
 };
 window.logout = function() {
-    localStorage.removeItem('iim_user');
+    sessionStorage.removeItem('iim_user');
     currentUser = null;
     window.location.href = 'index.html';
 };
