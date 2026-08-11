@@ -1,49 +1,26 @@
+/**
+ * INTIZARUL IMAMUL MUNTAZAR – Frontend Logic & Application Engine (script.js)
+ * Supports Google Apps Script live backend only.
+ * Includes Graduate (Al-Mahdi) management, safe multi-field search,
+ * collapsible sidebar navigation, and ID printing.
+ */
+
 // ==================== CONFIGURATION ====================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzf2ehdEPOxn9bAlgkMD9DIcRFN-nlsAFdkJd7jlPIIjWliKR48MuQptcF5Tc0ecP5DoQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxZPOn5xCpGlJrGjX92hrbCDeGqk3HqCfVhlTes9IbRJHUgIqBCU3dhsMaYJrWg7wcO4g/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
-let currentUser = null;
-let currentMemberPage = 1;
-let totalMembers = 0;
-let currentMasulPage = 1;
-let totalMasuls = 0;
-let currentMemberSearch = '';
-let currentMasulSearch = '';
-let currentMemberFilters = {};
-let currentMasulFilters = {};
-let branchZoneMap = {};
-let branchNameToCode = {};
-let lastViewedMember = null;
-let lastViewedMasul = null;
+let currentUser = JSON.parse(localStorage.getItem('iim_user')) || null;
+let currentMembers = [];
+let currentMasuls = [];
+let currentGraduates = [];
+let currentZones = [];
+let currentBranches = [];
+let memberSearchTerm = '';
+let graduateSearchTerm = '';
+let masulSearchTerm = '';
 
-// NEW: pending registration data for confirmation
-let pendingMemberData = null;
-let pendingMasulData = null;
-
-// ==================== CACHE CONSTANTS (30 minutes) ====================
-const CACHE_FILTER_OPTIONS = 'filterOptions';
-const CACHE_ZONES = 'zones';
-const CACHE_BRANCH_MAP = 'branchMap';
-const CACHE_BRANCH_NAME_TO_CODE = 'branchNameToCode';
-const CACHE_TIMESTAMP = 'cacheTimestamp';
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-
-// Hardcoded fallback data (adjust to your actual zones/branches)
-const HARDCODED_ZONES = ['SOKOTO ZONE', 'KADUNA ZONE', 'ABUJA ZONE', 'ZARIA ZONE', 'KANO ZONE', 'BAUCHI ZONE', 'MALUMFASHI ZONE', 'NIGER ZONE', 'QUM ZONE'];
-const HARDCODED_BRANCH_MAP = {
-    'SOKOTO ZONE': ['Sokoto', 'Mafara', 'Yaure', 'Ilela', 'Zuru', 'Yabo'],
-    'KADUNA ZONE': ['Kaduna', 'Jaji', 'Mjos'],
-    'ABUJA ZONE': ['Maraba', 'Lafia', 'Keffi/Doma', 'Minna', 'Suleja'],
-    'ZARIA ZONE': ['Zaria', 'Danja', 'D/Wai', 'Kudan', 'Soba'],
-    'KANO ZONE': ['Kano', 'Kazaure', 'Potiskum', 'Gashuwa'],
-    'BAUCHI ZONE': ['Bauchi', 'Gombe', 'Azare', 'Jos'],
-    'MALUMFASHI ZONE': ['Malumfashi', 'Bakori', 'Katsina'],
-    'NIGER ZONE': ['Niyame', 'Maradi'],
-    'QUM ZONE': ['Qum']
-};
-
-// ==================== LOADER WITH REQUEST COUNTER ====================
+// ==================== LOADER ====================
 let pendingRequests = 0;
 
 function showLoader() {
@@ -70,88 +47,104 @@ function getThumbnailUrl(photoUrl) {
     return photoUrl;
 }
 
-// ==================== SURAH PRELOADER ====================
-function typeSurahAsr() {
-    const surahElement = document.getElementById('surahText');
-    if (!surahElement) return;
-    const fullText = "وَٱلْعَصْرِ (١) إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ (٢) إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ (٣)";
-    let index = 0;
-    surahElement.innerHTML = '';
-    function typeNext() {
-        if (index < fullText.length) {
-            surahElement.innerHTML += fullText.charAt(index);
-            index++;
-            setTimeout(typeNext, 50);
-        } else {
-            setTimeout(hidePreloader, 500);
-        }
-    }
-    typeNext();
-}
-
-function hidePreloader() {
-    const preloader = document.getElementById('surah-preloader');
-    const pageContent = document.getElementById('page-content');
-    if (preloader) {
-        preloader.classList.add('fade-out');
-        setTimeout(() => {
-            preloader.style.display = 'none';
-            if (pageContent) pageContent.style.display = 'block';
-        }, 500);
-    }
+// ==================== SAFE NORMALIZATION ====================
+function safeNormalize(val) {
+    if (val === null || val === undefined) return '';
+    return String(val).trim().toLowerCase();
 }
 
 // ==================== CUSTOM MODALS ====================
 function showMessage(title, text) {
-    document.getElementById('messageModalTitle').innerText = title;
-    document.getElementById('messageModalText').innerText = text;
-    document.getElementById('messageModal').style.display = 'block';
+    const modal = document.getElementById('messageModal');
+    if (modal) {
+        document.getElementById('messageModalTitle').innerText = title;
+        document.getElementById('messageModalText').innerText = text;
+        modal.style.display = 'block';
+    } else {
+        alert(`${title}: ${text}`);
+    }
 }
+
 function closeMessageModal() {
-    document.getElementById('messageModal').style.display = 'none';
+    const modal = document.getElementById('messageModal');
+    if (modal) modal.style.display = 'none';
 }
 
 function showConfirm(title, text) {
     return new Promise((resolve) => {
-        document.getElementById('confirmModalTitle').innerText = title;
-        document.getElementById('confirmModalText').innerText = text;
-        document.getElementById('confirmModal').style.display = 'block';
-        document.getElementById('confirmOkBtn').onclick = () => {
-            closeConfirmModal();
-            resolve(true);
-        };
-        document.getElementById('confirmCancelBtn').onclick = () => {
-            closeConfirmModal();
-            resolve(false);
-        };
+        const modal = document.getElementById('confirmModal');
+        if (modal) {
+            document.getElementById('confirmModalTitle').innerText = title;
+            document.getElementById('confirmModalText').innerText = text;
+            modal.style.display = 'block';
+            document.getElementById('confirmOkBtn').onclick = () => {
+                closeConfirmModal();
+                resolve(true);
+            };
+            document.getElementById('confirmCancelBtn').onclick = () => {
+                closeConfirmModal();
+                resolve(false);
+            };
+        } else {
+            resolve(confirm(`${title}\n\n${text}`));
+        }
     });
 }
+
 function closeConfirmModal() {
-    document.getElementById('confirmModal').style.display = 'none';
+    const modal = document.getElementById('confirmModal');
+    if (modal) modal.style.display = 'none';
 }
 
 function showPrompt(title, text, defaultValue = '') {
     return new Promise((resolve) => {
-        document.getElementById('promptModalTitle').innerText = title;
-        document.getElementById('promptModalText').innerText = text;
-        document.getElementById('promptInput').value = defaultValue;
-        document.getElementById('promptModal').style.display = 'block';
-        document.getElementById('promptOkBtn').onclick = () => {
-            const val = document.getElementById('promptInput').value;
-            closePromptModal();
+        const modal = document.getElementById('promptModal');
+        if (modal) {
+            document.getElementById('promptModalTitle').innerText = title;
+            document.getElementById('promptModalText').innerText = text;
+            document.getElementById('promptInput').value = defaultValue;
+            modal.style.display = 'block';
+            document.getElementById('promptOkBtn').onclick = () => {
+                const val = document.getElementById('promptInput').value;
+                closePromptModal();
+                resolve(val);
+            };
+            document.getElementById('promptCancelBtn').onclick = () => {
+                closePromptModal();
+                resolve(null);
+            };
+        } else {
+            const val = prompt(`${title}\n\n${text}`, defaultValue);
             resolve(val);
-        };
-        document.getElementById('promptCancelBtn').onclick = () => {
-            closePromptModal();
-            resolve(null);
-        };
+        }
     });
 }
+
 function closePromptModal() {
-    document.getElementById('promptModal').style.display = 'none';
+    const modal = document.getElementById('promptModal');
+    if (modal) modal.style.display = 'none';
 }
 
-// ==================== API REQUEST (FIXED with better error handling) ====================
+function showModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.style.display = 'block';
+}
+
+function hideModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.style.display = 'none';
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+    });
+}
+
+// ==================== API REQUEST ====================
 async function apiRequest(action, data = {}, user = null) {
     showLoader();
     try {
@@ -189,21 +182,35 @@ async function apiRequest(action, data = {}, user = null) {
     }
 }
 
-function showModal(modalId) {
-    document.getElementById(modalId).style.display = 'block';
+// ==================== SURAH PRELOADER ====================
+function typeSurahAsr() {
+    const surahElement = document.getElementById('surahText');
+    if (!surahElement) return;
+    const fullText = "وَٱلْعَصْرِ (١) إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ (٢) إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ (٣)";
+    let index = 0;
+    surahElement.innerHTML = '';
+    function typeNext() {
+        if (index < fullText.length) {
+            surahElement.innerHTML += fullText.charAt(index);
+            index++;
+            setTimeout(typeNext, 50);
+        } else {
+            setTimeout(hidePreloader, 500);
+        }
+    }
+    typeNext();
 }
 
-function hideModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
-
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-    });
+function hidePreloader() {
+    const preloader = document.getElementById('surah-preloader');
+    const pageContent = document.getElementById('page-content');
+    if (preloader) {
+        preloader.classList.add('fade-out');
+        setTimeout(() => {
+            preloader.style.display = 'none';
+            if (pageContent) pageContent.style.display = 'block';
+        }, 500);
+    }
 }
 
 // ==================== SIDEBAR TOGGLE ====================
@@ -240,6 +247,7 @@ function initSidebar() {
 
 // ==================== LOGIN & INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
+    // Inject dynamic styles
     const style = document.createElement('style');
     style.innerHTML = `
         .modal-content .print-area { position: relative; }
@@ -323,18 +331,35 @@ document.addEventListener('DOMContentLoaded', () => {
             margin: 8px 0;
             font-size: 1rem;
         }
+        .badge-graduate {
+            background-color: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #A7F3D0;
+        }
+        .badge-xghalibun {
+            background-color: #FEF3C7;
+            color: #92400E;
+        }
+        .badge-active {
+            background-color: #E0E7FF;
+            color: #3730A3;
+        }
+        .stat-card.graduate-stat-card {
+            background: #1B4D3E;
+            border-color: var(--gold);
+        }
     `;
     document.head.appendChild(style);
 
+    // Preloader
     if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
         typeSurahAsr();
     } else {
         hidePreloader();
     }
 
-    const savedUser = sessionStorage.getItem('user');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
+    // Check authentication
+    if (currentUser) {
         if (window.location.pathname.includes('dashboard.html')) {
             initSidebar();
             initializeDashboard();
@@ -347,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Login link
     const loginLink = document.getElementById('loginLink');
     if (loginLink) {
         loginLink.addEventListener('click', (e) => {
@@ -355,39 +381,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Login form
     const loginModal = document.getElementById('loginModal');
     if (loginModal) {
         const span = loginModal.querySelector('.close');
-        span.onclick = () => hideModal('loginModal');
+        if (span) span.onclick = () => hideModal('loginModal');
         window.onclick = (event) => {
             if (event.target.classList.contains('modal-overlay') || event.target.classList.contains('modal')) {
                 event.target.closest('.modal').style.display = 'none';
             }
         };
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const role = document.getElementById('role').value;
-            const code = document.getElementById('accessCode').value;
-            try {
-                const result = await apiRequest('login', { role, code });
-                currentUser = result.user;
-                sessionStorage.setItem('user', JSON.stringify(currentUser));
-                window.location.href = 'dashboard.html';
-            } catch (err) {
-                showMessage('Login Failed', err.message);
-            }
-        });
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const role = document.getElementById('role').value;
+                const code = document.getElementById('accessCode').value;
+                try {
+                    const result = await apiRequest('login', { role, code });
+                    currentUser = result.user;
+                    localStorage.setItem('iim_user', JSON.stringify(currentUser));
+                    window.location.href = 'dashboard.html';
+                } catch (err) {
+                    showMessage('Login Failed', err.message);
+                }
+            });
+        }
     }
 
+    // Logout
     const logoutLink = document.getElementById('logoutLink');
     if (logoutLink) {
         logoutLink.addEventListener('click', (e) => {
             e.preventDefault();
-            sessionStorage.clear();
-            sessionStorage.removeItem('user');
+            localStorage.removeItem('iim_user');
+            currentUser = null;
             window.location.href = 'index.html';
         });
     }
+
+    // Enter key support for search inputs
+    document.querySelectorAll('.search-bar input').forEach(input => {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const parent = input.closest('.search-bar');
+                const btn = parent ? parent.querySelector('button') : null;
+                if (btn) btn.click();
+            }
+        });
+    });
 });
 
 // ==================== DASHBOARD INIT ====================
@@ -515,34 +557,20 @@ function showSection(sectionId) {
     }
 }
 
-// ==================== FILTER OPTIONS (cached) ====================
-async function loadFilterOptions(forceRefresh = false) {
-    if (!forceRefresh) {
-        const cached = sessionStorage.getItem(CACHE_FILTER_OPTIONS);
-        const timestamp = sessionStorage.getItem(CACHE_TIMESTAMP);
-        if (cached && timestamp && (Date.now() - parseInt(timestamp)) < CACHE_DURATION) {
-            const result = JSON.parse(cached);
-            populateSelect('filterMemberLevel', result.levels, true);
-            populateSelect('filterMemberBranch', result.branches, true);
-            populateSelect('filterMemberZone', result.zones, true);
-            populateSelect('filterMasulRank', result.ranks, true);
-            populateSelect('filterMasulBranch', result.branches, true);
-            populateSelect('filterMasulZone', result.zones, true);
-            return;
-        }
-    }
-
+// ==================== FILTER OPTIONS ====================
+async function loadFilterOptions() {
     try {
         const result = await apiRequest('getFilterOptions', {}, currentUser);
-        sessionStorage.setItem(CACHE_FILTER_OPTIONS, JSON.stringify(result));
-        sessionStorage.setItem(CACHE_TIMESTAMP, Date.now().toString());
-
         populateSelect('filterMemberLevel', result.levels, true);
         populateSelect('filterMemberBranch', result.branches, true);
         populateSelect('filterMemberZone', result.zones, true);
         populateSelect('filterMasulRank', result.ranks, true);
         populateSelect('filterMasulBranch', result.branches, true);
         populateSelect('filterMasulZone', result.zones, true);
+        populateSelect('filterLevel', result.levels, true);
+        populateSelect('gradFilterGender', ['Brother', 'Sister'], true);
+        populateSelect('gradFilterZone', result.zones, true);
+        populateSelect('gradFilterBranch', result.branches, true);
     } catch (err) {
         console.error('Failed to load filter options:', err);
         showMessage('Error', 'Could not load filter options: ' + err.message);
@@ -571,81 +599,46 @@ function populateSelect(selectId, options, keepAllOption = true) {
     }
 }
 
-// ==================== ZONE/BRANCH DROPDOWNS (cached) ====================
-async function loadZonesForDropdowns(forceRefresh = false) {
-    let zones;
-
-    if (!forceRefresh) {
-        const cachedZones = sessionStorage.getItem(CACHE_ZONES);
-        const cachedBranchMap = sessionStorage.getItem(CACHE_BRANCH_MAP);
-        const cachedNameToCode = sessionStorage.getItem(CACHE_BRANCH_NAME_TO_CODE);
-        const timestamp = sessionStorage.getItem(CACHE_TIMESTAMP);
-        if (cachedZones && cachedBranchMap && cachedNameToCode && timestamp && 
-            (Date.now() - parseInt(timestamp)) < CACHE_DURATION) {
-            zones = JSON.parse(cachedZones);
-            branchZoneMap = JSON.parse(cachedBranchMap);
-            branchNameToCode = JSON.parse(cachedNameToCode);
-            populateZoneSelects(zones);
-            attachZoneChangeListeners();
-            return;
-        }
-    }
-
+// ==================== ZONE/BRANCH DROPDOWNS ====================
+async function loadZonesForDropdowns() {
     try {
         const result = await apiRequest('getZones', {}, currentUser);
-        zones = result.zones.filter(z => z.status === 'Active');
-        sessionStorage.setItem(CACHE_ZONES, JSON.stringify(zones));
-        
-        branchZoneMap = {};
-        branchNameToCode = {};
-        const branchMap = {};
-        const nameToCode = {};
-        
-        for (let zone of zones) {
-            const branchRes = await apiRequest('getBranches', { zone: zone.zoneName });
-            branchRes.branches.forEach(b => {
-                if (b.status === 'Active') {
-                    branchMap[b.branchCode] = zone.zoneName;
-                    nameToCode[b.branchName] = b.branchCode;
-                }
-            });
-        }
-        
-        branchZoneMap = branchMap;
-        branchNameToCode = nameToCode;
-        sessionStorage.setItem(CACHE_BRANCH_MAP, JSON.stringify(branchMap));
-        sessionStorage.setItem(CACHE_BRANCH_NAME_TO_CODE, JSON.stringify(nameToCode));
-        sessionStorage.setItem(CACHE_TIMESTAMP, Date.now().toString());
-
+        const zones = result.zones.filter(z => z.status === 'Active');
         populateZoneSelects(zones);
         attachZoneChangeListeners();
 
+        // Also populate branch dropdowns
+        const branchResult = await apiRequest('getBranches', {}, currentUser);
+        const branches = branchResult.branches.filter(b => b.status === 'Active');
+        populateBranchSelects(branches);
     } catch (err) {
-        console.warn('Using hardcoded zones/branches due to API error:', err);
-        zones = HARDCODED_ZONES.map(z => ({ zoneName: z }));
-        branchZoneMap = {};
-        branchNameToCode = {};
-        for (let zone in HARDCODED_BRANCH_MAP) {
-            HARDCODED_BRANCH_MAP[zone].forEach(branchName => {
-                const code = branchName.replace(/\s+/g, '').substring(0,3).toUpperCase();
-                branchZoneMap[code] = zone;
-                branchNameToCode[branchName] = code;
-            });
-        }
-        populateZoneSelects(zones);
-        attachZoneChangeListeners();
-        showMessage('Notice', 'Using default zone/branch lists.');
+        console.warn('Failed to load zones/branches:', err);
+        showMessage('Notice', 'Could not load zones and branches. Please refresh.');
     }
 }
 
 function populateZoneSelects(zones) {
-    const zoneSelects = document.querySelectorAll('select[name="zone"], #editBranchZone, #branchModal select[name="zoneName"], #editMemberZone, #editMasulZone');
+    const zoneSelects = document.querySelectorAll('select[name="zone"], #editBranchZone, #branchModal select[name="zoneName"], #editMemberZone, #editMasulZone, #memZone, #masZone, #filterZone, #gradFilterZone');
     zoneSelects.forEach(select => {
         if (!select) return;
         const currentValue = select.value;
-        select.innerHTML = '<option value="">Select Zone</option>';
+        const isFilter = select.id === 'filterZone' || select.id === 'gradFilterZone';
+        select.innerHTML = isFilter ? '<option value="">All Zones</option>' : '<option value="">Select Zone</option>';
         zones.forEach(zone => {
             select.innerHTML += `<option value="${zone.zoneName}">${zone.zoneName}</option>`;
+        });
+        if (currentValue) select.value = currentValue;
+    });
+}
+
+function populateBranchSelects(branches) {
+    const branchSelects = document.querySelectorAll('#filterBranch, #gradFilterBranch, #filterMemberBranch, #filterMasulBranch');
+    branchSelects.forEach(select => {
+        if (!select) return;
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">All Branches</option>';
+        branches.forEach(b => {
+            select.innerHTML += `<option value="${b.branchCode}">${b.branchName} (${b.branchCode})</option>`;
         });
         if (currentValue) select.value = currentValue;
     });
@@ -667,28 +660,23 @@ async function zoneChangeHandler(event) {
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
-    const branchesForZone = Object.entries(branchZoneMap)
-        .filter(([code, z]) => z === zone)
-        .map(([code]) => {
-            const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-            return { code, name };
+    try {
+        const result = await apiRequest('getBranches', { zone }, currentUser);
+        const branches = result.branches.filter(b => b.status === 'Active');
+        branches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.branchCode}">${b.branchName} (${b.branchCode})</option>`;
         });
-
-    branchesForZone.forEach(b => {
-        branchSelect.innerHTML += `<option value="${b.code}">${b.name}</option>`;
-    });
+    } catch (err) {
+        console.warn('Failed to load branches for zone:', err);
+    }
 }
 
 // ==================== MEMBERS LIST ====================
 async function loadMemberList(page = 1, search = '', filters = {}) {
     try {
-        currentMemberPage = page;
-        currentMemberSearch = search;
-        currentMemberFilters = filters;
         const result = await apiRequest('getMembers', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
-        totalMembers = result.total;
         renderMemberListTable(result.members);
-        renderMemberListPagination();
+        renderMemberListPagination(result.total, page);
     } catch (err) {
         console.error(err);
         showMessage('Error', 'Failed to load members: ' + err.message);
@@ -697,86 +685,220 @@ async function loadMemberList(page = 1, search = '', filters = {}) {
 
 function renderMemberListTable(members) {
     const tbody = document.querySelector('#memberListTable tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
+    if (!members || members.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No members found.</td></tr>';
+        return;
+    }
     members.forEach(member => {
         const row = tbody.insertRow();
-        row.insertCell().innerText = member.IntizarID;
-        row.insertCell().innerText = member.RecruitmentID;
-        row.insertCell().innerText = member.FullName;
-        row.insertCell().innerText = member.Level;
-        row.insertCell().innerText = member.Branch;
+        row.insertCell().innerText = member.IntizarID || '';
+        row.insertCell().innerText = member.RecruitmentID || '';
+        row.insertCell().innerText = member.FullName || '';
+        row.insertCell().innerText = member.Level || '';
+        row.insertCell().innerText = member.Branch || '';
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMember('${member.IntizarID}')">👁 View</button>
-            ${currentUser.role === 'Admin' ? `<button onclick="editMember('${member.IntizarID}')">✏️ Edit</button>` : ''}
-            ${currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul' ? `<button onclick="promoteMember('${member.IntizarID}')">⭐ Promote</button>` : ''}
-            ${currentUser.role === 'Admin' ? `<button onclick="transferMember('${member.IntizarID}')">↗ Transfer</button>` : ''}
+            ${currentUser && currentUser.role === 'Admin' ? `<button onclick="editMember('${member.IntizarID}')">✏️ Edit</button>` : ''}
+            ${currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul') ? `<button onclick="promoteMember('${member.IntizarID}')">⭐ Promote</button>` : ''}
+            ${currentUser && currentUser.role === 'Admin' ? `<button onclick="transferMember('${member.IntizarID}')">↗ Transfer</button>` : ''}
         `;
     });
 }
 
-function renderMemberListPagination() {
-    const totalPages = Math.ceil(totalMembers / PAGE_SIZE);
+function renderMemberListPagination(total, page) {
+    const container = document.getElementById('memberListPagination');
+    if (!container) return;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
     let html = '';
     for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === currentMemberPage ? 'active' : ''}" onclick="loadMemberList(${i}, '${currentMemberSearch}', ${JSON.stringify(currentMemberFilters).replace(/"/g, '&quot;')})">${i}</button>`;
+        html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadMemberList(${i}, '${currentMemberSearch || ''}', ${JSON.stringify(currentMemberFilters || {}).replace(/"/g, '&quot;')})">${i}</button>`;
     }
-    html += `<span> Total: ${totalMembers}</span>`;
-    document.getElementById('memberListPagination').innerHTML = html;
+    html += `<span> Total: ${total}</span>`;
+    container.innerHTML = html;
 }
 
 function applyMemberFilters() {
-    const branchDropdown = document.getElementById('filterMemberBranch').value;
+    const branchDropdown = document.getElementById('filterMemberBranch')?.value || '';
     const branchManual = document.getElementById('filterMemberBranchManual')?.value || '';
-    const zoneDropdown = document.getElementById('filterMemberZone').value;
+    const zoneDropdown = document.getElementById('filterMemberZone')?.value || '';
     const zoneManual = document.getElementById('filterMemberZoneManual')?.value || '';
 
-    const branchCode = branchManual || branchDropdown;
-    const zone = zoneManual || zoneDropdown;
-
     const filters = {
-        level: document.getElementById('filterMemberLevel').value,
-        gender: document.getElementById('filterMemberGender').value,
-        branch: branchCode,
-        zone: zone
+        level: document.getElementById('filterMemberLevel')?.value || '',
+        gender: document.getElementById('filterMemberGender')?.value || '',
+        branch: branchManual || branchDropdown,
+        zone: zoneManual || zoneDropdown
     };
-    const search = document.getElementById('memberListSearch').value;
+    const search = document.getElementById('memberListSearch')?.value || '';
     loadMemberList(1, search, filters);
 }
 
 function resetMemberFilters() {
-    document.getElementById('filterMemberLevel').value = '';
-    document.getElementById('filterMemberGender').value = '';
-    document.getElementById('filterMemberBranch').value = '';
-    document.getElementById('filterMemberZone').value = '';
-    document.getElementById('filterMemberBranchManual').value = '';
-    document.getElementById('filterMemberZoneManual').value = '';
+    ['filterMemberLevel', 'filterMemberGender', 'filterMemberBranch', 'filterMemberZone'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    ['filterMemberBranchManual', 'filterMemberZoneManual'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     applyMemberFilters();
 }
 
 function searchMemberList() {
-    currentMemberSearch = document.getElementById('memberListSearch').value;
-    currentMemberPage = 1;
-    loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
+    const search = document.getElementById('memberListSearch')?.value || '';
+    loadMemberList(1, search, currentMemberFilters || {});
 }
 
 function clearMemberListSearch() {
-    document.getElementById('memberListSearch').value = '';
-    currentMemberSearch = '';
-    currentMemberPage = 1;
-    loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
+    const el = document.getElementById('memberListSearch');
+    if (el) el.value = '';
+    loadMemberList(1, '', {});
+}
+
+// ==================== GRADUATES LIST ====================
+async function loadGraduatesList() {
+    const search = document.getElementById('graduateSearchInput')?.value || '';
+    const gender = document.getElementById('gradFilterGender')?.value || '';
+    const zone = document.getElementById('gradFilterZone')?.value || '';
+    const branch = document.getElementById('gradFilterBranch')?.value || '';
+
+    try {
+        const result = await apiRequest('getGraduates', {
+            search,
+            filters: { gender, zone, branch }
+        }, currentUser);
+
+        const tbody = document.getElementById('graduatesTableBody');
+        if (!tbody) return;
+
+        if (!result.members || result.members.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem;">No Graduates found.</td></tr>';
+            return;
+        }
+
+        currentGraduates = result.members;
+        tbody.innerHTML = result.members.map(g => `
+            <tr>
+                <td><strong>${g.IntizarID || ''}</strong></td>
+                <td>${g.RecruitmentID || ''}</td>
+                <td><strong>${g.FullName || ''}</strong></td>
+                <td>${g.FatherName || ''}</td>
+                <td>${g.Gender || ''}</td>
+                <td>${g.Zone || ''}</td>
+                <td>${g.Branch || ''}</td>
+                <td><span class="badge badge-graduate">Al-Mahdi Community</span></td>
+                <td>
+                    <button type="button" class="btn-sm" title="View ID Card" onclick="viewMember('${g.IntizarID}')">👁 View</button>
+                    ${currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul') ? `
+                        <button type="button" class="btn-sm" style="background:#D97706;" onclick="proposeGraduateAsMasul('${g.IntizarID}')">🛡 Propose Mas'ul</button>
+                    ` : ''}
+                    ${currentUser && currentUser.role === 'Admin' ? `
+                        <button type="button" class="btn-sm btn-secondary" onclick="editMember('${g.IntizarID}')">✏️ Edit</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `).join('');
+
+        const pagination = document.getElementById('graduatesPagination');
+        if (pagination) {
+            const total = result.total || result.members.length;
+            pagination.innerHTML = `<span>Total Graduates: ${total}</span>`;
+        }
+    } catch (err) {
+        console.error('Error loading graduates list:', err);
+        showMessage('Error', 'Failed to load graduates: ' + err.message);
+    }
+}
+
+function handleGraduateSearch() {
+    clearTimeout(window.searchGraduateTimeout);
+    window.searchGraduateTimeout = setTimeout(loadGraduatesList, 300);
+}
+
+function resetGraduateFilters() {
+    ['graduateSearchInput', 'gradFilterGender', 'gradFilterZone', 'gradFilterBranch'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    loadGraduatesList();
+}
+
+// ==================== PROPOSE GRADUATE AS MAS'UL ====================
+async function proposeGraduateAsMasul(intizarId) {
+    try {
+        const res = await apiRequest('getMember', { intizarId }, currentUser);
+        if (!res.member) throw new Error('Member not found');
+        const member = res.member;
+
+        // Validate that member is a Graduate
+        if (member.Level !== 'Graduate' && member.Status !== 'Graduate') {
+            showMessage('Error', 'This member is not a Graduate. Only Graduates can be proposed as Mas\'ul.');
+            return;
+        }
+
+        // Check if already a Mas'ul
+        if (member.Status === 'Mas\'ul') {
+            showMessage('Error', 'This member is already registered as a Mas\'ul.');
+            return;
+        }
+
+        const gender = member.Gender;
+        const brotherRanks = ['Musa\'id', 'Areef', 'Muqaddam', 'Ra\'id', 'Raqeeb', 'Mulazim', 'Muhafiz', 'Ameed', 'Aqeeda', 'Qaid'];
+        const sisterRanks = ['Musa\'ida', 'Areefa', 'Muqadama', 'Ra\'ida', 'Raqeeba', 'Mulazima', 'Muhafiza', 'Ameeda', 'Aqeeda', 'Qaida'];
+        const ranks = gender === 'Sister' ? sisterRanks : brotherRanks;
+
+        // Use a prompt to select rank
+        const rank = await showPrompt('Select Initial Rank', `Enter the initial Mas'ul rank for ${member.FullName} (${gender}):\nValid ranks: ${ranks.join(', ')}`);
+        if (!rank) return;
+
+        if (!ranks.includes(rank)) {
+            showMessage('Invalid Rank', `"${rank}" is not a valid rank for ${gender}.`);
+            return;
+        }
+
+        // Build registration data
+        const data = {
+            source: 'Graduate',
+            intizarId: member.IntizarID,
+            fullName: member.FullName,
+            fatherName: member.FatherName,
+            gender: member.Gender,
+            dob: member.DOB,
+            placeOfBirth: member.PlaceOfBirth || '',
+            phone: member.Phone,
+            email: member.Email || '',
+            address: member.Address,
+            state: member.State,
+            lga: member.LGA,
+            zone: member.Zone,
+            branch: member.Branch,
+            year: new Date().getFullYear(),
+            currentRank: rank,
+            photoURL: member.PhotoURL || ''
+        };
+
+        const result = await apiRequest('registerMasul', { data }, currentUser);
+        if (result.success) {
+            showMessage('Success', `${member.FullName} has been proposed as Mas'ul with rank "${rank}".`);
+            loadGraduatesList();
+            if (document.getElementById('masulSection')) loadMasuls(1, '', {});
+            loadDashboardStats();
+        }
+    } catch (err) {
+        showMessage('Error', err.message);
+    }
 }
 
 // ==================== MASULS LIST ====================
 async function loadMasuls(page = 1, search = '', filters = {}) {
     try {
-        currentMasulPage = page;
-        currentMasulSearch = search;
-        currentMasulFilters = filters;
         const result = await apiRequest('getMasuls', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
-        totalMasuls = result.total;
         renderMasulTable(result.masuls);
-        renderMasulPagination();
+        renderMasulPagination(result.total, page);
     } catch (err) {
         console.error(err);
         showMessage('Error', 'Failed to load masuls: ' + err.message);
@@ -785,104 +907,78 @@ async function loadMasuls(page = 1, search = '', filters = {}) {
 
 function renderMasulTable(masuls) {
     const tbody = document.querySelector('#masulTable tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
+    if (!masuls || masuls.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No Mas\'ulin found.</td></tr>';
+        return;
+    }
     masuls.forEach(masul => {
         const row = tbody.insertRow();
-        row.insertCell().innerText = masul.IntizarID;
-        row.insertCell().innerText = masul.MasulRecruitmentID;
-        row.insertCell().innerText = masul.FullName;
-        row.insertCell().innerText = masul.CurrentRank;
-        row.insertCell().innerText = masul.Branch;
+        row.insertCell().innerText = masul.IntizarID || '';
+        row.insertCell().innerText = masul.MasulRecruitmentID || '';
+        row.insertCell().innerText = masul.FullName || '';
+        row.insertCell().innerText = masul.CurrentRank || '';
+        row.insertCell().innerText = masul.Branch || '';
         const actions = row.insertCell();
         actions.innerHTML = `
             <button onclick="viewMasul('${masul.IntizarID}')">👁 View</button>
-            ${currentUser.role === 'Admin' ? `<button onclick="editMasul('${masul.IntizarID}')">✏️ Edit</button>` : ''}
-            <button onclick="promoteMasul('${masul.IntizarID}')">⭐ Promote</button>
-            <button onclick="transferMasul('${masul.IntizarID}')">↗ Transfer</button>
+            ${currentUser && currentUser.role === 'Admin' ? `<button onclick="editMasul('${masul.IntizarID}')">✏️ Edit</button>` : ''}
+            ${currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul') ? `<button onclick="promoteMasul('${masul.IntizarID}')">⭐ Promote</button>` : ''}
+            ${currentUser && currentUser.role === 'Admin' ? `<button onclick="transferMasul('${masul.IntizarID}')">↗ Transfer</button>` : ''}
         `;
     });
 }
 
-function renderMasulPagination() {
-    const totalPages = Math.ceil(totalMasuls / PAGE_SIZE);
+function renderMasulPagination(total, page) {
+    const container = document.getElementById('masulPagination');
+    if (!container) return;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
     let html = '';
     for (let i = 1; i <= totalPages; i++) {
-        html += `<button class="page-btn ${i === currentMasulPage ? 'active' : ''}" onclick="loadMasuls(${i}, '${currentMasulSearch}', ${JSON.stringify(currentMasulFilters).replace(/"/g, '&quot;')})">${i}</button>`;
+        html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadMasuls(${i}, '${currentMasulSearch || ''}', ${JSON.stringify(currentMasulFilters || {}).replace(/"/g, '&quot;')})">${i}</button>`;
     }
-    html += `<span> Total: ${totalMasuls}</span>`;
-    document.getElementById('masulPagination').innerHTML = html;
+    html += `<span> Total: ${total}</span>`;
+    container.innerHTML = html;
 }
 
 function applyMasulFilters() {
-    const branchDropdown = document.getElementById('filterMasulBranch').value;
+    const branchDropdown = document.getElementById('filterMasulBranch')?.value || '';
     const branchManual = document.getElementById('filterMasulBranchManual')?.value || '';
-    const zoneDropdown = document.getElementById('filterMasulZone').value;
+    const zoneDropdown = document.getElementById('filterMasulZone')?.value || '';
     const zoneManual = document.getElementById('filterMasulZoneManual')?.value || '';
 
-    const branchCode = branchManual || branchDropdown;
-    const zone = zoneManual || zoneDropdown;
-
     const filters = {
-        rank: document.getElementById('filterMasulRank').value,
-        gender: document.getElementById('filterMasulGender').value,
-        branch: branchCode,
-        zone: zone
+        rank: document.getElementById('filterMasulRank')?.value || '',
+        gender: document.getElementById('filterMasulGender')?.value || '',
+        branch: branchManual || branchDropdown,
+        zone: zoneManual || zoneDropdown
     };
-    const search = document.getElementById('masulSearch').value;
+    const search = document.getElementById('masulSearch')?.value || '';
     loadMasuls(1, search, filters);
 }
 
 function resetMasulFilters() {
-    document.getElementById('filterMasulRank').value = '';
-    document.getElementById('filterMasulGender').value = '';
-    document.getElementById('filterMasulBranch').value = '';
-    document.getElementById('filterMasulZone').value = '';
-    document.getElementById('filterMasulBranchManual').value = '';
-    document.getElementById('filterMasulZoneManual').value = '';
+    ['filterMasulRank', 'filterMasulGender', 'filterMasulBranch', 'filterMasulZone'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    ['filterMasulBranchManual', 'filterMasulZoneManual'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     applyMasulFilters();
 }
 
 function searchMasulList() {
-    currentMasulSearch = document.getElementById('masulSearch').value;
-    currentMasulPage = 1;
-    loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
+    const search = document.getElementById('masulSearch')?.value || '';
+    loadMasuls(1, search, currentMasulFilters || {});
 }
 
 function clearMasulListSearch() {
-    document.getElementById('masulSearch').value = '';
-    currentMasulSearch = '';
-    currentMasulPage = 1;
-    loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
-}
-
-// ==================== SIMPLIFIED ID CARD BUILDER ====================
-function buildSimpleCard(person, type) {
-    const logoAbsolute = new URL('logo.png', window.location.href).href;
-    const imgSrc = getThumbnailUrl(person.PhotoURL) || logoAbsolute;
-    const photoHtml = `<img src="${imgSrc}" alt="Photo" class="card-photo" crossorigin="anonymous" onerror="this.src='${logoAbsolute}'; this.onerror=null;">`;
-
-    const idField = type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID;
-
-    return `
-        <div class="id-card">
-            <div class="card-header">
-                <img src="${logoAbsolute}" alt="Logo" class="card-logo">
-                <h2 class="arabic-title">إنتظار ٱلإمام ٱلمنتظر</h2>
-                <p class="ajami">تربير رحي د غنغر جكى</p>
-            </div>
-            <div class="card-body">
-                ${photoHtml}
-                <div class="card-details">
-                    <p><strong>Full Name:</strong> ${person.FullName}</p>
-                    <p><strong>Intizar ID:</strong> ${person.IntizarID}</p>
-                    <p><strong>Recruitment ID:</strong> ${idField}</p>
-                    <p><strong>Zone:</strong> ${person.Zone}</p>
-                    <p><strong>Branch:</strong> ${person.Branch}</p>
-                    <p><strong>Type:</strong> ${type === 'member' ? 'Member' : 'Mas\'ul'}</p>
-                </div>
-            </div>
-        </div>
-    `;
+    const el = document.getElementById('masulSearch');
+    if (el) el.value = '';
+    loadMasuls(1, '', {});
 }
 
 // ==================== VIEW MEMBER ====================
@@ -890,7 +986,6 @@ async function viewMember(intizarId) {
     try {
         const result = await apiRequest('getMember', { intizarId }, currentUser);
         const member = result.member;
-        lastViewedMember = member;
 
         let promotionList = '';
         try {
@@ -905,6 +1000,7 @@ async function viewMember(intizarId) {
         } catch (e) {
             promotionList = '<p>Error parsing history</p>';
         }
+
         let transferList = '';
         try {
             const transHistory = JSON.parse(member.TransferHistory || '[]');
@@ -918,10 +1014,12 @@ async function viewMember(intizarId) {
         } catch (e) {
             transferList = '<p>Error parsing transfers</p>';
         }
+
         const imgSrc = getThumbnailUrl(member.PhotoURL) || 'logo.png';
         const photoHtml = `<img src="${imgSrc}" alt="Passport" style="max-width:150px; border-radius:8px;" onerror="this.src='logo.png'; this.onerror=null;">`;
 
         const content = document.getElementById('viewContent');
+        if (!content) return;
         content.innerHTML = `
             <div class="print-area">
                 <div class="print-header">
@@ -954,8 +1052,8 @@ async function viewMember(intizarId) {
                 <p><strong>Transfer History:</strong> ${transferList}</p>
                 <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
                 <div style="text-align: center; margin-top: 20px;">
-                    <button onclick="printCurrentMember()" class="no-print">Print ID Card</button>
-                    <button onclick="screenshotCurrentMember()" class="no-print">Screenshot</button>
+                    <button onclick="printCurrentMember()" class="no-print">🖨 Print ID Card</button>
+                    <button onclick="screenshotCurrentMember()" class="no-print">📸 Screenshot</button>
                 </div>
             </div>
         `;
@@ -970,7 +1068,6 @@ async function viewMasul(intizarId) {
     try {
         const result = await apiRequest('getMasul', { intizarId }, currentUser);
         const masul = result.masul;
-        lastViewedMasul = masul;
 
         let promotionList = '';
         try {
@@ -985,10 +1082,12 @@ async function viewMasul(intizarId) {
         } catch (e) {
             promotionList = '<p>Error parsing history</p>';
         }
+
         const imgSrc = getThumbnailUrl(masul.PhotoURL) || 'logo.png';
         const photoHtml = `<img src="${imgSrc}" alt="Passport" style="max-width:150px; border-radius:8px;" onerror="this.src='logo.png'; this.onerror=null;">`;
 
         const content = document.getElementById('viewContent');
+        if (!content) return;
         content.innerHTML = `
             <div class="print-area">
                 <div class="print-header">
@@ -1019,8 +1118,8 @@ async function viewMasul(intizarId) {
                 <p><strong>Promotion History:</strong> ${promotionList}</p>
                 <p><em>Generated on: ${new Date().toLocaleString()}</em></p>
                 <div style="text-align: center; margin-top: 20px;">
-                    <button onclick="printCurrentMasul()" class="no-print">Print ID Card</button>
-                    <button onclick="screenshotCurrentMasul()" class="no-print">Screenshot</button>
+                    <button onclick="printCurrentMasul()" class="no-print">🖨 Print ID Card</button>
+                    <button onclick="screenshotCurrentMasul()" class="no-print">📸 Screenshot</button>
                 </div>
             </div>
         `;
@@ -1030,7 +1129,40 @@ async function viewMasul(intizarId) {
     }
 }
 
-// ==================== SIMPLIFIED PRINT FUNCTION (fixed) ====================
+// ==================== SIMPLIFIED ID CARD BUILDER ====================
+function buildSimpleCard(person, type) {
+    const logoAbsolute = new URL('logo.png', window.location.href).href;
+    const imgSrc = getThumbnailUrl(person.PhotoURL) || logoAbsolute;
+    const photoHtml = `<img src="${imgSrc}" alt="Photo" class="card-photo" crossorigin="anonymous" onerror="this.src='${logoAbsolute}'; this.onerror=null;">`;
+
+    const idField = type === 'member' ? person.RecruitmentID : person.MasulRecruitmentID;
+
+    return `
+        <div class="id-card">
+            <div class="card-header">
+                <img src="${logoAbsolute}" alt="Logo" class="card-logo">
+                <h2 class="arabic-title">إنتظار ٱلإمام ٱلمنتظر</h2>
+                <p class="ajami">تربير رحي د غنغر جكى</p>
+            </div>
+            <div class="card-body">
+                ${photoHtml}
+                <div class="card-details">
+                    <p><strong>Full Name:</strong> ${person.FullName}</p>
+                    <p><strong>Intizar ID:</strong> ${person.IntizarID}</p>
+                    <p><strong>Recruitment ID:</strong> ${idField}</p>
+                    <p><strong>Zone:</strong> ${person.Zone}</p>
+                    <p><strong>Branch:</strong> ${person.Branch}</p>
+                    <p><strong>Type:</strong> ${type === 'member' ? 'Member' : 'Mas\'ul'}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ==================== PRINT FUNCTIONS ====================
+let lastViewedMember = null;
+let lastViewedMasul = null;
+
 function openPrintWindow(content, title) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -1070,10 +1202,15 @@ function openPrintWindow(content, title) {
                         this.onerror = null;
                     };
                 });
-                setTimeout(function() {
-                    window.print();
-                    window.onafterprint = function() { window.close(); };
-                }, 1000);
+                // Wait for images to load before printing
+                const images = document.querySelectorAll('img');
+                let loaded = 0;
+                images.forEach(img => {
+                    if (img.complete) loaded++;
+                    else img.onload = () => { loaded++; if (loaded === images.length) window.print(); };
+                });
+                if (loaded === images.length) window.print();
+                window.onafterprint = function() { window.close(); };
             <\/script>
         </body>
         </html>
@@ -1099,8 +1236,12 @@ function printCurrentMasul() {
     openPrintWindow(content, 'Mas\'ul ID Card');
 }
 
-// ==================== SCREENSHOT FUNCTIONS (with Intizar ID filename) ====================
+// ==================== SCREENSHOT FUNCTIONS ====================
 function captureElement(element, filename) {
+    if (typeof html2canvas === 'undefined') {
+        showMessage('Error', 'html2canvas library not loaded.');
+        return;
+    }
     const images = Array.from(element.getElementsByTagName('img'));
     const promises = images.map(img => {
         if (img.complete) return Promise.resolve();
@@ -1151,7 +1292,7 @@ function screenshotCurrentMasul() {
     captureElement(tempDiv, safeId + '.png').finally(() => document.body.removeChild(tempDiv));
 }
 
-// ==================== EDIT FUNCTIONS (ADMIN ONLY) with reliable branch setting ====================
+// ==================== EDIT FUNCTIONS ====================
 async function editMember(intizarId) {
     try {
         showLoader();
@@ -1160,9 +1301,7 @@ async function editMember(intizarId) {
             throw new Error('No member data received from server');
         }
         const member = result.member;
-        console.log('Editing member:', member);
 
-        // Populate form fields
         document.getElementById('editMemberIntizarId').value = member.IntizarID || '';
         document.getElementById('editMemberFullName').value = member.FullName || '';
         document.getElementById('editMemberFatherName').value = member.FatherName || '';
@@ -1180,48 +1319,18 @@ async function editMember(intizarId) {
         document.getElementById('editMemberGuardianPhone').value = member.GuardianPhone || '';
         document.getElementById('editMemberGuardianAddress').value = member.GuardianAddress || '';
 
-        // Load zones and branches
-        await loadZonesForDropdowns(false);
+        await loadZonesForDropdowns();
 
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
+        if (member.Zone) zoneSelect.value = member.Zone;
 
-        // Set zone
-        if (member.Zone) {
-            zoneSelect.value = member.Zone;
-        }
-
-        // Populate branches for that zone
-        branchSelect.innerHTML = '<option value="">Select Branch</option>';
-        if (member.Zone && branchZoneMap) {
-            const branchesForZone = Object.entries(branchZoneMap)
-                .filter(([code, z]) => z === member.Zone)
-                .map(([code]) => {
-                    const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-                    return { code, name: name || code };
-                });
-            branchesForZone.forEach(b => {
-                const opt = document.createElement('option');
-                opt.value = b.code;
-                opt.textContent = b.name;
-                branchSelect.appendChild(opt);
-            });
-            // Set branch if exists, else add disabled placeholder
-            if (member.Branch) {
-                const exists = Array.from(branchSelect.options).some(o => o.value === member.Branch);
-                if (exists) {
-                    branchSelect.value = member.Branch;
-                } else {
-                    const fallback = document.createElement('option');
-                    fallback.value = member.Branch;
-                    fallback.textContent = member.Branch + ' (inactive)';
-                    fallback.disabled = true;
-                    branchSelect.appendChild(fallback);
-                    branchSelect.value = member.Branch;
-                    showMessage('Notice', 'This branch is currently inactive. Contact admin if needed.');
-                }
-            }
-        }
+        // Trigger branch population for the zone
+        zoneSelect.dispatchEvent(new Event('change'));
+        // Set branch after population
+        setTimeout(() => {
+            if (member.Branch) branchSelect.value = member.Branch;
+        }, 200);
 
         showModal('editMemberModal');
     } catch (err) {
@@ -1233,7 +1342,7 @@ async function editMember(intizarId) {
 }
 
 function closeEditMemberModal() {
-    document.getElementById('editMemberModal').style.display = 'none';
+    hideModal('editMemberModal');
 }
 
 async function editMasul(intizarId) {
@@ -1244,7 +1353,6 @@ async function editMasul(intizarId) {
             throw new Error('No masul data received from server');
         }
         const masul = result.masul;
-        console.log('Editing masul:', masul);
 
         document.getElementById('editMasulIntizarId').value = masul.IntizarID || '';
         document.getElementById('editMasulFullName').value = masul.FullName || '';
@@ -1259,44 +1367,16 @@ async function editMasul(intizarId) {
         document.getElementById('editMasulLga').value = masul.LGA || '';
         document.getElementById('editMasulYear').value = masul.Year || '';
 
-        await loadZonesForDropdowns(false);
+        await loadZonesForDropdowns();
 
         const zoneSelect = document.getElementById('editMasulZone');
         const branchSelect = document.getElementById('editMasulBranch');
+        if (masul.Zone) zoneSelect.value = masul.Zone;
 
-        if (masul.Zone) {
-            zoneSelect.value = masul.Zone;
-        }
-
-        branchSelect.innerHTML = '<option value="">Select Branch</option>';
-        if (masul.Zone && branchZoneMap) {
-            const branchesForZone = Object.entries(branchZoneMap)
-                .filter(([code, z]) => z === masul.Zone)
-                .map(([code]) => {
-                    const name = Object.keys(branchNameToCode).find(key => branchNameToCode[key] === code);
-                    return { code, name: name || code };
-                });
-            branchesForZone.forEach(b => {
-                const opt = document.createElement('option');
-                opt.value = b.code;
-                opt.textContent = b.name;
-                branchSelect.appendChild(opt);
-            });
-            if (masul.Branch) {
-                const exists = Array.from(branchSelect.options).some(o => o.value === masul.Branch);
-                if (exists) {
-                    branchSelect.value = masul.Branch;
-                } else {
-                    const fallback = document.createElement('option');
-                    fallback.value = masul.Branch;
-                    fallback.textContent = masul.Branch + ' (inactive)';
-                    fallback.disabled = true;
-                    branchSelect.appendChild(fallback);
-                    branchSelect.value = masul.Branch;
-                    showMessage('Notice', 'This branch is currently inactive. Contact admin if needed.');
-                }
-            }
-        }
+        zoneSelect.dispatchEvent(new Event('change'));
+        setTimeout(() => {
+            if (masul.Branch) branchSelect.value = masul.Branch;
+        }, 200);
 
         updateMasulRankOptions(masul.Gender);
         document.getElementById('editMasulRank').value = masul.CurrentRank || '';
@@ -1311,10 +1391,9 @@ async function editMasul(intizarId) {
 }
 
 function closeEditMasulModal() {
-    document.getElementById('editMasulModal').style.display = 'none';
+    hideModal('editMasulModal');
 }
 
-// NEW HELPER: Format a date string for <input type="date"> (YYYY-MM-DD)
 function formatDateForInput(dateString) {
     if (!dateString) return '';
     const d = new Date(dateString);
@@ -1327,6 +1406,7 @@ function formatDateForInput(dateString) {
 
 function updateMasulRankOptions(gender) {
     const rankSelect = document.getElementById('editMasulRank');
+    if (!rankSelect) return;
     const brotherRanks = ['Musa\'id','Areef','Muqaddam','Ra\'id','Raqeeb','Mulazim','Muhafiz','Ameed','Aqeeda','Qaid'];
     const sisterRanks = ['Musa\'ida','Areefa','Muqadama','Ra\'ida','Raqeeba','Mulazima','Muhafiza','Ameeda','Aqeeda','Qaida'];
     rankSelect.innerHTML = '<option value="">Select Rank</option>';
@@ -1356,10 +1436,14 @@ async function loadDashboardStats() {
         setText('statSistersMembers', stats.sistersMembers);
         setText('statBrothersMasuls', stats.brothersMasuls);
         setText('statSistersMasuls', stats.sistersMasuls);
-        setText('statBakiyatullah', stats.levelCounts.Bakiyatullah);
-        setText('statAnsarullah', stats.levelCounts.Ansarullah);
-        setText('statGhalibun', stats.levelCounts.Ghalibun);
-        setText('statXGhalibun', stats.levelCounts['X-Ghalibun']);
+        setText('statBakiyatullah', stats.levelCounts?.Bakiyatullah || 0);
+        setText('statAnsarullah', stats.levelCounts?.Ansarullah || 0);
+        setText('statGhalibun', stats.levelCounts?.Ghalibun || 0);
+        setText('statXGhalibun', stats.levelCounts?.['X-Ghalibun'] || 0);
+
+        // Update graduate stat if present
+        const gradEl = document.getElementById('statTotalGraduates');
+        if (gradEl) gradEl.innerText = stats.levelCounts?.Graduate || 0;
 
         updateLevelChart(stats.levelCounts);
         updateZoneChart(stats.zoneCounts);
@@ -1377,17 +1461,17 @@ async function loadDashboardStats() {
 
 function updateLevelChart(levelCounts) {
     const canvas = document.getElementById('levelChart');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
     const existingChart = Chart.getChart(canvas);
     if (existingChart) existingChart.destroy();
 
     new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: Object.keys(levelCounts),
+            labels: Object.keys(levelCounts || {}),
             datasets: [{
                 label: 'Members',
-                data: Object.values(levelCounts),
+                data: Object.values(levelCounts || {}),
                 backgroundColor: '#556B2F'
             }]
         },
@@ -1397,16 +1481,16 @@ function updateLevelChart(levelCounts) {
 
 function updateZoneChart(zoneCounts) {
     const canvas = document.getElementById('zoneChart');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
     const existingChart = Chart.getChart(canvas);
     if (existingChart) existingChart.destroy();
 
     new Chart(canvas, {
         type: 'pie',
         data: {
-            labels: Object.keys(zoneCounts),
+            labels: Object.keys(zoneCounts || {}),
             datasets: [{
-                data: Object.values(zoneCounts),
+                data: Object.values(zoneCounts || {}),
                 backgroundColor: ['#556B2F', '#C9A87C', '#2F4F2F', '#DAA520', '#6B8E23', '#8B4513', '#5F9EA0']
             }]
         },
@@ -1416,11 +1500,11 @@ function updateZoneChart(zoneCounts) {
 
 function updateBranchChart(branchCounts) {
     const canvas = document.getElementById('branchChart');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
     const existingChart = Chart.getChart(canvas);
     if (existingChart) existingChart.destroy();
 
-    const sorted = Object.entries(branchCounts).sort((a,b) => b[1] - a[1]).slice(0,10);
+    const sorted = Object.entries(branchCounts || {}).sort((a,b) => b[1] - a[1]).slice(0,10);
     new Chart(canvas, {
         type: 'bar',
         data: {
@@ -1435,23 +1519,27 @@ function updateBranchChart(branchCounts) {
     });
 }
 
-// ==================== OPEN SPREADSHEET ====================
-async function openSpreadsheet() {
-    try {
-        const result = await apiRequest('getSpreadsheetUrl', {}, currentUser);
-        window.open(result.url, '_blank');
-    } catch (err) {
-        showMessage('Error', err.message);
-    }
-}
-
 // ==================== ZONE/BRANCH ACTIONS ====================
 function showAddZoneModal() { showModal('zoneModal'); }
+function showAddBranchModal() { showModal('branchModal'); }
+
 function editZone(zoneId, zoneName) {
     document.getElementById('editZoneId').value = zoneId;
     document.getElementById('editZoneName').value = zoneName;
     showModal('editZoneModal');
 }
+
+function editBranch(branchCode, branchName, zone) {
+    document.getElementById('editBranchCode').value = branchCode;
+    document.getElementById('editBranchName').value = branchName;
+    const zoneSelect = document.getElementById('editBranchZone');
+    for (let opt of zoneSelect.options) {
+        if (opt.value === zone) opt.selected = true;
+    }
+    showModal('editBranchModal');
+}
+
+// Form event listeners
 document.addEventListener('DOMContentLoaded', () => {
     const zoneForm = document.getElementById('zoneForm');
     if (zoneForm) {
@@ -1469,6 +1557,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     const editZoneForm = document.getElementById('editZoneForm');
     if (editZoneForm) {
         editZoneForm.addEventListener('submit', async (e) => {
@@ -1485,6 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     const branchForm = document.getElementById('branchForm');
     if (branchForm) {
         branchForm.addEventListener('submit', async (e) => {
@@ -1502,6 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     const editBranchForm = document.getElementById('editBranchForm');
     if (editBranchForm) {
         editBranchForm.addEventListener('submit', async (e) => {
@@ -1520,16 +1611,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-function showAddBranchModal() { showModal('branchModal'); }
-function editBranch(branchCode, branchName, zone) {
-    document.getElementById('editBranchCode').value = branchCode;
-    document.getElementById('editBranchName').value = branchName;
-    const zoneSelect = document.getElementById('editBranchZone');
-    for (let opt of zoneSelect.options) {
-        if (opt.value === zone) opt.selected = true;
-    }
-    showModal('editBranchModal');
-}
+
 async function disableZone(zoneId) {
     if (!(await showConfirm('Confirm', 'Disable this zone?'))) return;
     try {
@@ -1540,6 +1622,7 @@ async function disableZone(zoneId) {
         showMessage('Error', err.message);
     }
 }
+
 async function enableZone(zoneId) {
     if (!(await showConfirm('Confirm', 'Enable this zone?'))) return;
     try {
@@ -1550,6 +1633,7 @@ async function enableZone(zoneId) {
         showMessage('Error', err.message);
     }
 }
+
 async function disableBranch(branchCode) {
     if (!(await showConfirm('Confirm', 'Disable this branch?'))) return;
     try {
@@ -1560,6 +1644,7 @@ async function disableBranch(branchCode) {
         showMessage('Error', err.message);
     }
 }
+
 async function enableBranch(branchCode) {
     if (!(await showConfirm('Confirm', 'Enable this branch?'))) return;
     try {
@@ -1576,6 +1661,7 @@ async function loadZones() {
     try {
         const result = await apiRequest('getZones', {}, currentUser);
         const tbody = document.querySelector('#zonesTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         result.zones.forEach(zone => {
             const row = tbody.insertRow();
@@ -1600,6 +1686,7 @@ async function loadBranches() {
     try {
         const result = await apiRequest('getBranches', {}, currentUser);
         const tbody = document.querySelector('#branchesTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         result.branches.forEach(branch => {
             const row = tbody.insertRow();
@@ -1626,6 +1713,7 @@ async function loadAuditLog() {
     try {
         const result = await apiRequest('getAuditLog', {}, currentUser);
         const tbody = document.querySelector('#auditTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         result.logs.forEach(log => {
             const row = tbody.insertRow();
@@ -1650,18 +1738,21 @@ async function loadConfig() {
     } catch (err) {
         console.error(err);
     }
-    document.getElementById('configForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newAdminCode = document.getElementById('configAdminCode').value;
-        const newPrefix = document.getElementById('configPrefix').value;
-        try {
-            if (newAdminCode) await apiRequest('updateConfig', { key: 'admin_code', value: newAdminCode }, currentUser);
-            if (newPrefix) await apiRequest('updateConfig', { key: 'access_prefix', value: newPrefix }, currentUser);
-            showMessage('Success', 'Configuration updated');
-        } catch (err) {
-            showMessage('Error', err.message);
-        }
-    });
+    const configForm = document.getElementById('configForm');
+    if (configForm) {
+        configForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newAdminCode = document.getElementById('configAdminCode').value;
+            const newPrefix = document.getElementById('configPrefix').value;
+            try {
+                if (newAdminCode) await apiRequest('updateConfig', { key: 'admin_code', value: newAdminCode }, currentUser);
+                if (newPrefix) await apiRequest('updateConfig', { key: 'access_prefix', value: newPrefix }, currentUser);
+                showMessage('Success', 'Configuration updated');
+            } catch (err) {
+                showMessage('Error', err.message);
+            }
+        });
+    }
 }
 
 // ==================== EXPORT ====================
@@ -1682,21 +1773,25 @@ async function exportData(type) {
 
 // ==================== PROMOTIONS ====================
 async function promoteMember(intizarId) {
-    if (!(await showConfirm('Confirm', 'Promote this member?'))) return;
+    if (!(await showConfirm('Confirm', 'Promote this member to the next level?'))) return;
     try {
-        await apiRequest('promoteMember', { intizarId }, currentUser);
-        showMessage('Success', 'Member promoted successfully');
-        loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
+        const result = await apiRequest('promoteMember', { intizarId }, currentUser);
+        showMessage('Success', `Member promoted to ${result.newLevel}`);
+        loadMemberList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
+        loadDashboardStats();
+        loadGraduatesList();
     } catch (err) {
         showMessage('Error', err.message);
     }
 }
+
 async function promoteMasul(intizarId) {
-    if (!(await showConfirm('Confirm', 'Promote this Mas\'ul?'))) return;
+    if (!(await showConfirm('Confirm', 'Promote this Mas\'ul to the next rank?'))) return;
     try {
-        await apiRequest('promoteMasul', { intizarId }, currentUser);
-        showMessage('Success', 'Mas\'ul promoted successfully');
-        loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
+        const result = await apiRequest('promoteMasul', { intizarId }, currentUser);
+        showMessage('Success', `Mas'ul promoted to ${result.newRank}`);
+        loadMasuls(currentMasulPage || 1, currentMasulSearch || '', currentMasulFilters || {});
+        loadDashboardStats();
     } catch (err) {
         showMessage('Error', err.message);
     }
@@ -1709,18 +1804,19 @@ async function transferMember(intizarId) {
     try {
         await apiRequest('transferMember', { intizarId, newBranchCode: newBranch }, currentUser);
         showMessage('Success', 'Member transferred');
-        loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
+        loadMemberList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
     } catch (err) {
         showMessage('Error', err.message);
     }
 }
+
 async function transferMasul(intizarId) {
     const newBranch = await showPrompt('Transfer Mas\'ul', 'Enter new Branch Code:');
     if (!newBranch) return;
     try {
         await apiRequest('transferMasul', { intizarId, newBranchCode: newBranch }, currentUser);
         showMessage('Success', 'Mas\'ul transferred');
-        loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
+        loadMasuls(currentMasulPage || 1, currentMasulSearch || '', currentMasulFilters || {});
     } catch (err) {
         showMessage('Error', err.message);
     }
@@ -1731,15 +1827,19 @@ async function initializeRegistrationPage() {
     if (!currentUser) return;
 
     if (currentUser.role !== 'Admin') {
-        document.querySelector('.role-selector').style.display = 'none';
-        document.getElementById('masulFormContainer').style.display = 'none';
-        document.getElementById('memberFormContainer').style.display = 'block';
+        const roleSelector = document.querySelector('.role-selector');
+        if (roleSelector) roleSelector.style.display = 'none';
+        const masulContainer = document.getElementById('masulFormContainer');
+        if (masulContainer) masulContainer.style.display = 'none';
+        const memberContainer = document.getElementById('memberFormContainer');
+        if (memberContainer) memberContainer.style.display = 'block';
     } else {
-        document.getElementById('memberFormContainer').style.display = 'block';
-        document.getElementById('masulFormContainer').style.display = 'none';
+        const memberContainer = document.getElementById('memberFormContainer');
+        if (memberContainer) memberContainer.style.display = 'block';
+        const masulContainer = document.getElementById('masulFormContainer');
+        if (masulContainer) masulContainer.style.display = 'none';
     }
 
-    // Ensure zones and branches are fully loaded before we try to lock the selects
     await loadZonesForDropdowns();
     setDOBLimits();
 
@@ -1763,92 +1863,94 @@ async function initializeRegistrationPage() {
         });
     }
 
-    // Branch Mas'ul lock – uses hidden inputs to guarantee submission of zone/branch
+    // Branch Mas'ul lock
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.querySelector('select[name="branch"]');
         const zoneField = document.querySelector('select[name="zone"]');
         if (branchField && zoneField) {
             const branchCode = currentUser.branchCode;
-            const zoneName = branchZoneMap[branchCode];
-            if (zoneName) {
-                // Set visible selects
-                zoneField.value = zoneName;
-                zoneField.dispatchEvent(new Event('change'));
-                branchField.value = branchCode;
-                zoneField.disabled = true;
-                branchField.disabled = true;
-
-                // Add hidden inputs so the values are actually submitted
-                const form = branchField.closest('form');
-                if (form) {
-                    let hiddenZone = form.querySelector('input[name="zone"][type="hidden"]');
-                    if (!hiddenZone) {
-                        hiddenZone = document.createElement('input');
-                        hiddenZone.type = 'hidden';
-                        hiddenZone.name = 'zone';
-                        form.appendChild(hiddenZone);
-                    }
-                    hiddenZone.value = zoneName;
-
-                    let hiddenBranch = form.querySelector('input[name="branch"][type="hidden"]');
-                    if (!hiddenBranch) {
-                        hiddenBranch = document.createElement('input');
-                        hiddenBranch.type = 'hidden';
-                        hiddenBranch.name = 'branch';
-                        form.appendChild(hiddenBranch);
-                    }
-                    hiddenBranch.value = branchCode;
+            // We need to find the zone for this branch
+            try {
+                const branches = await apiRequest('getBranches', {}, currentUser);
+                const branch = branches.branches.find(b => b.branchCode === branchCode);
+                if (branch) {
+                    zoneField.value = branch.zone;
+                    zoneField.dispatchEvent(new Event('change'));
+                    // Wait for branch dropdown to populate
+                    setTimeout(() => {
+                        branchField.value = branchCode;
+                        zoneField.disabled = true;
+                        branchField.disabled = true;
+                    }, 300);
                 }
+            } catch (err) {
+                console.warn('Could not lock branch field:', err);
             }
         }
     }
 
-    document.getElementById('memberForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData.entries());
-        const photoFile = formData.get('photo');
-        if (photoFile && photoFile.size > 0) {
-            if (photoFile.size > 2 * 1024 * 1024) {
-                showMessage('File Too Large', 'File size must be less than 2 MB');
-                return;
+    const memberForm = document.getElementById('memberForm');
+    if (memberForm) {
+        memberForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            const photoFile = formData.get('photo');
+            if (photoFile && photoFile.size > 0) {
+                if (photoFile.size > 2 * 1024 * 1024) {
+                    showMessage('File Too Large', 'File size must be less than 2 MB');
+                    return;
+                }
+                data.photoBase64 = await fileToBase64(photoFile);
+                data.photoName = photoFile.name;
             }
-            data.photoBase64 = await fileToBase64(photoFile);
-            data.photoName = photoFile.name;
-        }
-        pendingMemberData = data;
-        showRegistrationConfirm(data, 'member');
-    });
+            pendingMemberData = data;
+            showRegistrationConfirm(data, 'member');
+        });
+    }
 
-    document.getElementById('masulForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData.entries());
-        const photoFile = formData.get('photo');
-        if (photoFile && photoFile.size > 0) {
-            if (photoFile.size > 2 * 1024 * 1024) {
-                showMessage('File Too Large', 'File size must be less than 2 MB');
-                return;
+    const masulForm = document.getElementById('masulForm');
+    if (masulForm) {
+        masulForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            const photoFile = formData.get('photo');
+            if (photoFile && photoFile.size > 0) {
+                if (photoFile.size > 2 * 1024 * 1024) {
+                    showMessage('File Too Large', 'File size must be less than 2 MB');
+                    return;
+                }
+                data.photoBase64 = await fileToBase64(photoFile);
+                data.photoName = photoFile.name;
             }
-            data.photoBase64 = await fileToBase64(photoFile);
-            data.photoName = photoFile.name;
-        }
-        pendingMasulData = data;
-        showRegistrationConfirm(data, 'masul');
-    });
+            pendingMasulData = data;
+            showRegistrationConfirm(data, 'masul');
+        });
+    }
 
-    document.getElementById('source').addEventListener('change', function() {
-        const field = document.getElementById('intizarIdField');
-        field.style.display = this.value === 'xghalibun' ? 'block' : 'none';
-        if (this.value !== 'xghalibun') {
-            document.querySelector('input[name="intizarId"]').value = '';
-        }
-    });
+    const sourceSelect = document.getElementById('source');
+    if (sourceSelect) {
+        sourceSelect.addEventListener('change', function() {
+            const field = document.getElementById('intizarIdField');
+            if (field) {
+                field.style.display = (this.value === 'xghalibun' || this.value === 'Graduate' || this.value === 'X-Ghalibun') ? 'block' : 'none';
+            }
+            if (this.value !== 'xghalibun' && this.value !== 'Graduate' && this.value !== 'X-Ghalibun') {
+                const input = document.querySelector('input[name="intizarId"]');
+                if (input) input.value = '';
+            }
+        });
+    }
 }
+
+let pendingMemberData = null;
+let pendingMasulData = null;
 
 function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
+    if (!modal || !content) return;
     let html = `<p><strong>Name:</strong> ${data.fullName}</p>
                 <p><strong>Father's Name:</strong> ${data.fatherName}</p>
                 <p><strong>Gender:</strong> ${data.gender}</p>
@@ -1868,7 +1970,8 @@ function showRegistrationConfirm(data, type) {
 }
 
 function closeRegistrationConfirmModal() {
-    document.getElementById('registrationConfirmModal').style.display = 'none';
+    const modal = document.getElementById('registrationConfirmModal');
+    if (modal) modal.style.display = 'none';
     pendingMemberData = null;
     pendingMasulData = null;
 }
@@ -1878,23 +1981,8 @@ async function submitConfirmedRegistration() {
         try {
             const result = await apiRequest('registerMember', { data: pendingMemberData }, currentUser);
             showSuccessModal(pendingMemberData.fullName, result.intizarId, result.recruitmentId, pendingMemberData.zone, pendingMemberData.branch);
-            document.getElementById('memberForm').reset();
-
-            // Clean up hidden inputs and re‑enable selects for Branch Mas'ul
-            const form = document.querySelector('#memberForm');
-            if (form) {
-                const hiddenZone = form.querySelector('input[name="zone"][type="hidden"]');
-                if (hiddenZone) hiddenZone.remove();
-                const hiddenBranch = form.querySelector('input[name="branch"][type="hidden"]');
-                if (hiddenBranch) hiddenBranch.remove();
-            }
-            if (currentUser.role === 'Branch Mas\'ul') {
-                document.querySelector('select[name="branch"]').disabled = false;
-                document.querySelector('select[name="zone"]').disabled = false;
-                // Re‑lock immediately for the next registration
-                initializeRegistrationPage();
-            }
-
+            const form = document.getElementById('memberForm');
+            if (form) form.reset();
             pendingMemberData = null;
             closeRegistrationConfirmModal();
         } catch (err) {
@@ -1904,7 +1992,8 @@ async function submitConfirmedRegistration() {
         try {
             const result = await apiRequest('registerMasul', { data: pendingMasulData }, currentUser);
             showSuccessModal(pendingMasulData.fullName, result.intizarId, result.masulRecruitmentId, pendingMasulData.zone, pendingMasulData.branch);
-            document.getElementById('masulForm').reset();
+            const form = document.getElementById('masulForm');
+            if (form) form.reset();
             pendingMasulData = null;
             closeRegistrationConfirmModal();
         } catch (err) {
@@ -1914,9 +2003,11 @@ async function submitConfirmedRegistration() {
 }
 
 function toggleRegistrationForm() {
-    const role = document.getElementById('roleSelector').value;
-    document.getElementById('memberFormContainer').style.display = role === 'member' ? 'block' : 'none';
-    document.getElementById('masulFormContainer').style.display = role === 'masul' ? 'block' : 'none';
+    const role = document.getElementById('roleSelector')?.value;
+    const memberContainer = document.getElementById('memberFormContainer');
+    const masulContainer = document.getElementById('masulFormContainer');
+    if (memberContainer) memberContainer.style.display = role === 'member' ? 'block' : 'none';
+    if (masulContainer) masulContainer.style.display = role === 'masul' ? 'block' : 'none';
 }
 
 function showSuccessModal(name, intizarId, recruitmentId, zone, branch) {
@@ -1944,70 +2035,79 @@ function setDOBLimits() {
 
 // ==================== EDIT FORM EVENT LISTENERS ====================
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('editMemberForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const intizarId = document.getElementById('editMemberIntizarId').value;
-        const data = {
-            fullName: document.getElementById('editMemberFullName').value,
-            fatherName: document.getElementById('editMemberFatherName').value,
-            gender: document.getElementById('editMemberGender').value,
-            dob: document.getElementById('editMemberDob').value,
-            placeOfBirth: document.getElementById('editMemberPlaceOfBirth').value,
-            phone: document.getElementById('editMemberPhone').value,
-            email: document.getElementById('editMemberEmail').value,
-            address: document.getElementById('editMemberAddress').value,
-            state: document.getElementById('editMemberState').value,
-            lga: document.getElementById('editMemberLga').value,
-            zone: document.getElementById('editMemberZone').value,
-            branch: document.getElementById('editMemberBranch').value,
-            year: document.getElementById('editMemberYear').value,
-            level: document.getElementById('editMemberLevel').value,
-            guardianName: document.getElementById('editMemberGuardianName').value,
-            guardianPhone: document.getElementById('editMemberGuardianPhone').value,
-            guardianAddress: document.getElementById('editMemberGuardianAddress').value
-        };
-        try {
-            await apiRequest('updateMember', { intizarId, data }, currentUser);
-            showMessage('Success', 'Member updated successfully');
-            closeEditMemberModal();
-            loadMemberList(currentMemberPage, currentMemberSearch, currentMemberFilters);
-        } catch (err) {
-            showMessage('Error', err.message);
-        }
-    });
+    const editMemberForm = document.getElementById('editMemberForm');
+    if (editMemberForm) {
+        editMemberForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const intizarId = document.getElementById('editMemberIntizarId').value;
+            const data = {
+                fullName: document.getElementById('editMemberFullName').value,
+                fatherName: document.getElementById('editMemberFatherName').value,
+                gender: document.getElementById('editMemberGender').value,
+                dob: document.getElementById('editMemberDob').value,
+                placeOfBirth: document.getElementById('editMemberPlaceOfBirth').value,
+                phone: document.getElementById('editMemberPhone').value,
+                email: document.getElementById('editMemberEmail').value,
+                address: document.getElementById('editMemberAddress').value,
+                state: document.getElementById('editMemberState').value,
+                lga: document.getElementById('editMemberLga').value,
+                zone: document.getElementById('editMemberZone').value,
+                branch: document.getElementById('editMemberBranch').value,
+                year: document.getElementById('editMemberYear').value,
+                level: document.getElementById('editMemberLevel').value,
+                guardianName: document.getElementById('editMemberGuardianName').value,
+                guardianPhone: document.getElementById('editMemberGuardianPhone').value,
+                guardianAddress: document.getElementById('editMemberGuardianAddress').value
+            };
+            try {
+                await apiRequest('updateMember', { intizarId, data }, currentUser);
+                showMessage('Success', 'Member updated successfully');
+                closeEditMemberModal();
+                loadMemberList(currentMemberPage || 1, currentMemberSearch || '', currentMemberFilters || {});
+            } catch (err) {
+                showMessage('Error', err.message);
+            }
+        });
+    }
 
-    document.getElementById('editMasulForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const intizarId = document.getElementById('editMasulIntizarId').value;
-        const data = {
-            fullName: document.getElementById('editMasulFullName').value,
-            fatherName: document.getElementById('editMasulFatherName').value,
-            gender: document.getElementById('editMasulGender').value,
-            dob: document.getElementById('editMasulDob').value,
-            placeOfBirth: document.getElementById('editMasulPlaceOfBirth').value,
-            phone: document.getElementById('editMasulPhone').value,
-            email: document.getElementById('editMasulEmail').value,
-            address: document.getElementById('editMasulAddress').value,
-            state: document.getElementById('editMasulState').value,
-            lga: document.getElementById('editMasulLga').value,
-            zone: document.getElementById('editMasulZone').value,
-            branch: document.getElementById('editMasulBranch').value,
-            year: document.getElementById('editMasulYear').value,
-            currentRank: document.getElementById('editMasulRank').value
-        };
-        try {
-            await apiRequest('updateMasul', { intizarId, data }, currentUser);
-            showMessage('Success', 'Mas\'ul updated successfully');
-            closeEditMasulModal();
-            loadMasuls(currentMasulPage, currentMasulSearch, currentMasulFilters);
-        } catch (err) {
-            showMessage('Error', err.message);
-        }
-    });
+    const editMasulForm = document.getElementById('editMasulForm');
+    if (editMasulForm) {
+        editMasulForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const intizarId = document.getElementById('editMasulIntizarId').value;
+            const data = {
+                fullName: document.getElementById('editMasulFullName').value,
+                fatherName: document.getElementById('editMasulFatherName').value,
+                gender: document.getElementById('editMasulGender').value,
+                dob: document.getElementById('editMasulDob').value,
+                placeOfBirth: document.getElementById('editMasulPlaceOfBirth').value,
+                phone: document.getElementById('editMasulPhone').value,
+                email: document.getElementById('editMasulEmail').value,
+                address: document.getElementById('editMasulAddress').value,
+                state: document.getElementById('editMasulState').value,
+                lga: document.getElementById('editMasulLga').value,
+                zone: document.getElementById('editMasulZone').value,
+                branch: document.getElementById('editMasulBranch').value,
+                year: document.getElementById('editMasulYear').value,
+                currentRank: document.getElementById('editMasulRank').value
+            };
+            try {
+                await apiRequest('updateMasul', { intizarId, data }, currentUser);
+                showMessage('Success', 'Mas\'ul updated successfully');
+                closeEditMasulModal();
+                loadMasuls(currentMasulPage || 1, currentMasulSearch || '', currentMasulFilters || {});
+            } catch (err) {
+                showMessage('Error', err.message);
+            }
+        });
+    }
 
-    document.getElementById('editMasulGender')?.addEventListener('change', function() {
-        updateMasulRankOptions(this.value);
-    });
+    const editMasulGender = document.getElementById('editMasulGender');
+    if (editMasulGender) {
+        editMasulGender.addEventListener('change', function() {
+            updateMasulRankOptions(this.value);
+        });
+    }
 });
 
 // ==================== CLOSE MODALS ====================
@@ -2016,8 +2116,98 @@ document.querySelectorAll('.modal .close').forEach(span => {
         this.closest('.modal').style.display = 'none';
     };
 });
+
 window.onclick = function(event) {
     if (event.target.classList.contains('modal-overlay') || event.target.classList.contains('modal')) {
         event.target.closest('.modal').style.display = 'none';
     }
+};
+
+// ==================== EXPOSE GLOBAL FUNCTIONS ====================
+// Make key functions globally accessible for inline onclick handlers
+window.viewMember = viewMember;
+window.viewMasul = viewMasul;
+window.editMember = editMember;
+window.editMasul = editMasul;
+window.promoteMember = promoteMember;
+window.promoteMasul = promoteMasul;
+window.transferMember = transferMember;
+window.transferMasul = transferMasul;
+window.printCurrentMember = printCurrentMember;
+window.printCurrentMasul = printCurrentMasul;
+window.screenshotCurrentMember = screenshotCurrentMember;
+window.screenshotCurrentMasul = screenshotCurrentMasul;
+window.closeEditMemberModal = closeEditMemberModal;
+window.closeEditMasulModal = closeEditMasulModal;
+window.closeIdCardModal = function() { hideModal('idCardModal'); };
+window.openSpreadsheet = async function() {
+    try {
+        const result = await apiRequest('getSpreadsheetUrl', {}, currentUser);
+        window.open(result.url, '_blank');
+    } catch (err) {
+        showMessage('Error', err.message);
+    }
+};
+window.exportData = exportData;
+window.loadMemberList = loadMemberList;
+window.loadMasuls = loadMasuls;
+window.loadGraduatesList = loadGraduatesList;
+window.loadZones = loadZones;
+window.loadBranches = loadBranches;
+window.loadAuditLog = loadAuditLog;
+window.showAddZoneModal = showAddZoneModal;
+window.showAddBranchModal = showAddBranchModal;
+window.editZone = editZone;
+window.editBranch = editBranch;
+window.disableZone = disableZone;
+window.enableZone = enableZone;
+window.disableBranch = disableBranch;
+window.enableBranch = enableBranch;
+window.applyMemberFilters = applyMemberFilters;
+window.resetMemberFilters = resetMemberFilters;
+window.searchMemberList = searchMemberList;
+window.clearMemberListSearch = clearMemberListSearch;
+window.applyMasulFilters = applyMasulFilters;
+window.resetMasulFilters = resetMasulFilters;
+window.searchMasulList = searchMasulList;
+window.clearMasulListSearch = clearMasulListSearch;
+window.handleGraduateSearch = handleGraduateSearch;
+window.resetGraduateFilters = resetGraduateFilters;
+window.proposeGraduateAsMasul = proposeGraduateAsMasul;
+window.submitConfirmedRegistration = submitConfirmedRegistration;
+window.closeRegistrationConfirmModal = closeRegistrationConfirmModal;
+window.closeSuccessModal = closeSuccessModal;
+window.toggleRegistrationForm = toggleRegistrationForm;
+window.showMessage = showMessage;
+window.closeMessageModal = closeMessageModal;
+window.showConfirm = showConfirm;
+window.closeConfirmModal = closeConfirmModal;
+window.showPrompt = showPrompt;
+window.closePromptModal = closePromptModal;
+window.switchSection = switchSection;
+window.toggleSidebar = function(forceState) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    if (window.innerWidth <= 768) {
+        if (typeof forceState === 'boolean') {
+            if (forceState) sidebar.classList.add('mobile-open');
+            else sidebar.classList.remove('mobile-open');
+        } else {
+            sidebar.classList.toggle('mobile-open');
+        }
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) overlay.classList.toggle('show');
+    } else {
+        if (typeof forceState === 'boolean') {
+            if (forceState) sidebar.classList.remove('collapsed');
+            else sidebar.classList.add('collapsed');
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
+    }
+};
+window.logout = function() {
+    localStorage.removeItem('iim_user');
+    currentUser = null;
+    window.location.href = 'index.html';
 };
