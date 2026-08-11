@@ -2159,12 +2159,13 @@ function switchRegistrationTab(tab) {
     toggleRegistrationForm();
 }
 
+// ==================== FIXED: SUCCESS MODAL ====================
 function showSuccessModal(name, intizarId, recruitmentId, zone, branch) {
-    document.getElementById('generatedName').innerText = name;
-    document.getElementById('generatedId').innerText = intizarId;
-    document.getElementById('generatedRecruitmentId').innerText = recruitmentId;
-    document.getElementById('generatedZone').innerText = zone;
-    document.getElementById('generatedBranch').innerText = branch;
+    document.getElementById('sucName').innerText = name;
+    document.getElementById('sucIntizarId').innerText = intizarId;
+    document.getElementById('sucRecruitmentId').innerText = recruitmentId;
+    document.getElementById('sucZone').innerText = zone;
+    document.getElementById('sucBranch').innerText = branch;
     document.getElementById('successModal').style.display = 'block';
 }
 
