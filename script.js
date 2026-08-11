@@ -1,4 +1,9 @@
-
+/**
+ * INTIZARUL IMAMUL MUNTAZAR – Frontend Logic & Application Engine (script.js)
+ * Supports Google Apps Script live backend only.
+ * Includes Graduate (Al-Mahdi) management, safe multi-field search,
+ * collapsible sidebar navigation, and ID printing.
+ */
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxZPOn5xCpGlJrGjX92hrbCDeGqk3HqCfVhlTes9IbRJHUgIqBCU3dhsMaYJrWg7wcO4g/exec';
@@ -240,35 +245,6 @@ function initSidebar() {
     });
 }
 
-function toggleSidebar(forceState) {
-    console.log('toggleSidebar called', forceState);
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-    const overlay = document.getElementById('sidebarOverlay');
-    if (window.innerWidth <= 768) {
-        if (typeof forceState === 'boolean') {
-            if (forceState) {
-                sidebar.classList.add('mobile-open');
-                if (overlay) overlay.classList.add('show');
-            } else {
-                sidebar.classList.remove('mobile-open');
-                if (overlay) overlay.classList.remove('show');
-            }
-        } else {
-            sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('show');
-        }
-        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-    } else {
-        if (typeof forceState === 'boolean') {
-            if (forceState) sidebar.classList.remove('collapsed');
-            else sidebar.classList.add('collapsed');
-        } else {
-            sidebar.classList.toggle('collapsed');
-        }
-    }
-}
-
 // ==================== LOGIN & INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
     // Inject dynamic styles
@@ -395,7 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check authentication
     if (currentUser) {
         if (window.location.pathname.includes('dashboard.html')) {
-            // Always initialize sidebar, regardless of login state (Fix 2)
             initSidebar();
             initializeDashboard();
         } else if (window.location.pathname.includes('registration.html')) {
@@ -477,53 +452,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Handle logout in registration page
+    // Handle any inline onclick for logout in registration page
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
             logout();
-        });
-    }
-
-    // ---- Registration form listeners (Fix 3: remove inline onsubmit, use addEventListener) ----
-    const regMemberForm = document.getElementById('regMemberForm');
-    if (regMemberForm) {
-        regMemberForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(regMemberForm);
-            const data = Object.fromEntries(formData.entries());
-            const photoFile = formData.get('photo');
-            if (photoFile && photoFile.size > 0) {
-                if (photoFile.size > 2 * 1024 * 1024) {
-                    showMessage('File Too Large', 'File size must be less than 2 MB');
-                    return;
-                }
-                data.photoBase64 = await fileToBase64(photoFile);
-                data.photoName = photoFile.name;
-            }
-            pendingMemberData = data;
-            showRegistrationConfirm(data, 'member');
-        });
-    }
-
-    const regMasulForm = document.getElementById('regMasulForm');
-    if (regMasulForm) {
-        regMasulForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(regMasulForm);
-            const data = Object.fromEntries(formData.entries());
-            const photoFile = formData.get('photo');
-            if (photoFile && photoFile.size > 0) {
-                if (photoFile.size > 2 * 1024 * 1024) {
-                    showMessage('File Too Large', 'File size must be less than 2 MB');
-                    return;
-                }
-                data.photoBase64 = await fileToBase64(photoFile);
-                data.photoName = photoFile.name;
-            }
-            pendingMasulData = data;
-            showRegistrationConfirm(data, 'masul');
         });
     }
 });
@@ -582,7 +516,7 @@ function switchSection(sectionId, e) {
     const target = document.getElementById(targetId);
     if (!target) return;
 
-    // Hide all sections
+    // Hide all sections (use .dashboard-section to match HTML)
     const allSections = document.querySelectorAll('.dashboard-section');
     allSections.forEach(sec => sec.style.display = 'none');
 
@@ -729,9 +663,11 @@ function attachZoneChangeListeners() {
 
 async function zoneChangeHandler(event) {
     const zone = event.target.value;
+    // Find the branch select: look for .zone-branch-group or fieldset container
     let container = event.target.closest('.zone-branch-group');
     if (!container) container = event.target.closest('fieldset');
     if (!container) {
+        // If no container, try to find a sibling branch select
         const branchSelect = event.target.closest('.zone-branch-group')?.querySelector('select[name="branch"]') ||
                            event.target.closest('fieldset')?.querySelector('select[name="branch"]') ||
                            event.target.parentElement?.querySelector('select[name="branch"]');
@@ -750,6 +686,7 @@ async function zoneChangeHandler(event) {
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
+    // Use cached branches
     const branches = currentBranches.filter(b => b.zone === zone);
     branches.forEach(b => {
         branchSelect.innerHTML += `<option value="${b.branchCode}">${b.branchName} (${b.branchCode})</option>`;
@@ -1386,6 +1323,7 @@ async function editMember(intizarId) {
         }
         const member = result.member;
 
+        // Use the IDs from dashboard.html (editMember...)
         document.getElementById('editMemberIntizarId').value = member.IntizarID || '';
         document.getElementById('editMemberFullName').value = member.FullName || '';
         document.getElementById('editMemberFatherName').value = member.FatherName || '';
@@ -1409,6 +1347,7 @@ async function editMember(intizarId) {
         const branchSelect = document.getElementById('editMemberBranch');
         if (member.Zone) zoneSelect.value = member.Zone;
 
+        // Trigger branch population for the zone
         zoneSelect.dispatchEvent(new Event('change'));
         setTimeout(() => {
             if (member.Branch) branchSelect.value = member.Branch;
@@ -1436,6 +1375,7 @@ async function editMasul(intizarId) {
         }
         const masul = result.masul;
 
+        // Check if edit masul modal exists; if not, fallback to view
         if (!document.getElementById('editMasulModal')) {
             showMessage('Notice', 'Edit Mas\'ul functionality is not available in this interface. Please use the view option.');
             viewMasul(intizarId);
@@ -1533,6 +1473,7 @@ async function loadDashboardStats() {
         const gradEl = document.getElementById('statTotalGraduates');
         if (gradEl) gradEl.innerText = stats.levelCounts?.Graduate || 0;
 
+        // Only update charts if canvas elements exist
         if (document.getElementById('levelChart')) {
             updateLevelChart(stats.levelCounts);
         }
@@ -1707,7 +1648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Edit Member Form
+    // Edit Member Form - using HTML IDs (editMember...)
     const editMemberForm = document.getElementById('editMemberForm');
     if (editMemberForm) {
         editMemberForm.addEventListener('submit', async (e) => {
@@ -1912,6 +1853,7 @@ async function loadConfig() {
     }
 }
 
+// Save system config (called from button)
 window.saveSystemConfig = async function() {
     const newAdminCode = document.getElementById('configAdminCode').value;
     const newPrefix = document.getElementById('configPrefix').value;
@@ -1995,27 +1937,36 @@ async function transferMasul(intizarId) {
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
+    // Hide Mas'ul registration tab for non-admin users (frontend)
+    const masulTab = document.querySelector('.tab-btn[data-tab="masul"]');
+    const masulContainer = document.getElementById('masulRegistrationForm');
     if (currentUser.role !== 'Admin') {
-        const roleSelector = document.querySelector('.role-selector');
-        if (roleSelector) roleSelector.style.display = 'none';
-        const memberContainer = document.getElementById('memberRegistrationForm');
-        const masulContainer = document.getElementById('masulRegistrationForm');
-        if (memberContainer) memberContainer.style.display = 'block';
+        if (masulTab) masulTab.style.display = 'none';
         if (masulContainer) masulContainer.style.display = 'none';
+        // Show member form
+        const memberContainer = document.getElementById('memberRegistrationForm');
+        if (memberContainer) memberContainer.style.display = 'block';
+        // Ensure the member tab is active
+        const memberTab = document.querySelector('.tab-btn[data-tab="member"]');
+        if (memberTab) memberTab.classList.add('active');
     } else {
-        if (typeof switchRegistrationTab === 'function') {
-            switchRegistrationTab('member');
-        } else {
-            const memberContainer = document.getElementById('memberRegistrationForm');
-            const masulContainer = document.getElementById('masulRegistrationForm');
-            if (memberContainer) memberContainer.style.display = 'block';
-            if (masulContainer) masulContainer.style.display = 'none';
+        // Admin: show both, default to member
+        if (masulTab) masulTab.style.display = 'inline-flex'; // or block
+        // Ensure default active tab is member
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (!activeTab || activeTab.dataset.tab !== 'member') {
+            const memberTab = document.querySelector('.tab-btn[data-tab="member"]');
+            if (memberTab) memberTab.classList.add('active');
+            if (masulTab) masulTab.classList.remove('active');
         }
+        // Show/hide forms based on active tab
+        toggleRegistrationForm();
     }
 
     await loadZonesForDropdowns();
     setDOBLimits();
 
+    // Masul rank dropdown by gender
     const masulGender = document.getElementById('masulGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
@@ -2036,6 +1987,7 @@ async function initializeRegistrationPage() {
         });
     }
 
+    // Branch Mas'ul lock
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.getElementById('memBranch');
         const zoneField = document.getElementById('memZone');
@@ -2046,6 +1998,7 @@ async function initializeRegistrationPage() {
                 const branch = branches.branches.find(b => b.branchCode === branchCode);
                 if (branch) {
                     zoneField.value = branch.zone;
+                    // Dispatch change to populate branch dropdown
                     zoneField.dispatchEvent(new Event('change'));
                     setTimeout(() => {
                         branchField.value = branchCode;
@@ -2058,9 +2011,66 @@ async function initializeRegistrationPage() {
             }
         }
     }
+
+    // Attach form submission listeners for memberForm and masulForm
+    const memberForm = document.getElementById('memberForm');
+    if (memberForm && !memberForm.hasAttribute('data-listener')) {
+        memberForm.setAttribute('data-listener', 'true');
+        memberForm.addEventListener('submit', handleMemberRegistrationSubmit);
+    }
+
+    const masulForm = document.getElementById('masulForm');
+    if (masulForm && !masulForm.hasAttribute('data-listener')) {
+        masulForm.setAttribute('data-listener', 'true');
+        masulForm.addEventListener('submit', handleMasulRegistrationSubmit);
+    }
 }
 
-// Registration confirmation state
+// Registration handlers
+async function handleMemberRegistrationSubmit(e) {
+    e.preventDefault();
+    const form = document.getElementById('memberForm');
+    if (!form) {
+        showMessage('Error', 'Member registration form not found.');
+        return;
+    }
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const photoFile = formData.get('photo');
+    if (photoFile && photoFile.size > 0) {
+        if (photoFile.size > 2 * 1024 * 1024) {
+            showMessage('File Too Large', 'File size must be less than 2 MB');
+            return;
+        }
+        data.photoBase64 = await fileToBase64(photoFile);
+        data.photoName = photoFile.name;
+    }
+    pendingMemberData = data;
+    showRegistrationConfirm(data, 'member');
+}
+
+async function handleMasulRegistrationSubmit(e) {
+    e.preventDefault();
+    const form = document.getElementById('masulForm');
+    if (!form) {
+        showMessage('Error', 'Masul registration form not found.');
+        return;
+    }
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const photoFile = formData.get('photo');
+    if (photoFile && photoFile.size > 0) {
+        if (photoFile.size > 2 * 1024 * 1024) {
+            showMessage('File Too Large', 'File size must be less than 2 MB');
+            return;
+        }
+        data.photoBase64 = await fileToBase64(photoFile);
+        data.photoName = photoFile.name;
+    }
+    pendingMasulData = data;
+    showRegistrationConfirm(data, 'masul');
+}
+
 let pendingMemberData = null;
 let pendingMasulData = null;
 
@@ -2068,6 +2078,7 @@ function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
     if (!modal || !content) {
+        // Fallback: show confirmation via confirm
         const msg = `Confirm ${type} registration:\nName: ${data.fullName}\nFather: ${data.fatherName}\nGender: ${data.gender}\nZone: ${data.zone}\nBranch: ${data.branch}`;
         if (confirm(msg)) {
             submitConfirmedRegistration();
@@ -2104,7 +2115,7 @@ async function submitConfirmedRegistration() {
         try {
             const result = await apiRequest('registerMember', { data: pendingMemberData }, currentUser);
             showSuccessModal(pendingMemberData.fullName, result.intizarId, result.recruitmentId, pendingMemberData.zone, pendingMemberData.branch);
-            const form = document.getElementById('regMemberForm');
+            const form = document.getElementById('memberForm');
             if (form) form.reset();
             pendingMemberData = null;
             closeRegistrationConfirmModal();
@@ -2115,7 +2126,7 @@ async function submitConfirmedRegistration() {
         try {
             const result = await apiRequest('registerMasul', { data: pendingMasulData }, currentUser);
             showSuccessModal(pendingMasulData.fullName, result.intizarId, result.masulRecruitmentId, pendingMasulData.zone, pendingMasulData.branch);
-            const form = document.getElementById('regMasulForm');
+            const form = document.getElementById('masulForm');
             if (form) form.reset();
             pendingMasulData = null;
             closeRegistrationConfirmModal();
@@ -2126,7 +2137,8 @@ async function submitConfirmedRegistration() {
 }
 
 function toggleRegistrationForm() {
-    const tab = document.querySelector('.tab-btn.active')?.dataset.tab || 'member';
+    const activeTab = document.querySelector('.tab-btn.active');
+    const tab = activeTab ? activeTab.dataset.tab : 'member';
     const memberContainer = document.getElementById('memberRegistrationForm');
     const masulContainer = document.getElementById('masulRegistrationForm');
     if (tab === 'member') {
@@ -2139,6 +2151,7 @@ function toggleRegistrationForm() {
 }
 
 function switchRegistrationTab(tab) {
+    // Update active tab
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.tab === tab) btn.classList.add('active');
@@ -2163,10 +2176,39 @@ function setDOBLimits() {
     const today = new Date();
     const maxDateMember = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate()).toISOString().split('T')[0];
     const maxDateMasul = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()).toISOString().split('T')[0];
-    const memberDob = document.getElementById('memberDob');
-    const masulDob = document.getElementById('masulDob');
+    const memberDob = document.getElementById('memDOB');
+    const masulDob = document.getElementById('masDOB');
     if (memberDob) memberDob.setAttribute('max', maxDateMember);
     if (masulDob) masulDob.setAttribute('max', maxDateMasul);
+}
+
+// ==================== SIDEBAR TOGGLE GLOBAL ====================
+function toggleSidebar(forceState) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    const overlay = document.getElementById('sidebarOverlay');
+    if (window.innerWidth <= 768) {
+        if (typeof forceState === 'boolean') {
+            if (forceState) {
+                sidebar.classList.add('mobile-open');
+                if (overlay) overlay.classList.add('show');
+            } else {
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('show');
+            }
+        } else {
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('show');
+        }
+        document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
+    } else {
+        if (typeof forceState === 'boolean') {
+            if (forceState) sidebar.classList.remove('collapsed');
+            else sidebar.classList.add('collapsed');
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
+    }
 }
 
 // ==================== CLOSE MODALS ====================
@@ -2252,7 +2294,9 @@ window.logout = function() {
     currentUser = null;
     window.location.href = 'index.html';
 };
+// Alias for openLiveGoogleSheet
 window.openLiveGoogleSheet = window.openSpreadsheet;
+// Alias for printIdCardDirectly and screenshotIdCard
 window.printIdCardDirectly = function() {
     if (lastViewedMember) printCurrentMember();
     else if (lastViewedMasul) printCurrentMasul();
