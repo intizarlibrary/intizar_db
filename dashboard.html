@@ -229,35 +229,29 @@
 
                 <div class="search-bar">
                     <input type="text" id="memberSearchInput" placeholder="Search by Full Name, Intizar ID, Recruitment ID, Father Name, Phone..." onkeyup="handleMemberSearch()">
-                    <button type="button" onclick="loadMembersList()">
+                    <button type="button" onclick="searchMemberList()">
                         <svg class="btn-icon" viewBox="0 0 24 24">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                         Search
                     </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearMemberListSearch()">Clear</button>
                 </div>
 
                 <div class="filter-bar">
                     <span><strong>Filters:</strong></span>
-                    <select id="filterLevel" onchange="loadMembersList()">
+                    <select id="filterLevel" onchange="applyMemberFilters()">
                         <option value="">All Levels</option>
-                        <option value="Bakiyatullah">Bakiyatullah</option>
-                        <option value="Ansarullah">Ansarullah</option>
-                        <option value="Ghalibun">Ghalibun</option>
-                        <option value="X-Ghalibun">X-Ghalibun</option>
                     </select>
-                    <select id="filterGender" onchange="loadMembersList()">
+                    <select id="filterGender" onchange="applyMemberFilters()">
                         <option value="">All Genders</option>
-                        <option value="Brother">Brother</option>
-                        <option value="Sister">Sister</option>
                     </select>
-                    <!-- Zone + Branch wrapped in zone-branch-group for consistent handling -->
                     <div class="zone-branch-group" style="display:inline-flex; gap:0.5rem; align-items:center;">
-                        <select id="filterZone" onchange="loadMembersList()">
+                        <select id="filterZone" onchange="applyMemberFilters()">
                             <option value="">All Zones</option>
                         </select>
-                        <select id="filterBranch" onchange="loadMembersList()">
+                        <select id="filterBranch" onchange="applyMemberFilters()">
                             <option value="">All Branches</option>
                         </select>
                     </div>
@@ -306,6 +300,20 @@
                     </button>
                 </div>
 
+                <div class="filter-bar" style="margin-top:0.5rem;">
+                    <span><strong>Filters:</strong></span>
+                    <select id="gradFilterGender" onchange="loadGraduatesList()">
+                        <option value="">All Genders</option>
+                    </select>
+                    <select id="gradFilterZone" onchange="loadGraduatesList()">
+                        <option value="">All Zones</option>
+                    </select>
+                    <select id="gradFilterBranch" onchange="loadGraduatesList()">
+                        <option value="">All Branches</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="resetGraduateFilters()">Reset Filters</button>
+                </div>
+
                 <div class="table-responsive">
                     <table>
                         <thead>
@@ -345,13 +353,31 @@
 
                 <div class="search-bar">
                     <input type="text" id="masulSearchInput" placeholder="Search Mas'ulin by Name, Intizar ID, Mas'ul Recruitment ID, Rank..." onkeyup="handleMasulSearch()">
-                    <button type="button" onclick="loadMasulsList()">
+                    <button type="button" onclick="searchMasulList()">
                         <svg class="btn-icon" viewBox="0 0 24 24">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                         Search
                     </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearMasulListSearch()">Clear</button>
+                </div>
+
+                <div class="filter-bar">
+                    <span><strong>Filters:</strong></span>
+                    <select id="filterMasulRank" onchange="applyMasulFilters()">
+                        <option value="">All Ranks</option>
+                    </select>
+                    <select id="filterMasulGender" onchange="applyMasulFilters()">
+                        <option value="">All Genders</option>
+                    </select>
+                    <select id="filterMasulZone" onchange="applyMasulFilters()">
+                        <option value="">All Zones</option>
+                    </select>
+                    <select id="filterMasulBranch" onchange="applyMasulFilters()">
+                        <option value="">All Branches</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="resetMasulFilters()">Reset Filters</button>
                 </div>
 
                 <div class="table-responsive">
@@ -382,7 +408,7 @@
             <section id="zonesSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <h2 class="page-title" style="margin-bottom: 0;">Zones Directory</h2>
-                    <button type="button" class="btn btn-sm" onclick="openAddZoneModal()">Add New Zone</button>
+                    <button type="button" class="btn btn-sm" onclick="showAddZoneModal()">Add New Zone</button>
                 </div>
                 <div class="table-responsive">
                     <table>
@@ -403,7 +429,7 @@
             <section id="branchesSection" class="dashboard-section section-content" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <h2 class="page-title" style="margin-bottom: 0;">Branches Directory</h2>
-                    <button type="button" class="btn btn-sm" onclick="openAddBranchModal()">Add New Branch</button>
+                    <button type="button" class="btn btn-sm" onclick="showAddBranchModal()">Add New Branch</button>
                 </div>
                 <div class="table-responsive">
                     <table>
@@ -444,8 +470,8 @@
                 <h2 class="page-title">System Configuration</h2>
                 <div class="form-section">
                     <div style="margin-bottom: 1.5rem;">
-                        <label for="configAccessPrefix">Access Code Prefix</label>
-                        <input type="text" id="configAccessPrefix">
+                        <label for="configPrefix">Access Code Prefix</label>
+                        <input type="text" id="configPrefix">
                     </div>
                     <div style="margin-bottom: 1.5rem;">
                         <label for="configAdminCode">Admin Global Access Code</label>
@@ -542,118 +568,360 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- EDIT MEMBER MODAL (IDs aligned with script expectations)      -->
+    <!-- EDIT MEMBER MODAL – fully aligned with script.js expectations -->
     <!-- ============================================================ -->
     <div id="editMemberModal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 720px;">
             <span class="close" onclick="closeEditMemberModal()">&times;</span>
             <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Member Information</h3>
             <form id="editMemberForm">
                 <input type="hidden" id="editMemIntizarId">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+
+                <!-- Row 1: Full Name, Father Name -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div>
-                        <label for="editMemFullName">Full Name</label>
+                        <label for="editMemFullName">Full Name *</label>
                         <input type="text" id="editMemFullName" required>
                     </div>
                     <div>
-                        <label for="editMemFatherName">Father Name</label>
+                        <label for="editMemFatherName">Father Name *</label>
                         <input type="text" id="editMemFatherName" required>
                     </div>
-                    <div>
-                        <label for="editMemPhone">Phone Number</label>
-                        <input type="tel" id="editMemPhone" required>
-                    </div>
-                    <div>
-                        <label for="editMemAddress">Address</label>
-                        <input type="text" id="editMemAddress" required>
-                    </div>
                 </div>
-                <div style="margin-top: 1.5rem; text-align: right;">
-                    <button type="submit">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- ============================================================ -->
-    <!-- EDIT MAS'UL MODAL (expanded to match script fields)           -->
-    <!-- ============================================================ -->
-    <div id="editMasulModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <span class="close" onclick="closeEditMasulModal()">&times;</span>
-            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Mas'ul Information</h3>
-            <form id="editMasulForm">
-                <input type="hidden" id="editMasulIntizarId">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                <!-- Row 2: Gender, DOB -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
                     <div>
-                        <label for="editMasulFullName">Full Name</label>
-                        <input type="text" id="editMasulFullName" required>
-                    </div>
-                    <div>
-                        <label for="editMasulFatherName">Father Name</label>
-                        <input type="text" id="editMasulFatherName" required>
-                    </div>
-                    <div>
-                        <label for="editMasulDOB">Date of Birth</label>
-                        <input type="date" id="editMasulDOB" required>
-                    </div>
-                    <div>
-                        <label for="editMasulPhone">Phone Number</label>
-                        <input type="tel" id="editMasulPhone" required>
-                    </div>
-                    <div>
-                        <label for="editMasulEmail">Email</label>
-                        <input type="email" id="editMasulEmail">
-                    </div>
-                    <div>
-                        <label for="editMasulAddress">Address</label>
-                        <input type="text" id="editMasulAddress" required>
-                    </div>
-                    <div>
-                        <label for="editMasulState">State</label>
-                        <input type="text" id="editMasulState" required>
-                    </div>
-                    <div>
-                        <label for="editMasulLGA">LGA</label>
-                        <input type="text" id="editMasulLGA" required>
-                    </div>
-                    <div>
-                        <label for="editMasulYear">Year</label>
-                        <input type="number" id="editMasulYear" min="2000" max="2099" required>
-                    </div>
-                    <div>
-                        <label for="editMasulRank">Rank</label>
-                        <select id="editMasulRank" required>
-                            <option value="">Select Rank</option>
-                            <option value="Zone Mas'ul">Zone Mas'ul</option>
-                            <option value="Branch Mas'ul">Branch Mas'ul</option>
-                            <option value="Central Mas'ul">Central Mas'ul</option>
-                            <option value="Deputy Mas'ul">Deputy Mas'ul</option>
-                            <option value="Coordinator">Coordinator</option>
+                        <label for="editMemGender">Gender *</label>
+                        <select id="editMemGender" required>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
                         </select>
                     </div>
                     <div>
-                        <label for="editMasulZone">Zone</label>
-                        <select id="editMasulZone" required>
+                        <label for="editMemDob">Date of Birth *</label>
+                        <input type="date" id="editMemDob" required>
+                    </div>
+                </div>
+
+                <!-- Row 3: Place of Birth, Phone -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMemPlaceOfBirth">Place of Birth</label>
+                        <input type="text" id="editMemPlaceOfBirth">
+                    </div>
+                    <div>
+                        <label for="editMemPhone">Phone Number *</label>
+                        <input type="tel" id="editMemPhone" required>
+                    </div>
+                </div>
+
+                <!-- Row 4: Email, Level -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMemEmail">Email</label>
+                        <input type="email" id="editMemEmail">
+                    </div>
+                    <div>
+                        <label for="editMemLevel">Level *</label>
+                        <select id="editMemLevel" required>
+                            <option value="Bakiyatullah">Bakiyatullah</option>
+                            <option value="Ansarullah">Ansarullah</option>
+                            <option value="Ghalibun">Ghalibun</option>
+                            <option value="X-Ghalibun">X-Ghalibun</option>
+                            <option value="Graduate">Graduate</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 5: Address, State -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMemAddress">Address *</label>
+                        <input type="text" id="editMemAddress" required>
+                    </div>
+                    <div>
+                        <label for="editMemState">State *</label>
+                        <input type="text" id="editMemState" required>
+                    </div>
+                </div>
+
+                <!-- Row 6: LGA, Year -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMemLga">LGA *</label>
+                        <input type="text" id="editMemLga" required>
+                    </div>
+                    <div>
+                        <label for="editMemYear">Year *</label>
+                        <input type="number" id="editMemYear" min="2000" max="2099" required>
+                    </div>
+                </div>
+
+                <!-- Row 7: Zone, Branch -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMemZone">Zone *</label>
+                        <select id="editMemZone" required>
                             <option value="">Select Zone</option>
                         </select>
                     </div>
                     <div>
-                        <label for="editMasulBranch">Branch</label>
-                        <select id="editMasulBranch" required>
+                        <label for="editMemBranch">Branch *</label>
+                        <select id="editMemBranch" required>
                             <option value="">Select Branch</option>
                         </select>
                     </div>
                 </div>
+
+                <!-- Guardian Section -->
+                <fieldset style="margin-top: 1rem;">
+                    <legend>Guardian Information</legend>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label for="editMemGuardianName">Guardian Name</label>
+                            <input type="text" id="editMemGuardianName">
+                        </div>
+                        <div>
+                            <label for="editMemGuardianPhone">Guardian Phone</label>
+                            <input type="tel" id="editMemGuardianPhone">
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <label for="editMemGuardianAddress">Guardian Address</label>
+                        <input type="text" id="editMemGuardianAddress">
+                    </div>
+                </fieldset>
+
                 <div style="margin-top: 1.5rem; text-align: right;">
                     <button type="submit">Save Changes</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditMemberModal()" style="margin-left:0.5rem;">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- ============================================================ -->
-    <!-- CUSTOM MESSAGE & CONFIRM MODALS                              -->
+    <!-- EDIT MAS'UL MODAL – fully aligned with script.js expectations -->
+    <!-- ============================================================ -->
+    <div id="editMasulModal" class="modal">
+        <div class="modal-content" style="max-width: 720px;">
+            <span class="close" onclick="closeEditMasulModal()">&times;</span>
+            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Mas'ul Information</h3>
+            <form id="editMasulForm">
+                <input type="hidden" id="editMasIntizarId">
+
+                <!-- Row 1: Full Name, Father Name -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label for="editMasFullName">Full Name *</label>
+                        <input type="text" id="editMasFullName" required>
+                    </div>
+                    <div>
+                        <label for="editMasFatherName">Father Name *</label>
+                        <input type="text" id="editMasFatherName" required>
+                    </div>
+                </div>
+
+                <!-- Row 2: Gender, DOB -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMasGender">Gender *</label>
+                        <select id="editMasGender" required>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editMasDob">Date of Birth *</label>
+                        <input type="date" id="editMasDob" required>
+                    </div>
+                </div>
+
+                <!-- Row 3: Place of Birth, Phone -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMasPlaceOfBirth">Place of Birth</label>
+                        <input type="text" id="editMasPlaceOfBirth">
+                    </div>
+                    <div>
+                        <label for="editMasPhone">Phone Number *</label>
+                        <input type="tel" id="editMasPhone" required>
+                    </div>
+                </div>
+
+                <!-- Row 4: Email, Year -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMasEmail">Email</label>
+                        <input type="email" id="editMasEmail">
+                    </div>
+                    <div>
+                        <label for="editMasYear">Year *</label>
+                        <input type="number" id="editMasYear" min="2000" max="2099" required>
+                    </div>
+                </div>
+
+                <!-- Row 5: Address, State -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMasAddress">Address *</label>
+                        <input type="text" id="editMasAddress" required>
+                    </div>
+                    <div>
+                        <label for="editMasState">State *</label>
+                        <input type="text" id="editMasState" required>
+                    </div>
+                </div>
+
+                <!-- Row 6: LGA, Rank -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMasLga">LGA *</label>
+                        <input type="text" id="editMasLga" required>
+                    </div>
+                    <div>
+                        <label for="editMasRank">Rank *</label>
+                        <select id="editMasRank" required>
+                            <option value="">Select Rank</option>
+                            <option value="Musa'id">Musa'id</option>
+                            <option value="Areef">Areef</option>
+                            <option value="Muqaddam">Muqaddam</option>
+                            <option value="Ra'id">Ra'id</option>
+                            <option value="Raqeeb">Raqeeb</option>
+                            <option value="Mulazim">Mulazim</option>
+                            <option value="Muhafiz">Muhafiz</option>
+                            <option value="Ameed">Ameed</option>
+                            <option value="Aqeeda">Aqeeda</option>
+                            <option value="Qaid">Qaid</option>
+                            <option value="Musa'ida">Musa'ida</option>
+                            <option value="Areefa">Areefa</option>
+                            <option value="Muqadama">Muqadama</option>
+                            <option value="Ra'ida">Ra'ida</option>
+                            <option value="Raqeeba">Raqeeba</option>
+                            <option value="Mulazima">Mulazima</option>
+                            <option value="Muhafiza">Muhafiza</option>
+                            <option value="Ameeda">Ameeda</option>
+                            <option value="Aqeeda">Aqeeda</option>
+                            <option value="Qaida">Qaida</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 7: Zone, Branch -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                    <div>
+                        <label for="editMasZone">Zone *</label>
+                        <select id="editMasZone" required>
+                            <option value="">Select Zone</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editMasBranch">Branch *</label>
+                        <select id="editMasBranch" required>
+                            <option value="">Select Branch</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="submit">Save Changes</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditMasulModal()" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ZONE MODALS                                                   -->
+    <!-- ============================================================ -->
+    <div id="zoneModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close" onclick="hideModal('zoneModal')">&times;</span>
+            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Add New Zone</h3>
+            <form id="zoneForm">
+                <div>
+                    <label for="zoneName">Zone Name</label>
+                    <input type="text" id="zoneName" name="zoneName" required>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="submit">Add Zone</button>
+                    <button type="button" class="btn-secondary" onclick="hideModal('zoneModal')" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editZoneModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close" onclick="hideModal('editZoneModal')">&times;</span>
+            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Zone</h3>
+            <form id="editZoneForm">
+                <input type="hidden" id="editZoneId">
+                <div>
+                    <label for="editZoneName">Zone Name</label>
+                    <input type="text" id="editZoneName" required>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="submit">Save</button>
+                    <button type="button" class="btn-secondary" onclick="hideModal('editZoneModal')" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BRANCH MODALS                                                 -->
+    <!-- ============================================================ -->
+    <div id="branchModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close" onclick="hideModal('branchModal')">&times;</span>
+            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Add New Branch</h3>
+            <form id="branchForm">
+                <div>
+                    <label for="branchName">Branch Name</label>
+                    <input type="text" id="branchName" name="branchName" required>
+                </div>
+                <div>
+                    <label for="zoneName">Zone</label>
+                    <select id="zoneName" name="zoneName" required>
+                        <option value="">Select Zone</option>
+                    </select>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="submit">Add Branch</button>
+                    <button type="button" class="btn-secondary" onclick="hideModal('branchModal')" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editBranchModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close" onclick="hideModal('editBranchModal')">&times;</span>
+            <h3 style="color: var(--dark-olive); margin-bottom: 1rem;">Edit Branch</h3>
+            <form id="editBranchForm">
+                <input type="hidden" id="editBranchCode">
+                <div>
+                    <label for="editBranchName">Branch Name</label>
+                    <input type="text" id="editBranchName" required>
+                </div>
+                <div>
+                    <label for="editBranchZone">Zone</label>
+                    <select id="editBranchZone" required>
+                        <option value="">Select Zone</option>
+                    </select>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="submit">Save</button>
+                    <button type="button" class="btn-secondary" onclick="hideModal('editBranchModal')" style="margin-left:0.5rem;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- CUSTOM MESSAGE, CONFIRM & PROMPT MODALS                      -->
     <!-- ============================================================ -->
     <div id="messageModal" class="modal">
         <div class="modal-content" style="max-width: 450px; text-align: center;">
@@ -672,6 +940,19 @@
             <div style="display: flex; gap: 1rem; justify-content: center;">
                 <button id="confirmOkBtn">Yes</button>
                 <button id="confirmCancelBtn" class="btn-secondary">No</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="promptModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close" onclick="closePromptModal()">&times;</span>
+            <h3 id="promptModalTitle" style="color: var(--dark-olive); margin-bottom: 0.8rem;">Input</h3>
+            <p id="promptModalText" style="margin-bottom: 1rem;"></p>
+            <input type="text" id="promptInput" style="margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button id="promptOkBtn">OK</button>
+                <button id="promptCancelBtn" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
