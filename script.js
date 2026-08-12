@@ -62,6 +62,79 @@ function safeNormalize(val) {
   return String(val).trim().toLowerCase();
 }
 
+// ==================== PROMOTION HISTORY HELPER ====================
+function renderPromotionHistory(historyValue, type = 'member') {
+  try {
+    if (!historyValue) {
+      return '<p>No promotion history</p>';
+    }
+
+    const history =
+      typeof historyValue === 'string'
+        ? JSON.parse(historyValue)
+        : historyValue;
+
+    if (!Array.isArray(history) || history.length === 0) {
+      return '<p>No promotion history</p>';
+    }
+
+    const html = history
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return '';
+        }
+
+        // Support different backend field names
+        const dateValue =
+          entry.date ||
+          entry.Date ||
+          entry.timestamp ||
+          entry.Timestamp ||
+          '';
+
+        const date = dateValue
+          ? new Date(dateValue).toLocaleDateString()
+          : '';
+
+        const destination =
+          entry.action ||
+          entry.Action ||
+          entry.level ||
+          entry.Level ||
+          entry.newLevel ||
+          entry.NewLevel ||
+          entry.toLevel ||
+          entry.ToLevel ||
+          entry.rank ||
+          entry.Rank ||
+          entry.newRank ||
+          entry.NewRank ||
+          '';
+
+        // Never display "undefined"
+        let description = destination;
+
+        if (!description) {
+          description = 'Promotion recorded';
+        }
+
+        return `
+                <li>
+                    ${date ? `<strong>${date}:</strong> ` : ''}
+                    ${description}
+                </li>
+            `;
+      })
+      .filter(Boolean)
+      .join('');
+
+    return html ? `<ul>${html}</ul>` : '<p>No promotion history</p>';
+  } catch (error) {
+    console.error('Promotion history parsing error:', error);
+    return '<p>No promotion history available</p>';
+  }
+}
+
 // ==================== CUSTOM MODALS ====================
 function showMessage(title, text) {
   const modal = document.getElementById('messageModal');
@@ -227,39 +300,54 @@ function hidePreloader() {
 function initSidebar() {
   const sidebar = document.getElementById('sidebar');
   const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const overlay = document.getElementById('sidebarOverlay');
+
   if (!sidebar || !toggleBtn) return;
 
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
+  // Hamburger button
   toggleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
     e.stopPropagation();
     toggleSidebar();
   });
 
-  document.addEventListener('click', (e) => {
-    if (isMobile() && sidebar.classList.contains('mobile-open')) {
-      if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+  // Overlay closes mobile sidebar
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      if (isMobile()) {
         toggleSidebar(false);
       }
+    });
+  }
+
+  // Clicking outside closes mobile sidebar
+  document.addEventListener('click', (e) => {
+    if (!isMobile()) return;
+
+    if (
+      sidebar.classList.contains('mobile-open') &&
+      !sidebar.contains(e.target) &&
+      !toggleBtn.contains(e.target)
+    ) {
+      toggleSidebar(false);
     }
   });
 
+  // Handle screen resize
   window.addEventListener('resize', () => {
-    if (!isMobile()) {
-      sidebar.classList.remove('mobile-open');
-      document.body.style.overflow = '';
-      const overlay = document.getElementById('sidebarOverlay');
-      if (overlay) overlay.classList.remove('show');
-      // On desktop, restore collapsed state if it was previously toggled
-      // We'll let the user control via toggle
-    } else {
-      // On mobile, ensure sidebar is not collapsed (full width when open)
+    if (isMobile()) {
+      // Mobile always starts closed and expanded when opened
       sidebar.classList.remove('collapsed');
-      // Close drawer on resize to avoid layout issues
+    } else {
+      // Clean mobile state when returning to desktop
       sidebar.classList.remove('mobile-open');
-      if (document.getElementById('sidebarOverlay')) {
-        document.getElementById('sidebarOverlay').classList.remove('show');
+
+      if (overlay) {
+        overlay.classList.remove('show');
       }
+
       document.body.style.overflow = '';
     }
   });
@@ -294,12 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
       opacity: 0.05;
       pointer-events: none;
       z-index: -1;
-    }
-    .sidebar {
-      height: 100vh;
-      overflow-y: auto;
-      position: sticky;
-      top: 0;
     }
     .id-card {
       max-width: 500px;
@@ -1115,17 +1197,7 @@ async function viewMember(intizarId) {
     const member = result.member;
     lastViewedMember = member;
 
-    let promotionList = '';
-    try {
-      const promHistory = JSON.parse(member.PromotionHistory || '[]');
-      if (promHistory.length) {
-        promotionList = '<ul>' + promHistory.map((entry) => `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.level}</li>`).join('') + '</ul>';
-      } else {
-        promotionList = '<p>No promotion history</p>';
-      }
-    } catch (_) {
-      promotionList = '<p>Error parsing history</p>';
-    }
+    const promotionList = renderPromotionHistory(member.PromotionHistory, 'member');
 
     let transferList = '';
     try {
@@ -1194,17 +1266,7 @@ async function viewMasul(intizarId) {
     const masul = result.masul;
     lastViewedMasul = masul;
 
-    let promotionList = '';
-    try {
-      const promHistory = JSON.parse(masul.PromotionHistory || '[]');
-      if (promHistory.length) {
-        promotionList = '<ul>' + promHistory.map((entry) => `<li>${new Date(entry.date).toLocaleDateString()}: ${entry.action || 'Promoted to ' + entry.rank}</li>`).join('') + '</ul>';
-      } else {
-        promotionList = '<p>No promotion history</p>';
-      }
-    } catch (_) {
-      promotionList = '<p>Error parsing history</p>';
-    }
+    const promotionList = renderPromotionHistory(masul.PromotionHistory, 'masul');
 
     const imgSrc = getThumbnailUrl(masul.PhotoURL) || 'logo.png';
     const photoHtml = `<img src="${imgSrc}" alt="Passport" style="max-width:150px;border-radius:8px;" onerror="this.src='logo.png';this.onerror=null;">`;
@@ -2138,32 +2200,49 @@ function setDOBLimits() {
 // ==================== SIDEBAR TOGGLE GLOBAL (FIXED) ====================
 function toggleSidebar(forceState) {
   const sidebar = document.getElementById('sidebar');
-  if (!sidebar) return;
   const overlay = document.getElementById('sidebarOverlay');
+
+  if (!sidebar) return;
+
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
   if (isMobile) {
-    // Remove collapsed class on mobile to ensure full width
+    // Mobile should NEVER use the desktop collapsed state
     sidebar.classList.remove('collapsed');
 
+    let shouldOpen;
+
+    if (typeof forceState === 'boolean') {
+      shouldOpen = forceState;
+    } else {
+      shouldOpen = !sidebar.classList.contains('mobile-open');
+    }
+
+    if (shouldOpen) {
+      sidebar.classList.add('mobile-open');
+
+      if (overlay) {
+        overlay.classList.add('show');
+      }
+
+      document.body.style.overflow = 'hidden';
+    } else {
+      sidebar.classList.remove('mobile-open');
+
+      if (overlay) {
+        overlay.classList.remove('show');
+      }
+
+      document.body.style.overflow = '';
+    }
+  } else {
+    // ==================== DESKTOP ====================
     if (typeof forceState === 'boolean') {
       if (forceState) {
-        sidebar.classList.add('mobile-open');
-        if (overlay) overlay.classList.add('show');
+        sidebar.classList.remove('collapsed');
       } else {
-        sidebar.classList.remove('mobile-open');
-        if (overlay) overlay.classList.remove('show');
+        sidebar.classList.add('collapsed');
       }
-    } else {
-      sidebar.classList.toggle('mobile-open');
-      if (overlay) overlay.classList.toggle('show');
-    }
-    document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
-  } else {
-    // Desktop behavior
-    if (typeof forceState === 'boolean') {
-      if (forceState) sidebar.classList.remove('collapsed');
-      else sidebar.classList.add('collapsed');
     } else {
       sidebar.classList.toggle('collapsed');
     }
