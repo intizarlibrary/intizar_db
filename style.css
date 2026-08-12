@@ -10,6 +10,8 @@
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.15);
+    --gradient-gold: linear-gradient(135deg, #C9A87C 0%, #D4B896 50%, #C9A87C 100%);
 }
 
 * {
@@ -55,52 +57,121 @@ body::after {
     z-index: -1;
 }
 
-/* ========== PRELOADER ========== */
+/* ========== PRELOADER – Enhanced ========== */
 #surah-preloader {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #1a381f;
-    color: var(--gold);
+    background: linear-gradient(145deg, #0f2a18 0%, #1a381f 40%, #1f4226 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    transition: opacity 0.5s ease;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
 }
 
 .preloader-content {
     text-align: center;
-    max-width: 90%;
-    padding: 2rem;
+    max-width: 95%;
+    padding: 2.5rem 2rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    border: 1px solid rgba(201, 168, 124, 0.15);
+    backdrop-filter: blur(2px);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
 }
 
-.preloader-content h3 {
-    font-size: 2.2rem;
-    margin-bottom: 1rem;
+.preloader-bismillah {
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+    font-size: 1.4rem;
+    color: var(--gold-light);
+    margin-bottom: 1.2rem;
+    opacity: 0.8;
+    letter-spacing: 2px;
+}
+
+.preloader-surah-name {
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+    font-size: 2.6rem;
     color: var(--gold);
+    margin-bottom: 1.5rem;
+    font-weight: 700;
+    text-shadow: 0 2px 20px rgba(201, 168, 124, 0.2);
 }
 
 #surahText {
-    font-size: 1.8rem;
-    line-height: 1.8;
+    font-size: 2.2rem;
+    line-height: 2.2;
     direction: rtl;
     font-family: 'Amiri', 'Traditional Arabic', serif;
-    min-height: 5rem;
+    min-height: 7rem;
     color: #ffffff;
+    text-shadow: 0 2px 30px rgba(255, 255, 255, 0.08);
+    letter-spacing: 1px;
 }
 
-.surah-translation {
-    font-size: 1.1rem;
+/* Typing cursor effect */
+#surahText::after {
+    content: '|';
+    display: inline-block;
+    animation: blink-cursor 0.9s step-end infinite;
+    color: var(--gold);
+    font-weight: 300;
+    margin-left: 2px;
+}
+
+@keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.preloader-translation {
+    margin-top: 1.8rem;
+    padding: 1.2rem 1.5rem;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 12px;
+    border-left: 3px solid var(--gold);
+    border-right: 3px solid var(--gold);
+}
+
+.translation-ar {
+    display: block;
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+    font-size: 1.2rem;
     color: var(--gold-light);
-    margin-top: 1rem;
+    line-height: 2;
+    direction: rtl;
+    margin-bottom: 0.6rem;
+}
+
+.translation-en {
+    display: block;
+    font-size: 0.95rem;
+    color: #B0C4DE;
+    line-height: 1.7;
     font-style: italic;
+}
+
+.preloader-loader {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.preloader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(201, 168, 124, 0.15);
+    border-top: 3px solid var(--gold);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
 }
 
 #surah-preloader.fade-out {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
 }
 
@@ -850,10 +921,129 @@ textarea:focus {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
 }
 
 .password-wrapper .toggle-password:hover {
     color: var(--dark-olive);
+    background: rgba(0,0,0,0.05);
+}
+
+/* ========== LOGIN MODAL – Enhanced ========== */
+.login-modal-content {
+    max-width: 440px;
+    padding: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+    border: none;
+    background: var(--white);
+}
+
+.login-header {
+    background: linear-gradient(135deg, var(--dark-olive) 0%, #0f2a18 100%);
+    padding: 2rem 2rem 1.8rem;
+    text-align: center;
+    color: var(--white);
+    border-bottom: 3px solid var(--gold);
+}
+
+.login-logo {
+    height: 72px;
+    width: auto;
+    background: white;
+    border-radius: 50%;
+    padding: 6px;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.login-header h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 0.2rem;
+}
+
+.login-header p {
+    color: var(--gold-light);
+    font-size: 0.95rem;
+    opacity: 0.9;
+}
+
+.login-form {
+    padding: 1.8rem 2rem 1.2rem;
+}
+
+.login-form .form-group {
+    margin-bottom: 1.4rem;
+}
+
+.login-form label {
+    font-weight: 600;
+    color: var(--dark-olive);
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    display: block;
+}
+
+.login-form select,
+.login-form input {
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    border: 2px solid #E2E8F0;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.login-form select:focus,
+.login-form input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 4px rgba(201, 168, 124, 0.2);
+}
+
+.login-form .role-selector select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23155B2F' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 0.85rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--dark-olive) 0%, #1f4d33 100%);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+    margin-top: 0.5rem;
+}
+
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(21, 91, 47, 0.3);
+    background: linear-gradient(135deg, var(--gold) 0%, #b8955e 100%);
+    color: var(--black);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+}
+
+.login-footer {
+    padding: 0.8rem 2rem 1.8rem;
+    text-align: center;
+    border-top: 1px solid #E2E8F0;
+    font-size: 0.8rem;
+    color: #94A3B8;
 }
 
 /* ========== MODAL DIALOGS ========== */
@@ -1018,6 +1208,25 @@ textarea:focus {
 
 /* ========== RESPONSIVE (MOBILE & TABLET) ========== */
 @media (max-width: 768px) {
+    /* Preloader adjustments */
+    #surahText {
+        font-size: 1.6rem;
+        min-height: 5rem;
+    }
+    .preloader-surah-name {
+        font-size: 2rem;
+    }
+    .preloader-content {
+        padding: 1.5rem 1rem;
+    }
+    .translation-ar {
+        font-size: 1rem;
+    }
+    .translation-en {
+        font-size: 0.85rem;
+    }
+
+    /* Public header */
     header {
         flex-direction: column;
         text-align: center;
@@ -1034,7 +1243,6 @@ textarea:focus {
         z-index: 1500;
         transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         width: 260px;
-        /* fixed width on mobile */
         box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
     }
 
@@ -1094,7 +1302,7 @@ textarea:focus {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     }
 
-    /* Adjust filter bar on mobile */
+    /* Filter bar on mobile */
     .filter-bar {
         flex-direction: column;
         align-items: stretch;
@@ -1133,5 +1341,56 @@ textarea:focus {
     .tab-bar .tab-btn {
         width: 100%;
         justify-content: center;
+    }
+
+    /* Login modal mobile */
+    .login-modal-content {
+        margin: 2% auto;
+        border-radius: 12px;
+    }
+
+    .login-header {
+        padding: 1.5rem 1.2rem;
+    }
+
+    .login-header h2 {
+        font-size: 1.3rem;
+    }
+
+    .login-form {
+        padding: 1.2rem 1.2rem 0.8rem;
+    }
+
+    .login-footer {
+        padding: 0.6rem 1.2rem 1.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    #surahText {
+        font-size: 1.3rem;
+        line-height: 2;
+    }
+    .preloader-surah-name {
+        font-size: 1.6rem;
+    }
+    .preloader-bismillah {
+        font-size: 1.1rem;
+    }
+    .translation-ar {
+        font-size: 0.9rem;
+    }
+    .translation-en {
+        font-size: 0.78rem;
+    }
+
+    .hero {
+        padding: 1.5rem;
+    }
+    .hero-img {
+        max-width: 180px;
+    }
+    .title h1 {
+        font-size: 1.3rem;
     }
 }
