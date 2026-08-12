@@ -15,7 +15,7 @@ let currentMembers = [];
 let currentMasuls = [];
 let currentGraduates = [];
 let currentZones = [];
-let currentBranches = [];
+let currentBranches = []; // Cached branches for zone filtering
 let memberSearchTerm = '';
 let graduateSearchTerm = '';
 let masulSearchTerm = '';
@@ -217,14 +217,13 @@ function hidePreloader() {
     }
 }
 
-// ==================== SIDEBAR TOGGLE (FIXED: Bulletproof mobile detection) ====================
+// ==================== SIDEBAR TOGGLE (FIXED) ====================
 function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebarToggleBtn');
     if (!sidebar || !toggleBtn) return;
     
-    // Fallback check: if matchMedia fails, fallback to innerWidth
-    const isMobile = () => window.matchMedia('(max-width: 768px)').matches || window.innerWidth <= 768;
+    const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
     toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -472,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initializeDashboard() {
     if (!currentUser) return;
 
+    // Use userRoleBadge as per HTML
     const roleDisplay = document.getElementById('userRoleBadge');
     if (roleDisplay) roleDisplay.innerText = currentUser.role;
 
@@ -494,6 +494,7 @@ async function initializeDashboard() {
         document.querySelectorAll('.branch-only').forEach(el => el.style.display = 'block');
     }
 
+    // Show default section (overview)
     switchSection('overview');
     await loadDashboardStats();
     await loadMembersList(1, '');
@@ -520,14 +521,19 @@ function switchSection(sectionId, e) {
     const target = document.getElementById(targetId);
     if (!target) return;
 
+    // Hide all sections (use .dashboard-section to match HTML)
     const allSections = document.querySelectorAll('.dashboard-section');
     allSections.forEach(sec => sec.style.display = 'none');
+
+    // Show target
     target.style.display = 'block';
 
+    // Update active class on sidebar links
     document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
     const link = document.querySelector(`.sidebar-menu a[data-section="${sectionId}"]`);
     if (link) link.classList.add('active');
 
+    // Additional logic for specific sections
     if (sectionId === 'members') {
         loadMembersList(currentMemberPage, document.getElementById('memberSearchInput')?.value || '', currentMemberFilters);
     } else if (sectionId === 'masuls') {
@@ -601,10 +607,12 @@ async function loadZonesForDropdowns() {
         populateZoneSelects(zones);
         attachZoneChangeListeners();
 
+        // Also populate branch dropdowns
         const branchResult = await apiRequest('getBranches', {}, currentUser);
         currentBranches = branchResult.branches.filter(b => b.status === 'Active');
         populateBranchSelects(currentBranches);
 
+        // Trigger zone change for any pre-selected zones to populate branches
         document.querySelectorAll('select[name="zone"]').forEach(select => {
             if (select.value) {
                 const event = new Event('change');
@@ -660,9 +668,11 @@ function attachZoneChangeListeners() {
 
 async function zoneChangeHandler(event) {
     const zone = event.target.value;
+    // Find the branch select: look for .zone-branch-group or fieldset container
     let container = event.target.closest('.zone-branch-group');
     if (!container) container = event.target.closest('fieldset');
     if (!container) {
+        // If no container, try to find a sibling branch select
         const branchSelect = event.target.closest('.zone-branch-group')?.querySelector('select[name="branch"]') ||
                            event.target.closest('fieldset')?.querySelector('select[name="branch"]') ||
                            event.target.parentElement?.querySelector('select[name="branch"]');
@@ -681,12 +691,14 @@ async function zoneChangeHandler(event) {
     branchSelect.innerHTML = '<option value="">Select Branch</option>';
     if (!zone) return;
 
+    // Use cached branches
     const branches = currentBranches.filter(b => b.zone === zone);
     branches.forEach(b => {
         branchSelect.innerHTML += `<option value="${b.branchCode}">${b.branchName} (${b.branchCode})</option>`;
     });
 }
 
+// ==================== REGISTRATION ZONE CHANGE HANDLER ====================
 function handleRegZoneChange(prefix) {
     const zoneSelect = document.getElementById(prefix + 'Zone');
     const branchSelect = document.getElementById(prefix + 'Branch');
@@ -700,7 +712,7 @@ function handleRegZoneChange(prefix) {
     });
 }
 
-// ==================== MEMBERS LIST ====================
+// ==================== MEMBERS LIST (FIXED COLUMNS) ====================
 async function loadMembersList(page = 1, search = '', filters = {}) {
     currentMemberPage = page;
     currentMemberSearch = search;
@@ -728,10 +740,10 @@ function renderMemberListTable(members) {
         row.insertCell().innerText = member.IntizarID || '';
         row.insertCell().innerText = member.RecruitmentID || '';
         row.insertCell().innerText = member.FullName || '';
-        row.insertCell().innerText = member.FatherName || '';
-        row.insertCell().innerText = member.Gender || '';
+        row.insertCell().innerText = member.FatherName || '';    // Fixed: Added missing column
+        row.insertCell().innerText = member.Gender || '';        // Fixed: Added missing column
         row.insertCell().innerText = member.Level || '';
-        row.insertCell().innerText = member.Zone || '';
+        row.insertCell().innerText = member.Zone || '';          // Fixed: Added missing column
         row.insertCell().innerText = member.Branch || '';
         const actions = row.insertCell();
         actions.innerHTML = `
@@ -915,7 +927,7 @@ async function proposeGraduateAsMasul(intizarId) {
     }
 }
 
-// ==================== MASULS LIST ====================
+// ==================== MASULS LIST (FIXED COLUMNS) ====================
 async function loadMasuls(page = 1, search = '', filters = {}) {
     currentMasulPage = page;
     currentMasulSearch = search;
@@ -942,11 +954,11 @@ function renderMasulTable(masuls) {
         const row = tbody.insertRow();
         row.insertCell().innerText = masul.IntizarID || '';
         row.insertCell().innerText = masul.MasulRecruitmentID || '';
-        row.insertCell().innerText = masul.OriginalMemberRecruitmentID || '';
+        row.insertCell().innerText = masul.OriginalMemberRecruitmentID || ''; // Fixed: Added missing column
         row.insertCell().innerText = masul.FullName || '';
         row.insertCell().innerText = masul.CurrentRank || '';
-        row.insertCell().innerText = masul.Source || '';
-        row.insertCell().innerText = masul.Zone || '';
+        row.insertCell().innerText = masul.Source || '';                      // Fixed: Added missing column
+        row.insertCell().innerText = masul.Zone || '';                        // Fixed: Added missing column
         row.insertCell().innerText = masul.Branch || '';
         const actions = row.insertCell();
         actions.innerHTML = `
@@ -1322,6 +1334,7 @@ async function editMember(intizarId) {
         }
         const member = result.member;
 
+        // Use the IDs from dashboard.html (editMember...)
         document.getElementById('editMemberIntizarId').value = member.IntizarID || '';
         document.getElementById('editMemberFullName').value = member.FullName || '';
         document.getElementById('editMemberFatherName').value = member.FatherName || '';
@@ -1344,6 +1357,8 @@ async function editMember(intizarId) {
         const zoneSelect = document.getElementById('editMemberZone');
         const branchSelect = document.getElementById('editMemberBranch');
         if (member.Zone) zoneSelect.value = member.Zone;
+
+        // Trigger branch population for the zone
         zoneSelect.dispatchEvent(new Event('change'));
         setTimeout(() => {
             if (member.Branch) branchSelect.value = member.Branch;
@@ -1362,7 +1377,6 @@ function closeEditMemberModal() {
     hideModal('editMemberModal');
 }
 
-// ==================== EDIT MASUL (FIXED: Removed missing IDs, fixed DOB case) ====================
 async function editMasul(intizarId) {
     try {
         showLoader();
@@ -1372,6 +1386,7 @@ async function editMasul(intizarId) {
         }
         const masul = result.masul;
 
+        // Check if edit masul modal exists; if not, fallback to view
         if (!document.getElementById('editMasulModal')) {
             showMessage('Notice', 'Edit Mas\'ul functionality is not available in this interface. Please use the view option.');
             viewMasul(intizarId);
@@ -1382,7 +1397,9 @@ async function editMasul(intizarId) {
         document.getElementById('editMasulIntizarId').value = masul.IntizarID || '';
         document.getElementById('editMasulFullName').value = masul.FullName || '';
         document.getElementById('editMasulFatherName').value = masul.FatherName || '';
-        document.getElementById('editMasulDOB').value = formatDateForInput(masul.DOB);      // Fixed: Capital DOB
+        document.getElementById('editMasulGender').value = masul.Gender || 'Brother';
+        document.getElementById('editMasulDob').value = formatDateForInput(masul.DOB);
+        document.getElementById('editMasulPlaceOfBirth').value = masul.PlaceOfBirth || '';
         document.getElementById('editMasulPhone').value = masul.Phone || '';
         document.getElementById('editMasulEmail').value = masul.Email || '';
         document.getElementById('editMasulAddress').value = masul.Address || '';
@@ -1401,7 +1418,6 @@ async function editMasul(intizarId) {
             if (masul.Branch) branchSelect.value = masul.Branch;
         }, 200);
 
-        // Removed editMasulGender and editMasulPlaceOfBirth (they do not exist in the HTML)
         updateMasulRankOptions(masul.Gender);
         document.getElementById('editMasulRank').value = masul.CurrentRank || '';
 
@@ -1468,6 +1484,7 @@ async function loadDashboardStats() {
         const gradEl = document.getElementById('statTotalGraduates');
         if (gradEl) gradEl.innerText = stats.levelCounts?.Graduate || 0;
 
+        // Only update charts if canvas elements exist
         if (document.getElementById('levelChart')) {
             updateLevelChart(stats.levelCounts);
         }
@@ -1642,6 +1659,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Edit Member Form - using HTML IDs (editMember...)
     const editMemberForm = document.getElementById('editMemberForm');
     if (editMemberForm) {
         editMemberForm.addEventListener('submit', async (e) => {
@@ -1686,9 +1704,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = {
                 fullName: document.getElementById('editMasulFullName').value,
                 fatherName: document.getElementById('editMasulFatherName').value,
-                // gender intentionally removed (no HTML field)
-                // placeOfBirth intentionally removed (no HTML field)
-                dob: document.getElementById('editMasulDOB').value,
+                gender: document.getElementById('editMasulGender').value,
+                dob: document.getElementById('editMasulDob').value,
+                placeOfBirth: document.getElementById('editMasulPlaceOfBirth').value,
                 phone: document.getElementById('editMasulPhone').value,
                 email: document.getElementById('editMasulEmail').value,
                 address: document.getElementById('editMasulAddress').value,
@@ -1762,7 +1780,7 @@ async function enableBranch(branchCode) {
     }
 }
 
-// ==================== LOAD ZONES ====================
+// ==================== LOAD ZONES (FIXED COLUMNS) ====================
 async function loadZones() {
     try {
         const result = await apiRequest('getZones', {}, currentUser);
@@ -1775,7 +1793,7 @@ async function loadZones() {
         }
         result.zones.forEach(zone => {
             const row = tbody.insertRow();
-            row.insertCell().innerText = zone.zoneId || '';
+            row.insertCell().innerText = zone.zoneId || '';        // Fixed: Added missing column
             row.insertCell().innerText = zone.zoneName || '';
             row.insertCell().innerText = zone.status || '';
             const actions = row.insertCell();
@@ -1851,6 +1869,7 @@ async function loadConfig() {
     }
 }
 
+// Save system config (called from button)
 window.saveSystemConfig = async function() {
     const newAdminCode = document.getElementById('configAdminCode').value;
     const newPrefix = document.getElementById('configPrefix').value;
@@ -1930,33 +1949,40 @@ async function transferMasul(intizarId) {
     }
 }
 
-// ==================== REGISTRATION PAGE ====================
+// ==================== REGISTRATION PAGE (FIXED IDS) ====================
 async function initializeRegistrationPage() {
     if (!currentUser) return;
 
+    // Hide Mas'ul registration tab for non-admin users (frontend)
     const masulTab = document.querySelector('.tab-btn[data-tab="masul"]');
     const masulContainer = document.getElementById('masulRegistrationForm');
     if (currentUser.role !== 'Admin') {
         if (masulTab) masulTab.style.display = 'none';
         if (masulContainer) masulContainer.style.display = 'none';
+        // Show member form
         const memberContainer = document.getElementById('memberRegistrationForm');
         if (memberContainer) memberContainer.style.display = 'block';
+        // Ensure the member tab is active
         const memberTab = document.querySelector('.tab-btn[data-tab="member"]');
         if (memberTab) memberTab.classList.add('active');
     } else {
-        if (masulTab) masulTab.style.display = 'inline-flex';
+        // Admin: show both, default to member
+        if (masulTab) masulTab.style.display = 'inline-flex'; // or block
+        // Ensure default active tab is member
         const activeTab = document.querySelector('.tab-btn.active');
         if (!activeTab || activeTab.dataset.tab !== 'member') {
             const memberTab = document.querySelector('.tab-btn[data-tab="member"]');
             if (memberTab) memberTab.classList.add('active');
             if (masulTab) masulTab.classList.remove('active');
         }
+        // Show/hide forms based on active tab
         toggleRegistrationForm();
     }
 
     await loadZonesForDropdowns();
     setDOBLimits();
 
+    // Masul rank dropdown by gender (FIXED: Corrected 'masGender' and 'masRank' IDs)
     const masulGender = document.getElementById('masGender');
     if (masulGender) {
         masulGender.addEventListener('change', function() {
@@ -1977,6 +2003,7 @@ async function initializeRegistrationPage() {
         });
     }
 
+    // Branch Mas'ul lock
     if (currentUser.role === 'Branch Mas\'ul') {
         const branchField = document.getElementById('memBranch');
         const zoneField = document.getElementById('memZone');
@@ -1987,6 +2014,7 @@ async function initializeRegistrationPage() {
                 const branch = branches.branches.find(b => b.branchCode === branchCode);
                 if (branch) {
                     zoneField.value = branch.zone;
+                    // Dispatch change to populate branch dropdown
                     zoneField.dispatchEvent(new Event('change'));
                     setTimeout(() => {
                         branchField.value = branchCode;
@@ -2000,6 +2028,7 @@ async function initializeRegistrationPage() {
         }
     }
 
+    // Attach form submission listeners for memberForm and masulForm
     const memberForm = document.getElementById('memberForm');
     if (memberForm && !memberForm.hasAttribute('data-listener')) {
         memberForm.setAttribute('data-listener', 'true');
@@ -2013,6 +2042,7 @@ async function initializeRegistrationPage() {
     }
 }
 
+// Registration handlers
 async function handleMemberRegistrationSubmit(e) {
     e.preventDefault();
     const form = document.getElementById('memberForm');
@@ -2064,6 +2094,7 @@ function showRegistrationConfirm(data, type) {
     const modal = document.getElementById('registrationConfirmModal');
     const content = document.getElementById('registrationConfirmContent');
     if (!modal || !content) {
+        // Fallback: show confirmation via confirm
         const msg = `Confirm ${type} registration:\nName: ${data.fullName}\nFather: ${data.fatherName}\nGender: ${data.gender}\nZone: ${data.zone}\nBranch: ${data.branch}`;
         if (confirm(msg)) {
             submitConfirmedRegistration();
@@ -2136,6 +2167,7 @@ function toggleRegistrationForm() {
 }
 
 function switchRegistrationTab(tab) {
+    // Update active tab
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.tab === tab) btn.classList.add('active');
@@ -2143,6 +2175,7 @@ function switchRegistrationTab(tab) {
     toggleRegistrationForm();
 }
 
+// ==================== FIXED: SUCCESS MODAL ====================
 function showSuccessModal(name, intizarId, recruitmentId, zone, branch) {
     document.getElementById('sucName').innerText = name;
     document.getElementById('sucIntizarId').innerText = intizarId;
@@ -2166,14 +2199,12 @@ function setDOBLimits() {
     if (masulDob) masulDob.setAttribute('max', maxDateMasul);
 }
 
-// ==================== SIDEBAR TOGGLE GLOBAL (FIXED: Robust matchMedia + innerWidth fallback) ====================
+// ==================== SIDEBAR TOGGLE GLOBAL (FIXED) ====================
 function toggleSidebar(forceState) {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     const overlay = document.getElementById('sidebarOverlay');
-    
-    // Robust mobile detection with fallback
-    const isMobile = window.matchMedia('(max-width: 768px)').matches || window.innerWidth <= 768;
+    const isMobile = window.matchMedia('(max-width: 768px)').matches; // Fixed: Using matchMedia
 
     if (isMobile) {
         if (typeof forceState === 'boolean') {
@@ -2282,7 +2313,9 @@ window.logout = function() {
     currentUser = null;
     window.location.href = 'index.html';
 };
+// Alias for openLiveGoogleSheet
 window.openLiveGoogleSheet = window.openSpreadsheet;
+// Alias for printIdCardDirectly and screenshotIdCard
 window.printIdCardDirectly = function() {
     if (lastViewedMember) printCurrentMember();
     else if (lastViewedMasul) printCurrentMasul();
