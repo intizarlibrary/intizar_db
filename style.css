@@ -83,22 +83,24 @@ body::after {
     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
 }
 
-.preloader-bismillah {
+.preloader-content h3 {
     font-family: 'Amiri', 'Traditional Arabic', serif;
-    font-size: 1.4rem;
-    color: var(--gold-light);
-    margin-bottom: 1.2rem;
-    opacity: 0.8;
-    letter-spacing: 2px;
-}
-
-.preloader-surah-name {
-    font-family: 'Amiri', 'Traditional Arabic', serif;
-    font-size: 2.6rem;
+    font-size: 2.2rem;
     color: var(--gold);
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
     font-weight: 700;
     text-shadow: 0 2px 20px rgba(201, 168, 124, 0.2);
+}
+
+/* Bismillah styling – light golden / milk colour */
+.preloader-content .surah-translation {
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+    font-size: 1.6rem;
+    color: var(--gold-light);      /* light golden */
+    opacity: 0.9;
+    margin-bottom: 1.2rem;
+    letter-spacing: 1px;
+    direction: rtl;
 }
 
 #surahText {
@@ -1213,8 +1215,11 @@ textarea:focus {
         font-size: 1.6rem;
         min-height: 5rem;
     }
-    .preloader-surah-name {
-        font-size: 2rem;
+    .preloader-content h3 {
+        font-size: 1.8rem;
+    }
+    .preloader-content .surah-translation {
+        font-size: 1.2rem;
     }
     .preloader-content {
         padding: 1.5rem 1rem;
@@ -1371,11 +1376,11 @@ textarea:focus {
         font-size: 1.3rem;
         line-height: 2;
     }
-    .preloader-surah-name {
-        font-size: 1.6rem;
+    .preloader-content h3 {
+        font-size: 1.5rem;
     }
-    .preloader-bismillah {
-        font-size: 1.1rem;
+    .preloader-content .surah-translation {
+        font-size: 1rem;
     }
     .translation-ar {
         font-size: 0.9rem;
