@@ -11,19 +11,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-    <!-- Preloader Overlay with Surah Al-Asr animation -->
+    <!-- Preloader Overlay – only the Surah text will be typed by JS -->
     <div id="surah-preloader">
         <div class="preloader-content">
-            <div class="preloader-bismillah">بســــــــم اللــه الرحــــمٰن الرحــــــيم</div>
-            <div class="preloader-surah-name">سورة العصر</div>
             <div id="surahText" class="surah-text"></div>
-            <div class="preloader-translation">
-                <span class="translation-ar">وَٱلْعَصْرِ – إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ – إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ – وَتَوَاصَوْا۟ بِٱلْحَقِّ – وَتَوَاصَوْا۟ بِٱلصَّبْرِ</span>
-                <span class="translation-en">By the time, indeed mankind is in loss, except those who believe and do righteous deeds, and enjoin one another to truth, and enjoin one another to patience.</span>
-            </div>
-            <div class="preloader-loader">
-                <div class="preloader-spinner"></div>
-            </div>
         </div>
     </div>
 
@@ -87,41 +78,36 @@
         </footer>
     </div>
 
-    <!-- Login Modal – Improved -->
+    <!-- Login Modal – original simple style -->
     <div id="loginModal" class="modal">
-        <div class="modal-content login-modal-content">
+        <div class="modal-content" style="max-width: 420px;">
             <span class="close">&times;</span>
-            <div class="login-header">
-                <img src="logo.png" alt="Logo" class="login-logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\' viewBox=\'0 0 70 70\'><circle cx=\'35\' cy=\'35\' r=\'33\' fill=\'%23155B2F\'/><text x=\'35\' y=\'42\' font-size=\'14\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'">
-                <h2>Welcome Back</h2>
-                <p>Sign in to access the management dashboard</p>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img src="logo.png" alt="Logo" style="height: 70px; margin-bottom: 0.5rem;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\' viewBox=\'0 0 70 70\'><circle cx=\'35\' cy=\'35\' r=\'33\' fill=\'%23155B2F\'/><text x=\'35\' y=\'42\' font-size=\'14\' fill=\'%23C9A87C\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'bold\'>IIM</text></svg>'">
+                <h2 style="color: var(--dark-olive); font-size: 1.6rem;">Welcome Back</h2>
+                <p style="color: #64748B; font-size: 0.9rem;">Please login to access management system</p>
             </div>
-            <form id="loginForm" class="login-form">
-                <div class="form-group">
+            <form id="loginForm">
+                <div style="margin-bottom: 1.2rem;">
                     <label for="role">Select Role</label>
-                    <div class="role-selector">
-                        <select id="role" name="role" required>
-                            <option value="" disabled selected>— Select your role —</option>
-                            <option value="Admin">Admin</option>
-                            <option value="Zonal Mas'ul">Zonal Mas'ul</option>
-                            <option value="Branch Mas'ul">Branch Mas'ul</option>
-                        </select>
-                    </div>
+                    <select id="role" name="role" required>
+                        <option value="" disabled selected>-- Select your role --</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Zonal Mas'ul">Zonal Mas'ul</option>
+                        <option value="Branch Mas'ul">Branch Mas'ul</option>
+                    </select>
                 </div>
-                <div class="form-group">
+                <div style="margin-bottom: 1.5rem;">
                     <label for="accessCode">Access Code</label>
                     <div class="password-wrapper">
-                        <input type="password" id="accessCode" name="accessCode" placeholder="Enter your secure code" required>
-                        <span class="toggle-password" id="togglePasswordBtn" title="Show/Hide password">
+                        <input type="password" id="accessCode" name="accessCode" placeholder="Enter your code" required>
+                        <span class="toggle-password" id="togglePasswordBtn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </span>
                     </div>
                 </div>
-                <button type="submit" class="login-btn">Sign In</button>
+                <button type="submit" style="width: 100%; justify-content: center; padding: 0.8rem;">Login</button>
             </form>
-            <div class="login-footer">
-                <p>Secure access for authorized personnel only</p>
-            </div>
         </div>
     </div>
 
