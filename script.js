@@ -4,13 +4,12 @@
  * Includes Graduate (Al-Mahdi) management, safe multi-field search,
  * collapsible sidebar navigation, and ID printing.
  *
- * VERSION: 2.0 – Complete frontend rewrite with fixed ID contracts,
- * SVG icons, mobile drawer improvements, and CSV export fix.
+ * VERSION: 2.1 – Fixed zone/branch loading, mobile sidebar, edit modal IDs.
  */
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbxZPOn5xCpGlJrGjX92hrbCDeGqk3HqCfVhlTes9IbRJHUgIqBCU3dhsMaYJrWg7wcO4g/exec';
+  'https://script.google.com/macros/s/AKfycbxHxkBYldp1UtxCMlAkqq4E00TFpvEIA2oNWlIJKfNhKN7IK_XP0OWIEqb20-8zirFn5g/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -19,7 +18,7 @@ let currentMembers = [];
 let currentMasuls = [];
 let currentGraduates = [];
 let currentZones = [];
-let currentBranches = [];
+let currentBranches = []; // Cached branches for zone filtering
 let memberSearchTerm = '';
 let graduateSearchTerm = '';
 let masulSearchTerm = '';
@@ -27,6 +26,8 @@ let currentMemberPage = 1;
 let currentMasulPage = 1;
 let currentMemberFilters = {};
 let currentMasulFilters = {};
+let lastViewedMember = null;
+let lastViewedMasul = null;
 
 // ==================== LOADER ====================
 let pendingRequests = 0;
@@ -222,7 +223,7 @@ function hidePreloader() {
   }
 }
 
-// ==================== SIDEBAR TOGGLE ====================
+// ==================== SIDEBAR TOGGLE (FIXED) ====================
 function initSidebar() {
   const sidebar = document.getElementById('sidebar');
   const toggleBtn = document.getElementById('sidebarToggleBtn');
@@ -249,8 +250,17 @@ function initSidebar() {
       document.body.style.overflow = '';
       const overlay = document.getElementById('sidebarOverlay');
       if (overlay) overlay.classList.remove('show');
+      // On desktop, restore collapsed state if it was previously toggled
+      // We'll let the user control via toggle
     } else {
+      // On mobile, ensure sidebar is not collapsed (full width when open)
       sidebar.classList.remove('collapsed');
+      // Close drawer on resize to avoid layout issues
+      sidebar.classList.remove('mobile-open');
+      if (document.getElementById('sidebarOverlay')) {
+        document.getElementById('sidebarOverlay').classList.remove('show');
+      }
+      document.body.style.overflow = '';
     }
   });
 }
@@ -647,19 +657,23 @@ function populateSelect(selectId, options, keepAllOption = true) {
   }
 }
 
-// ==================== ZONE / BRANCH DROPDOWNS ====================
+// ==================== ZONE / BRANCH DROPDOWNS (FIXED) ====================
 async function loadZonesForDropdowns() {
   try {
+    console.log('Loading zones and branches...');
     const result = await apiRequest('getZones', {}, currentUser);
+    console.log('Zones API response:', result);
     const zones = result.zones.filter((z) => z.status === 'Active');
     currentZones = zones;
     populateZoneSelects(zones);
     attachZoneChangeListeners();
 
     const branchResult = await apiRequest('getBranches', {}, currentUser);
+    console.log('Branches API response:', branchResult);
     currentBranches = branchResult.branches.filter((b) => b.status === 'Active');
     populateBranchSelects(currentBranches);
 
+    // Trigger zone change for any pre-selected zones to populate branches
     document.querySelectorAll('select[name="zone"]').forEach((select) => {
       if (select.value) {
         const event = new Event('change');
@@ -667,7 +681,7 @@ async function loadZonesForDropdowns() {
       }
     });
   } catch (err) {
-    console.warn('Failed to load zones/branches:', err);
+    console.error('Failed to load zones/branches:', err);
     showMessage('Notice', 'Could not load zones and branches. Please refresh.');
   }
 }
@@ -1095,9 +1109,6 @@ function clearMasulListSearch() {
 }
 
 // ==================== VIEW MEMBER ====================
-let lastViewedMember = null;
-let lastViewedMasul = null;
-
 async function viewMember(intizarId) {
   try {
     const result = await apiRequest('getMember', { intizarId }, currentUser);
@@ -1403,7 +1414,7 @@ function screenshotCurrentMasul() {
   captureElement(tempDiv, safeId + '.png').finally(() => document.body.removeChild(tempDiv));
 }
 
-// ==================== EDIT MEMBER (FIXED IDS: editMem*) ====================
+// ==================== EDIT MEMBER (FIXED IDs: editMem*) ====================
 async function editMember(intizarId) {
   try {
     showLoader();
@@ -1455,7 +1466,7 @@ function closeEditMemberModal() {
   hideModal('editMemberModal');
 }
 
-// ==================== EDIT MASUL (FIXED IDS: editMas*) ====================
+// ==================== EDIT MASUL (FIXED IDs: editMas*) ====================
 async function editMasul(intizarId) {
   try {
     showLoader();
@@ -1464,13 +1475,6 @@ async function editMasul(intizarId) {
       throw new Error('No masul data received from server');
     }
     const masul = result.masul;
-
-    if (!document.getElementById('editMasulModal')) {
-      showMessage('Notice', 'Edit Mas\'ul functionality is not available in this interface. Please use the view option.');
-      viewMasul(intizarId);
-      hideLoader();
-      return;
-    }
 
     // ── HTML uses editMas* IDs ──
     document.getElementById('editMasIntizarId').value = masul.IntizarID || '';
@@ -1828,7 +1832,6 @@ async function exportData(type) {
   }
 }
 
-// ── FIX: CSV export wrapper for dashboard.html ──
 function triggerCSVExport(type) {
   exportData(type);
 }
@@ -1837,14 +1840,11 @@ function triggerCSVExport(type) {
 async function openSpreadsheet() {
   try {
     const result = await apiRequest('getSpreadsheetUrl', {}, currentUser);
-    // ── FIX: Use direct navigation instead of window.open to avoid popup blockers ──
     window.location.href = result.url;
   } catch (err) {
     showMessage('Error', err.message);
   }
 }
-
-// Alias
 const openLiveGoogleSheet = openSpreadsheet;
 
 // ==================== PROMOTIONS ====================
@@ -2135,7 +2135,7 @@ function setDOBLimits() {
   if (masulDob) masulDob.setAttribute('max', maxDateMasul);
 }
 
-// ==================== SIDEBAR TOGGLE ====================
+// ==================== SIDEBAR TOGGLE GLOBAL (FIXED) ====================
 function toggleSidebar(forceState) {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
@@ -2143,6 +2143,9 @@ function toggleSidebar(forceState) {
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
   if (isMobile) {
+    // Remove collapsed class on mobile to ensure full width
+    sidebar.classList.remove('collapsed');
+
     if (typeof forceState === 'boolean') {
       if (forceState) {
         sidebar.classList.add('mobile-open');
@@ -2157,6 +2160,7 @@ function toggleSidebar(forceState) {
     }
     document.body.style.overflow = sidebar.classList.contains('mobile-open') ? 'hidden' : '';
   } else {
+    // Desktop behavior
     if (typeof forceState === 'boolean') {
       if (forceState) sidebar.classList.remove('collapsed');
       else sidebar.classList.add('collapsed');
