@@ -785,11 +785,11 @@ function getMasuls(user, page = 1, pageSize = 50, search = '', filters = {}) {
 
   // Search filter
   if (search && search.trim() !== '') {
-    const term = search.trim().toLowerCase();
+    const term = safeNormalize(search);
     allRows = allRows.filter(row => {
-      return (row[2] && row[2].toLowerCase().includes(term)) ||
-             (row[0] && row[0].toLowerCase().includes(term)) ||
-             (row[1] && row[1].toLowerCase().includes(term));
+      return safeNormalize(row[2]).includes(term) ||
+             safeNormalize(row[0]).includes(term) ||
+             safeNormalize(row[1]).includes(term);
     });
   }
 
@@ -1256,6 +1256,38 @@ function updateMasul(intizarId, newData, user) {
 
   logAudit('Admin', 'MASUL_UPDATED', 'Intizar ID: ' + intizarId);
   return { success: true };
+}
+
+function deleteMember(intizarId, user) {
+  if (!user || user.role !== 'Admin') throw new Error('Only Admin can delete members');
+
+  const sheet = getSpreadsheet().getSheetByName('Members');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === intizarId) {
+      const name = data[i][2] || intizarId;
+      sheet.deleteRow(i + 1);
+      logAudit('Admin', 'MEMBER_DELETED', 'Intizar ID: ' + intizarId + ', Name: ' + name);
+      return { success: true };
+    }
+  }
+  throw new Error('Member not found');
+}
+
+function deleteMasul(intizarId, user) {
+  if (!user || user.role !== 'Admin') throw new Error('Only Admin can delete Mas\'ulin');
+
+  const sheet = getSpreadsheet().getSheetByName('Masuls');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === intizarId) {
+      const name = data[i][2] || intizarId;
+      sheet.deleteRow(i + 1);
+      logAudit('Admin', 'MASUL_DELETED', 'Intizar ID: ' + intizarId + ', Name: ' + name);
+      return { success: true };
+    }
+  }
+  throw new Error('Mas\'ul not found');
 }
 
 // ----- STATISTICS & DASHBOARDS -----

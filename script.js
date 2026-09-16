@@ -9,7 +9,7 @@
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbxHxkBYldp1UtxCMlAkqq4E00TFpvEIA2oNWlIJKfNhKN7IK_XP0OWIEqb20-8zirFn5g/exec';
+  'https://script.google.com/macros/s/AKfycbwcnVH3BwAy2Ad605Z4MnqW1cvjnfmv18lDmuY8CqaVJUJSLkCcJss-YP9luyEfnQj1xA/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -483,6 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
     .action-btn.promote:hover { background: #D1FAE5; }
     .action-btn.transfer { color: #7C3AED; }
     .action-btn.transfer:hover { background: #EDE9FE; }
+    .action-btn.delete { color: #DC2626; }
+    .action-btn.delete:hover { background: #FEE2E2; }
     .action-btn.propose { color: #B45309; }
     .action-btn.propose:hover { background: #FDE68A; }
   `;
@@ -861,6 +863,7 @@ function svgIcon(name, className = '') {
     promote: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
     transfer: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
     propose: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+    delete: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
   };
   return icons[name] || '';
 }
@@ -877,6 +880,9 @@ async function loadMembersList(page = 1, search = '', filters = {}) {
   currentMemberFilters = filters;
   try {
     const result = await apiRequest('getMembers', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
+    if (result.members.length === 0 && page > 1) {
+      return loadMembersList(page - 1, search, filters);
+    }
     renderMemberListTable(result.members);
     renderMemberListPagination(result.total, page);
   } catch (err) {
@@ -913,6 +919,7 @@ function renderMemberListTable(members) {
     }
     if (currentUser && currentUser.role === 'Admin') {
       btns += actionButton('transfer', 'Transfer', `transferMember('${member.IntizarID}')`);
+      btns += actionButton('delete', 'Delete', `deleteMember('${member.IntizarID}')`);
     }
     actions.innerHTML = btns;
   });
@@ -1107,6 +1114,9 @@ async function loadMasuls(page = 1, search = '', filters = {}) {
   currentMasulFilters = filters;
   try {
     const result = await apiRequest('getMasuls', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
+    if (result.masuls.length === 0 && page > 1) {
+      return loadMasuls(page - 1, search, filters);
+    }
     renderMasulTable(result.masuls);
     renderMasulPagination(result.total, page);
   } catch (err) {
@@ -1143,6 +1153,7 @@ function renderMasulTable(masuls) {
     }
     if (currentUser && currentUser.role === 'Admin') {
       btns += actionButton('transfer', 'Transfer', `transferMasul('${masul.IntizarID}')`);
+      btns += actionButton('delete', 'Delete', `deleteMasul('${masul.IntizarID}')`);
     }
     actions.innerHTML = btns;
   });
@@ -1960,6 +1971,31 @@ async function transferMasul(intizarId) {
   }
 }
 
+async function deleteMember(intizarId) {
+  if (!(await showConfirm('Delete member', 'This permanently deletes the member record from the database. Continue?'))) return;
+  try {
+    await apiRequest('deleteMember', { intizarId }, currentUser);
+    showMessage('Deleted', 'Member record deleted successfully.');
+    await loadMembersList(currentMemberPage || 1, memberSearchTerm || '', currentMemberFilters || {});
+    await loadGraduatesList();
+    await loadDashboardStats();
+  } catch (err) {
+    showMessage('Error', err.message);
+  }
+}
+
+async function deleteMasul(intizarId) {
+  if (!(await showConfirm('Delete Mas\'ul', 'This permanently deletes the Mas\'ul record from the database. Continue?'))) return;
+  try {
+    await apiRequest('deleteMasul', { intizarId }, currentUser);
+    showMessage('Deleted', 'Mas\'ul record deleted successfully.');
+    await loadMasuls(currentMasulPage || 1, masulSearchTerm || '', currentMasulFilters || {});
+    await loadDashboardStats();
+  } catch (err) {
+    showMessage('Error', err.message);
+  }
+}
+
 // ==================== REGISTRATION PAGE ====================
 async function initializeRegistrationPage() {
   if (!currentUser) return;
@@ -2432,6 +2468,8 @@ window.promoteMember = promoteMember;
 window.promoteMasul = promoteMasul;
 window.transferMember = transferMember;
 window.transferMasul = transferMasul;
+window.deleteMember = deleteMember;
+window.deleteMasul = deleteMasul;
 window.printCurrentMember = printCurrentMember;
 window.printCurrentMasul = printCurrentMasul;
 window.screenshotCurrentMember = screenshotCurrentMember;

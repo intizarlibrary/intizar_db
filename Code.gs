@@ -150,6 +150,14 @@ function handleRequest(e) {
         result = updateMasul(params.intizarId, params.data, user);
         break;
 
+      case 'deleteMember':
+        result = deleteMember(params.intizarId, user);
+        break;
+
+      case 'deleteMasul':
+        result = deleteMasul(params.intizarId, user);
+        break;
+
       case 'getDashboardStats':
         result = getDashboardStats(user);
         break;
