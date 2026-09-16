@@ -9,7 +9,7 @@
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwcnVH3BwAy2Ad605Z4MnqW1cvjnfmv18lDmuY8CqaVJUJSLkCcJss-YP9luyEfnQj1xA/exec';
+  'https://script.google.com/macros/s/AKfycbwC-EzbdFWSwdk6S9PBCe_fXe8PO_INWR6a3_8fNqgLtLT3D5gpDVOcfQvkOD59Fy9d/exec';
 const PAGE_SIZE = 50;
 
 // ==================== GLOBAL STATE ====================
@@ -44,6 +44,21 @@ function hideLoader() {
     const loader = document.getElementById('globalLoader');
     if (loader) loader.style.display = 'none';
   }
+}
+
+function hideLoaderImmediately() {
+  pendingRequests = 0;
+  const loader = document.getElementById('globalLoader');
+  if (loader) loader.style.display = 'none';
+}
+
+function displayPersonName(person) {
+  const fullName = String(person?.FullName || '').trim();
+  const fatherName = String(person?.FatherName || '').trim();
+  if (fullName && !/\s/.test(fullName) && fatherName) {
+    return `${fullName} (${fatherName})`;
+  }
+  return fullName;
 }
 
 // ==================== HELPER: Thumbnail from PhotoURL ====================
@@ -227,8 +242,9 @@ function fileToBase64(file) {
 }
 
 // ==================== API REQUEST ====================
-async function apiRequest(action, data = {}, user = null) {
-  showLoader();
+async function apiRequest(action, data = {}, user = null, options = {}) {
+  const showLoading = options.showLoading !== false;
+  if (showLoading) showLoader();
   try {
     const payload = { action, ...data };
     if (user) payload.user = user;
@@ -260,7 +276,7 @@ async function apiRequest(action, data = {}, user = null) {
     console.error('API Request failed:', err);
     throw err;
   } finally {
-    hideLoader();
+    if (showLoading) hideLoader();
   }
 }
 
@@ -626,6 +642,7 @@ async function initializeDashboard() {
   await loadDashboardStats();
   await loadMembersList(1, '');
   await loadFilterOptions();
+  hideLoaderImmediately();
   loadZonesForDropdowns();
 }
 
@@ -745,16 +762,20 @@ function populateSelect(selectId, options, keepAllOption = true) {
 async function loadZonesForDropdowns() {
   try {
     console.log('Loading zones and branches...');
-    const result = await apiRequest('getZones', {}, currentUser);
+    const result = await apiRequest('getZones', {}, currentUser, { showLoading: false });
     console.log('Zones API response:', result);
-    const zones = result.zones.filter((z) => z.status === 'Active');
+    const zones = Array.isArray(result?.zones)
+      ? result.zones.filter((z) => String(z.status || '').toLowerCase() === 'active')
+      : [];
     currentZones = zones;
     populateZoneSelects(zones);
     attachZoneChangeListeners();
 
-    const branchResult = await apiRequest('getBranches', {}, currentUser);
+    const branchResult = await apiRequest('getBranches', {}, currentUser, { showLoading: false });
     console.log('Branches API response:', branchResult);
-    currentBranches = branchResult.branches.filter((b) => b.status === 'Active');
+    currentBranches = Array.isArray(branchResult?.branches)
+      ? branchResult.branches.filter((b) => String(b.status || '').toLowerCase() === 'active')
+      : [];
     populateBranchSelects(currentBranches);
 
     // Trigger zone change for any pre-selected zones to populate branches
@@ -903,7 +924,7 @@ function renderMemberListTable(members) {
     const row = tbody.insertRow();
     row.insertCell().innerText = member.IntizarID || '';
     row.insertCell().innerText = member.RecruitmentID || '';
-    row.insertCell().innerText = member.FullName || '';
+    row.insertCell().innerText = displayPersonName(member);
     row.insertCell().innerText = member.FatherName || '';
     row.insertCell().innerText = member.Gender || '';
     row.insertCell().innerText = member.Level || '';
@@ -1006,7 +1027,7 @@ async function loadGraduatesList() {
           <tr>
             <td><strong>${g.IntizarID || ''}</strong></td>
             <td>${g.RecruitmentID || ''}</td>
-            <td><strong>${g.FullName || ''}</strong></td>
+            <td><strong>${displayPersonName(g)}</strong></td>
             <td>${g.FatherName || ''}</td>
             <td>${g.Gender || ''}</td>
             <td>${g.Zone || ''}</td>
@@ -1138,7 +1159,7 @@ function renderMasulTable(masuls) {
     row.insertCell().innerText = masul.IntizarID || '';
     row.insertCell().innerText = masul.MasulRecruitmentID || '';
     row.insertCell().innerText = masul.OriginalMemberRecruitmentID || '';
-    row.insertCell().innerText = masul.FullName || '';
+    row.insertCell().innerText = displayPersonName(masul);
     row.insertCell().innerText = masul.CurrentRank || '';
     row.insertCell().innerText = masul.Source || '';
     row.insertCell().innerText = masul.Zone || '';
@@ -1238,7 +1259,7 @@ async function viewMember(intizarId) {
         ${photoHtml}
         <p><strong>Intizar ID:</strong> ${member.IntizarID}</p>
         <p><strong>Recruitment ID:</strong> ${member.RecruitmentID}</p>
-        <p><strong>Full Name:</strong> ${member.FullName}</p>
+        <p><strong>Full Name:</strong> ${displayPersonName(member)}</p>
         <p><strong>Father's Name:</strong> ${member.FatherName}</p>
         <p><strong>Gender:</strong> ${member.Gender}</p>
         <p><strong>Date of Birth:</strong> ${member.DOB}</p>
@@ -1295,7 +1316,7 @@ async function viewMasul(intizarId) {
         ${photoHtml}
         <p><strong>Intizar ID:</strong> ${masul.IntizarID}</p>
         <p><strong>Mas'ul Recruitment ID:</strong> ${masul.MasulRecruitmentID}</p>
-        <p><strong>Full Name:</strong> ${masul.FullName}</p>
+        <p><strong>Full Name:</strong> ${displayPersonName(masul)}</p>
         <p><strong>Father's Name:</strong> ${masul.FatherName}</p>
         <p><strong>Gender:</strong> ${masul.Gender}</p>
         <p><strong>Date of Birth:</strong> ${masul.DOB}</p>
@@ -1343,7 +1364,7 @@ function buildSimpleCard(person, type) {
       <div class="card-body">
         ${photoHtml}
         <div class="card-details">
-          <p><strong>Full Name:</strong> ${person.FullName}</p>
+          <p><strong>Full Name:</strong> ${displayPersonName(person)}</p>
           <p><strong>Intizar ID:</strong> ${person.IntizarID}</p>
           <p><strong>Recruitment ID:</strong> ${idField}</p>
           <p><strong>Zone:</strong> ${person.Zone}</p>

@@ -9,6 +9,14 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  if (!e || !e.parameter || !e.parameter.payload) {
+    return HtmlService.createHtmlOutput(
+      '<!doctype html><html lang="ar"><head><meta charset="UTF-8"><title>سورة العصر</title>' +
+      '<style>body{font-family:serif;text-align:center;padding:3rem;line-height:2;background:#f8fafc;color:#155b2f}.ayah{font-size:2rem;direction:rtl}</style>' +
+      '</head><body><h1>سورة العصر</h1><p class="ayah">وَٱلْعَصْرِ (١) إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ (٢) إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ (٣)</p>' +
+      '<p><a href="' + ScriptApp.getService().getUrl() + '">Return Home</a></p></body></html>'
+    );
+  }
   return handleRequest(e);
 }
 
