@@ -1,8 +1,4 @@
-/**
- * INTIZARUL IMAMUL MUNTAZAR – Backend Dispatcher (Code.gs)
- * Entry point for doGet and doPost HTTPS requests from the web frontend.
- * Routes JSON payloads to functions in Utils.gs.
- */
+/*INTIZARUL IMAMUL MUNTAZAR – Backend Dispatcher (Code.gs)*/
 
 function doPost(e) {
   return handleRequest(e);

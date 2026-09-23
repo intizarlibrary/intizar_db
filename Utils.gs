@@ -1,8 +1,4 @@
-/**
- * INTIZARUL IMAMUL MUNTAZAR – Backend Utility & Business Logic (Utils.gs)
- * Handles Google Sheets operations, normalization, ID generation,
- * permissions, audit logging, search, statistics, and workflows.
- */
+/* INTIZARUL IMAMUL MUNTAZAR – Backend Utility & Business Logic (Utils.gs)*/
 
 const SPREADSHEET_NAME = 'Intizarul Imam Muntazar Database';
 

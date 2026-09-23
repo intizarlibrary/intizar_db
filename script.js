@@ -1,11 +1,10 @@
-/**
- * INTIZARUL IMAMUL MUNTAZAR – Frontend Logic & Application Engine (script.js)
+/* INTIZARUL IMAMUL MUNTAZAR – Frontend Logic & Application Engine (script.js)
  * VERSION: 2.1 – Fixed zone/branch loading, mobile sidebar, edit modal IDs.
  */
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwC-EzbdFWSwdk6S9PBCe_fXe8PO_INWR6a3_8fNqgLtLT3D5gpDVOcfQvkOD59Fy9d/exec';
+  'https://script.google.com/macros/s/AKfycbzxZio-NxwATJy_K_-ciw87-Sr69tM9DBWjFusmfP586lOtOIJg-X77CsFUJCrAlwNftg/exec';
 const PAGE_SIZE = 50;
 const API_TIMEOUT_MS = 30000;
 
