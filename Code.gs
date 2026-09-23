@@ -196,7 +196,11 @@ function handleRequest(e) {
     return createJsonOutput(result);
 
   } catch (err) {
-    logAudit('SYSTEM', 'ERROR', err.toString());
+    try {
+      logAudit('SYSTEM', 'ERROR', err.toString());
+    } catch (auditError) {
+      console.error('Failed to write error audit:', auditError);
+    }
     return createJsonOutput({ success: false, error: err.toString() });
   }
 }

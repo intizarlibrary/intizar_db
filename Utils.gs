@@ -176,56 +176,44 @@ function logAudit(user, action, details) {
 
 // ==================== MEMBER RECRUITMENT ID ====================
 function nextMemberRecruitmentId(branchCode, recruitmentYear) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const sheet = getSpreadsheet().getSheetByName('Members');
-    const data = sheet.getDataRange().getValues();
-    const year = recruitmentYear.toString().slice(-2);
+  const sheet = getSpreadsheet().getSheetByName('Members');
+  const data = sheet.getDataRange().getValues();
+  const year = recruitmentYear.toString().slice(-2);
 
-    const usedSerials = {};
-    const prefix = `INT/${branchCode}/${year}/`;
-    for (let i = 1; i < data.length; i++) {
-      const recruitmentId = String(data[i][1] || '');
-      if (data[i][13] === branchCode && recruitmentId.startsWith(prefix)) {
-        const serial = parseInt(recruitmentId.substring(prefix.length), 10);
-        if (!isNaN(serial)) usedSerials[serial] = true;
-      }
+  const usedSerials = {};
+  const prefix = `INT/${branchCode}/${year}/`;
+  for (let i = 1; i < data.length; i++) {
+    const recruitmentId = String(data[i][1] || '');
+    if (data[i][13] === branchCode && recruitmentId.startsWith(prefix)) {
+      const serial = parseInt(recruitmentId.substring(prefix.length), 10);
+      if (!isNaN(serial)) usedSerials[serial] = true;
     }
-    let serial = 1;
-    while (usedSerials[serial]) serial++;
-    const padded = String(serial).padStart(3, '0');
-    return `INT/${branchCode}/${year}/${padded}`;
-  } finally {
-    lock.releaseLock();
   }
+  let serial = 1;
+  while (usedSerials[serial]) serial++;
+  const padded = String(serial).padStart(3, '0');
+  return `INT/${branchCode}/${year}/${padded}`;
 }
 
 // ==================== MAS'UL RECRUITMENT ID ====================
 function nextMasulRecruitmentId(branchCode, recruitmentYear) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const sheet = getSpreadsheet().getSheetByName('Masuls');
-    const data = sheet.getDataRange().getValues();
-    const year = recruitmentYear.toString().slice(-2);
+  const sheet = getSpreadsheet().getSheetByName('Masuls');
+  const data = sheet.getDataRange().getValues();
+  const year = recruitmentYear.toString().slice(-2);
 
-    const usedSerials = {};
-    const prefix = `IIM/${branchCode}/${year}/`;
-    for (let i = 1; i < data.length; i++) {
-      const recruitmentId = String(data[i][1] || '');
-      if (recruitmentId.startsWith(prefix)) {
-        const serial = parseInt(recruitmentId.substring(prefix.length), 10);
-        if (!isNaN(serial)) usedSerials[serial] = true;
-      }
+  const usedSerials = {};
+  const prefix = `IIM/${branchCode}/${year}/`;
+  for (let i = 1; i < data.length; i++) {
+    const recruitmentId = String(data[i][1] || '');
+    if (recruitmentId.startsWith(prefix)) {
+      const serial = parseInt(recruitmentId.substring(prefix.length), 10);
+      if (!isNaN(serial)) usedSerials[serial] = true;
     }
-    let serial = 1;
-    while (usedSerials[serial]) serial++;
-    const padded = String(serial).padStart(3, '0');
-    return `IIM/${branchCode}/${year}/${padded}`;
-  } finally {
-    lock.releaseLock();
   }
+  let serial = 1;
+  while (usedSerials[serial]) serial++;
+  const padded = String(serial).padStart(3, '0');
+  return `IIM/${branchCode}/${year}/${padded}`;
 }
 
 // ==================== VALIDATION HELPERS ====================
@@ -474,6 +462,9 @@ function registerMasul(data, user) {
   const branchZone = getBranchZone(data.branch);
   if (branchZone !== data.zone) throw new Error('Branch does not belong to selected zone');
 
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
   let intizarId = '';
   let originalMemberRecruitmentId = '';
   let memberRowIndex = -1;
@@ -521,15 +512,9 @@ function registerMasul(data, user) {
 
   } else if (normSource === 'proposed' || normSource.includes('proposed')) {
     // External candidate: generate new MTZR ID
-    const lock = LockService.getScriptLock();
-    lock.waitLock(10000);
-    try {
-      const nextIntizar = getNextAvailableIntizarNumber();
-      intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
-      setConfig('global_intizar', nextIntizar.toString());
-    } finally {
-      lock.releaseLock();
-    }
+    const nextIntizar = getNextAvailableIntizarNumber();
+    intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
+    setConfig('global_intizar', nextIntizar.toString());
   } else {
     throw new Error('Invalid source specified: ' + data.source);
   }
@@ -574,6 +559,9 @@ function registerMasul(data, user) {
     `Intizar ID: ${intizarId}, Masul ID: ${masulRecruitmentId}, Name: ${data.fullName}, Source: ${data.source}`);
 
   return { success: true, intizarId, masulRecruitmentId, originalMemberRecruitmentId };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ==================== GET MEMBERS (Excludes Archived) ====================
@@ -1105,7 +1093,8 @@ function getAuditLog(user) {
   const sheet = getSpreadsheet().getSheetByName('AuditLog');
   const data = sheet.getDataRange().getValues();
   const logs = [];
-  for (let i = 1; i < data.length; i++) {
+  const firstRow = Math.max(1, data.length - 5000);
+  for (let i = data.length - 1; i >= firstRow; i--) {
     logs.push({
       timestamp: data[i][0],
       user: data[i][1],
@@ -1113,7 +1102,7 @@ function getAuditLog(user) {
       details: data[i][3]
     });
   }
-  return { success: true, logs };
+  return { success: true, logs, total: Math.max(0, data.length - 1) };
 }
 
 // ----- CONFIG -----

@@ -4,10 +4,22 @@
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbzxZio-NxwATJy_K_-ciw87-Sr69tM9DBWjFusmfP586lOtOIJg-X77CsFUJCrAlwNftg/exec';
+  'https://script.google.com/macros/s/AKfycbyIPtrqqpmY9hJaVGlcS03_j1VH_5-elTVoxf1a8cHUr1B56Rsfhgj1d5EkymIGFzRtDA/exec';
 const PAGE_SIZE = 50;
 const API_TIMEOUT_MS = 30000;
 const API_RETRY_COUNT = 2;
+const DATA_CACHE_TTL_MS = 60 * 60 * 1000;
+const CACHEABLE_ACTIONS = new Set([
+  'getMembers',
+  'getMasuls',
+  'getGraduates',
+  'getFilterOptions',
+  'getZones',
+  'getBranches',
+  'getDashboardStats',
+]);
+const DATA_CACHE_PREFIX = 'iim_data_cache_';
+const inFlightRequests = new Map();
 
 // ==================== GLOBAL STATE ====================
 let currentUser = JSON.parse(sessionStorage.getItem('iim_user')) || null;
@@ -25,6 +37,42 @@ let currentMemberFilters = {};
 let currentMasulFilters = {};
 let lastViewedMember = null;
 let lastViewedMasul = null;
+
+function getDataCacheKey(action, data, user) {
+  return DATA_CACHE_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify({ action, data, user }))));
+}
+
+function readDataCache(key) {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
+    if (!cached) return null;
+    if (Date.now() - cached.createdAt > DATA_CACHE_TTL_MS) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return cached.value;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeDataCache(key, value) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ createdAt: Date.now(), value }));
+  } catch (_) {
+    // A full sessionStorage must not prevent normal API requests.
+  }
+}
+
+function clearDataCache() {
+  try {
+    Object.keys(sessionStorage)
+      .filter((key) => key.startsWith(DATA_CACHE_PREFIX))
+      .forEach((key) => sessionStorage.removeItem(key));
+  } catch (_) {
+    // Ignore storage access errors and continue with live requests.
+  }
+}
 
 // ==================== LOADER ====================
 let pendingRequests = 0;
@@ -239,9 +287,15 @@ function fileToBase64(file) {
 }
 
 // ==================== API REQUEST ====================
-async function apiRequest(action, data = {}, user = null, options = {}) {
+async function requestApi(action, data = {}, user = null, options = {}) {
   const showLoading = options.showLoading !== false;
   if (showLoading) showLoader();
+  const cacheKey = CACHEABLE_ACTIONS.has(action) ? getDataCacheKey(action, data, user) : null;
+  const cachedValue = cacheKey ? readDataCache(cacheKey) : null;
+  if (cachedValue) {
+    if (showLoading) hideLoader();
+    return cachedValue;
+  }
   try {
     const payload = { action, ...data };
     if (user) payload.user = user;
@@ -251,7 +305,9 @@ async function apiRequest(action, data = {}, user = null, options = {}) {
 
     let response;
     let lastError;
-    for (let attempt = 0; attempt <= API_RETRY_COUNT; attempt++) {
+    const retryableRequest = CACHEABLE_ACTIONS.has(action) || action === 'ping';
+    const maxAttempts = retryableRequest ? API_RETRY_COUNT : 0;
+    for (let attempt = 0; attempt <= maxAttempts; attempt++) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
       try {
@@ -277,7 +333,7 @@ async function apiRequest(action, data = {}, user = null, options = {}) {
         clearTimeout(timeoutId);
       }
 
-      if (attempt < API_RETRY_COUNT) {
+      if (attempt < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
       }
     }
@@ -301,6 +357,9 @@ async function apiRequest(action, data = {}, user = null, options = {}) {
       throw new Error(result.error || 'Unknown error occurred');
     }
 
+    if (cacheKey) writeDataCache(cacheKey, result);
+    if (!CACHEABLE_ACTIONS.has(action) && action !== 'login') clearDataCache();
+
     return result;
   } catch (err) {
     console.error('API Request failed:', err);
@@ -308,6 +367,24 @@ async function apiRequest(action, data = {}, user = null, options = {}) {
   } finally {
     if (showLoading) hideLoader();
   }
+}
+
+function apiRequest(action, data = {}, user = null, options = {}) {
+  if (!CACHEABLE_ACTIONS.has(action)) {
+    return requestApi(action, data, user, options);
+  }
+
+  const requestKey = getDataCacheKey(action, data, user);
+  const existingRequest = inFlightRequests.get(requestKey);
+  if (existingRequest) return existingRequest;
+
+  const request = requestApi(action, data, user, options);
+  inFlightRequests.set(requestKey, request);
+  request.then(
+    () => inFlightRequests.delete(requestKey),
+    () => inFlightRequests.delete(requestKey)
+  );
+  return request;
 }
 
 // ==================== SURAH PRELOADER ====================
@@ -611,6 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutLink.addEventListener('click', (e) => {
       e.preventDefault();
       sessionStorage.removeItem('iim_user');
+      clearDataCache();
       currentUser = null;
       window.location.href = 'index.html';
     });
@@ -668,7 +746,7 @@ async function initializeDashboard() {
     document.querySelectorAll('.branch-only').forEach((el) => (el.style.display = 'block'));
   }
 
-  switchSection('overview');
+  switchSection('overview', null, true);
   await Promise.all([
     loadDashboardStats(),
     loadMembersList(1, ''),
@@ -679,7 +757,7 @@ async function initializeDashboard() {
 }
 
 // ==================== SECTION SWITCHING ====================
-function switchSection(sectionId, e) {
+function switchSection(sectionId, e, skipLoad = false) {
   if (e) e.preventDefault();
 
   const map = {
@@ -715,6 +793,8 @@ function switchSection(sectionId, e) {
     if (overlay) overlay.classList.remove('show');
     document.body.style.overflow = '';
   }
+
+  if (skipLoad) return;
 
   // Section-specific loading
   switch (sectionId) {
@@ -2582,6 +2662,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==================== LOGOUT ====================
 function logout() {
   sessionStorage.removeItem('iim_user');
+  clearDataCache();
   currentUser = null;
   window.location.href = 'index.html';
 }
