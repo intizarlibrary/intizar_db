@@ -4,11 +4,12 @@
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbyIPtrqqpmY9hJaVGlcS03_j1VH_5-elTVoxf1a8cHUr1B56Rsfhgj1d5EkymIGFzRtDA/exec';
+  'https://script.google.com/macros/s/AKfycbwGLlsvnvpWbpmowc1qwy3AGiU710xrnD6GUbj_IP8FJZZmy6-uh3bqqsWArmzJr50DRg/exec';
 const PAGE_SIZE = 50;
 const API_TIMEOUT_MS = 30000;
 const API_RETRY_COUNT = 2;
 const DATA_CACHE_TTL_MS = 60 * 60 * 1000;
+const LOCAL_SEARCH_PAGE_SIZE = 10000;
 const CACHEABLE_ACTIONS = new Set([
   'getMembers',
   'getMasuls',
@@ -72,6 +73,41 @@ function clearDataCache() {
   } catch (_) {
     // Ignore storage access errors and continue with live requests.
   }
+}
+
+function hasSearchCriteria(search, filters = {}) {
+  return Boolean(search && search.trim()) || Object.values(filters).some(Boolean);
+}
+
+async function getLocalSearchRows(type) {
+  const action = type === 'masuls' ? 'getMasuls' : 'getMembers';
+  const result = await apiRequest(
+    action,
+    { page: 1, pageSize: LOCAL_SEARCH_PAGE_SIZE, search: '', filters: {} },
+    currentUser
+  );
+  return type === 'masuls' ? result.masuls || [] : result.members || [];
+}
+
+function filterLocalRows(rows, type, search, filters) {
+  const term = safeNormalize(search);
+  return rows.filter((row) => {
+    const searchable = type === 'masuls'
+      ? [row.IntizarID, row.MasulRecruitmentID, row.FullName, row.FatherName, row.Phone, row.Zone, row.Branch, row.CurrentRank]
+      : [row.IntizarID, row.RecruitmentID, row.FullName, row.FatherName, row.Phone, row.Zone, row.Branch, row.Level];
+    const matchesSearch = !term || searchable.some((value) => safeNormalize(value).includes(term));
+    const matchesFilters = (!filters.level || row.Level === filters.level) &&
+      (!filters.rank || row.CurrentRank === filters.rank) &&
+      (!filters.gender || row.Gender === filters.gender) &&
+      (!filters.branch || row.Branch === filters.branch) &&
+      (!filters.zone || row.Zone === filters.zone);
+    return matchesSearch && matchesFilters;
+  });
+}
+
+function paginateLocalRows(rows, page) {
+  const start = (page - 1) * PAGE_SIZE;
+  return { rows: rows.slice(start, start + PAGE_SIZE), total: rows.length };
 }
 
 // ==================== LOADER ====================
@@ -1012,6 +1048,14 @@ async function loadMembersList(page = 1, search = '', filters = {}) {
   memberSearchTerm = search;
   currentMemberFilters = filters;
   try {
+    if (hasSearchCriteria(search, filters)) {
+      const rows = await getLocalSearchRows('members');
+      const filteredRows = filterLocalRows(rows, 'members', search, filters);
+      const result = paginateLocalRows(filteredRows, page);
+      renderMemberListTable(result.rows);
+      renderMemberListPagination(result.total, page);
+      return;
+    }
     const result = await apiRequest('getMembers', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
     if (result.members.length === 0 && page > 1) {
       return loadMembersList(page - 1, search, filters);
@@ -1108,6 +1152,19 @@ async function loadGraduatesList() {
   const branch = document.getElementById('gradFilterBranch')?.value || '';
 
   try {
+    if (hasSearchCriteria(search, { gender, zone, branch })) {
+      const rows = await getLocalSearchRows('members');
+      const filteredRows = filterLocalRows(rows, 'members', search, {
+        gender,
+        zone,
+        branch,
+        level: 'Graduate',
+      });
+      const result = paginateLocalRows(filteredRows, 1);
+      currentGraduates = result.rows;
+      renderGraduateRows(result.rows, result.total);
+      return;
+    }
     const result = await apiRequest(
       'getGraduates',
       {
@@ -1160,6 +1217,30 @@ async function loadGraduatesList() {
     console.error('Error loading graduates list:', err);
     showMessage('Error', 'Failed to load graduates: ' + err.message);
   }
+}
+
+function renderGraduateRows(members, total) {
+  const tbody = document.getElementById('graduatesTableBody');
+  if (!tbody) return;
+  if (!members || members.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;">No Graduates found.</td></tr>';
+    return;
+  }
+  currentGraduates = members;
+  tbody.innerHTML = members
+    .map((g) => {
+      let btns = actionButton('view', 'View', `viewMember('${g.IntizarID}')`);
+      if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Zonal Mas\'ul')) {
+        btns += actionButton('propose', 'Propose Mas\'ul', `proposeGraduateAsMasul('${g.IntizarID}')`);
+      }
+      if (currentUser && currentUser.role === 'Admin') {
+        btns += actionButton('edit', 'Edit', `editMember('${g.IntizarID}')`);
+      }
+      return `<tr><td><strong>${g.IntizarID || ''}</strong></td><td>${g.RecruitmentID || ''}</td><td><strong>${displayPersonName(g)}</strong></td><td>${g.FatherName || ''}</td><td>${g.Gender || ''}</td><td>${g.Zone || ''}</td><td>${g.Branch || ''}</td><td><span class="badge badge-graduate">Al-Mahdi Community</span></td><td>${btns}</td></tr>`;
+    })
+    .join('');
+  const pagination = document.getElementById('graduatesPagination');
+  if (pagination) pagination.innerHTML = `<span>Total Graduates: ${total || members.length}</span>`;
 }
 
 function handleGraduateSearch() {
@@ -1246,6 +1327,14 @@ async function loadMasuls(page = 1, search = '', filters = {}) {
   masulSearchTerm = search;
   currentMasulFilters = filters;
   try {
+    if (hasSearchCriteria(search, filters)) {
+      const rows = await getLocalSearchRows('masuls');
+      const filteredRows = filterLocalRows(rows, 'masuls', search, filters);
+      const result = paginateLocalRows(filteredRows, page);
+      renderMasulTable(result.rows);
+      renderMasulPagination(result.total, page);
+      return;
+    }
     const result = await apiRequest('getMasuls', { page, pageSize: PAGE_SIZE, search, filters }, currentUser);
     if (result.masuls.length === 0 && page > 1) {
       return loadMasuls(page - 1, search, filters);

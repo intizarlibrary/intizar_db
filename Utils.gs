@@ -72,7 +72,7 @@ function ensureSheetsExist() {
       'SOKOTO ZONE', 'KADUNA ZONE', 'ABUJA ZONE', 'ZARIA ZONE', 'KANO ZONE',
       'BAUCHI ZONE', 'MALUMFASHI ZONE', 'NIGER ZONE', 'QUM ZONE'
     ];
-    zones.forEach(zone => zoneSheet.appendRow([Utilities.getUuid(), zone, 'Active']));
+    zones.forEach((zone, index) => zoneSheet.appendRow(['Z' + String(index + 1).padStart(2, '0'), zone, 'Active']));
   }
 
   // Preload default branches if empty
@@ -971,12 +971,25 @@ function transferMasul(intizarId, newBranchCode, user) {
 }
 
 // ----- ZONE MANAGEMENT -----
+function nextZoneId(sheet) {
+  const rowCount = sheet.getLastRow() - 1;
+  if (rowCount <= 0) return 'Z01';
+  const values = sheet.getRange(2, 1, rowCount, 1).getValues().flat();
+  let highest = 0;
+  values.forEach(value => {
+    const match = String(value || '').match(/^Z(\d+)$/i);
+    if (match) highest = Math.max(highest, parseInt(match[1], 10));
+  });
+  return 'Z' + String(highest + 1).padStart(2, '0');
+}
+
 function addZone(zoneName, user) {
   if (user.role !== 'Admin') throw new Error('Only Admin can add zones');
   const sheet = getSpreadsheet().getSheetByName('Zones');
-  sheet.appendRow([Utilities.getUuid(), zoneName, 'Active']);
+  const zoneId = nextZoneId(sheet);
+  sheet.appendRow([zoneId, zoneName, 'Active']);
   logAudit('Admin', 'ZONE_ADDED', zoneName);
-  return { success: true };
+  return { success: true, zoneId };
 }
 
 function editZone(zoneId, newName, user) {
