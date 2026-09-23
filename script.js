@@ -4,7 +4,7 @@
 
 // ==================== CONFIGURATION ====================
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwGLlsvnvpWbpmowc1qwy3AGiU710xrnD6GUbj_IP8FJZZmy6-uh3bqqsWArmzJr50DRg/exec';
+  'https://script.google.com/macros/s/AKfycbw5mlQza0HYtQT5cBQ2ya1EiNyAjQQ_Vpcll6QMj-86eQdbiYpXTNVYXaOHTyWNmLMNFQ/exec';
 const PAGE_SIZE = 50;
 const API_TIMEOUT_MS = 30000;
 const API_RETRY_COUNT = 2;
@@ -108,6 +108,22 @@ function filterLocalRows(rows, type, search, filters) {
 function paginateLocalRows(rows, page) {
   const start = (page - 1) * PAGE_SIZE;
   return { rows: rows.slice(start, start + PAGE_SIZE), total: rows.length };
+}
+
+function findCachedPerson(type, intizarId) {
+  const collectionKey = type === 'masul' ? 'masuls' : 'members';
+  try {
+    for (const key of Object.keys(sessionStorage)) {
+      if (!key.startsWith(DATA_CACHE_PREFIX)) continue;
+      const cached = readDataCache(key);
+      const records = cached && Array.isArray(cached[collectionKey]) ? cached[collectionKey] : [];
+      const match = records.find((record) => record.IntizarID === intizarId);
+      if (match) return match;
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
 }
 
 // ==================== LOADER ====================
@@ -787,8 +803,8 @@ async function initializeDashboard() {
     loadDashboardStats(),
     loadMembersList(1, ''),
     loadFilterOptions(),
-    loadZonesForDropdowns(),
   ]);
+  await loadZonesForDropdowns();
   hideLoaderImmediately();
 }
 
@@ -865,6 +881,8 @@ function switchSection(sectionId, e, skipLoad = false) {
 async function loadFilterOptions() {
   try {
     const result = await apiRequest('getFilterOptions', {}, currentUser);
+    if (Array.isArray(result.zoneRecords)) currentZones = result.zoneRecords;
+    if (Array.isArray(result.branchRecords)) currentBranches = result.branchRecords;
     populateSelect('filterLevel', result.levels, true);
     populateSelect('filterBranch', result.branches, true);
     populateSelect('filterZone', result.zones, true);
@@ -910,20 +928,24 @@ function populateSelect(selectId, options, keepAllOption = true) {
 async function loadZonesForDropdowns() {
   try {
     console.log('Loading zones and branches...');
-    const result = await apiRequest('getZones', {}, currentUser, { showLoading: false });
-    console.log('Zones API response:', result);
-    const zones = Array.isArray(result?.zones)
-      ? result.zones.filter((z) => String(z.status || '').toLowerCase() === 'active')
-      : [];
+    let zones = Array.isArray(currentZones) && currentZones.length
+      ? currentZones
+      : null;
+    let branches = Array.isArray(currentBranches) && currentBranches.length
+      ? currentBranches
+      : null;
+    if (!zones || !branches) {
+      const result = await apiRequest('getZones', {}, currentUser, { showLoading: false });
+      zones = Array.isArray(result?.zones) ? result.zones : [];
+      const branchResult = await apiRequest('getBranches', {}, currentUser, { showLoading: false });
+      branches = Array.isArray(branchResult?.branches) ? branchResult.branches : [];
+    }
+    zones = zones.filter((z) => String(z.status || '').toLowerCase() === 'active');
     currentZones = zones;
     populateZoneSelects(zones);
     attachZoneChangeListeners();
 
-    const branchResult = await apiRequest('getBranches', {}, currentUser, { showLoading: false });
-    console.log('Branches API response:', branchResult);
-    currentBranches = Array.isArray(branchResult?.branches)
-      ? branchResult.branches.filter((b) => String(b.status || '').toLowerCase() === 'active')
-      : [];
+    currentBranches = branches.filter((b) => String(b.status || '').toLowerCase() === 'active');
     populateBranchSelects(currentBranches);
 
     // Trigger zone change for any pre-selected zones to populate branches
@@ -1426,8 +1448,8 @@ function clearMasulListSearch() {
 // ==================== VIEW MEMBER ====================
 async function viewMember(intizarId) {
   try {
-    const result = await apiRequest('getMember', { intizarId }, currentUser);
-    const member = result.member;
+    const member = findCachedPerson('member', intizarId) ||
+      (await apiRequest('getMember', { intizarId }, currentUser)).member;
     lastViewedMember = member;
 
     const promotionList = renderPromotionHistory(member.PromotionHistory, 'member');
@@ -1495,8 +1517,8 @@ async function viewMember(intizarId) {
 // ==================== VIEW MASUL ====================
 async function viewMasul(intizarId) {
   try {
-    const result = await apiRequest('getMasul', { intizarId }, currentUser);
-    const masul = result.masul;
+    const masul = findCachedPerson('masul', intizarId) ||
+      (await apiRequest('getMasul', { intizarId }, currentUser)).masul;
     lastViewedMasul = masul;
 
     const promotionList = renderPromotionHistory(masul.PromotionHistory, 'masul');

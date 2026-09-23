@@ -1457,10 +1457,16 @@ function getBranchStats(user) {
 
 // ----- FILTER OPTIONS HELPERS -----
 function getFilterOptions() {
+  const zoneSheet = getSpreadsheet().getSheetByName('Zones');
+  const branchSheet = getSpreadsheet().getSheetByName('Branches');
+  const zones = zoneSheet.getDataRange().getValues().slice(1);
+  const branches = branchSheet.getDataRange().getValues().slice(1);
   return {
     success: true,
-    branches: getDistinctBranches(),
-    zones: getDistinctZones(),
+    branches: [...new Set(branches.map(row => row[1]))],
+    zones: [...new Set(zones.map(row => row[1]))],
+    branchRecords: branches.map(row => ({ branchCode: row[0], branchName: row[1], zone: row[2], status: row[3] })),
+    zoneRecords: zones.map(row => ({ zoneId: row[0], zoneName: row[1], status: row[2] })),
     levels: getDistinctLevels(),
     genders: getDistinctGenders(),
     ranks: getDistinctRanks()
