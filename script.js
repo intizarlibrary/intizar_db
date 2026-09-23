@@ -7,6 +7,7 @@ const APPS_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbzxZio-NxwATJy_K_-ciw87-Sr69tM9DBWjFusmfP586lOtOIJg-X77CsFUJCrAlwNftg/exec';
 const PAGE_SIZE = 50;
 const API_TIMEOUT_MS = 30000;
+const API_RETRY_COUNT = 2;
 
 // ==================== GLOBAL STATE ====================
 let currentUser = JSON.parse(sessionStorage.getItem('iim_user')) || null;
@@ -248,33 +249,53 @@ async function apiRequest(action, data = {}, user = null, options = {}) {
     const formBody = new URLSearchParams();
     formBody.append('payload', JSON.stringify(payload));
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
     let response;
-    try {
-      response = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
-        body: formBody.toString(),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new Error('The server took too long to respond. Please try again.');
+    let lastError;
+    for (let attempt = 0; attempt <= API_RETRY_COUNT; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+      try {
+        response = await fetch(`${APPS_SCRIPT_URL}?request=${Date.now()}-${attempt}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+          },
+          body: formBody.toString(),
+          signal: controller.signal,
+        });
+
+        if (response.ok || ![404, 408, 429].includes(response.status) && response.status < 500) {
+          break;
+        }
+        lastError = new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+      } catch (error) {
+        lastError = error.name === 'AbortError'
+          ? new Error('The server took too long to respond. Please try again.')
+          : error;
+      } finally {
+        clearTimeout(timeoutId);
       }
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
+
+      if (attempt < API_RETRY_COUNT) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
     }
 
+    if (!response) {
+      throw lastError || new Error('The server could not be reached. Please try again.');
+    }
     if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+      throw lastError || new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
     }
 
-    const result = await response.json();
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (_) {
+      throw new Error('The server returned an invalid response. Please try again.');
+    }
 
     if (!result.success) {
       throw new Error(result.error || 'Unknown error occurred');
