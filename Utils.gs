@@ -30,6 +30,14 @@ function safeNormalize(val) {
 
 // ==================== SHEET INITIALIZATION ====================
 function ensureSheetsExist() {
+  const cache = CacheService.getScriptCache();
+  if (cache.get('sheets_initialized') === 'true') return;
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    if (cache.get('sheets_initialized') === 'true') return;
+
   const ss = getSpreadsheet();
 
   const sheets = {
@@ -117,6 +125,10 @@ function ensureSheetsExist() {
   if (!getConfigValue('admin_code')) setConfig('admin_code', 'Muntazir@Global');
   if (!getConfigValue('global_intizar')) setConfig('global_intizar', '0');
   if (!getConfigValue('global_masul_serial')) setConfig('global_masul_serial', '0');
+    cache.put('sheets_initialized', 'true', 21600);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ==================== CONFIG HELPERS ====================
@@ -141,6 +153,25 @@ function setConfig(key, value) {
   sheet.appendRow([key, value]);
 }
 
+function getNextAvailableIntizarNumber() {
+  const usedNumbers = {};
+  const spreadsheet = getSpreadsheet();
+
+  ['Members', 'Masuls'].forEach(sheetName => {
+    const sheet = spreadsheet.getSheetByName(sheetName);
+    if (!sheet) return;
+    const rows = sheet.getDataRange().getValues().slice(1);
+    rows.forEach(row => {
+      const match = String(row[0] || '').match(/^MTZR\/(\d+)$/i);
+      if (match) usedNumbers[parseInt(match[1], 10)] = true;
+    });
+  });
+
+  let nextNumber = 1;
+  while (usedNumbers[nextNumber]) nextNumber++;
+  return nextNumber;
+}
+
 // ==================== AUDIT LOG ====================
 function logAudit(user, action, details) {
   const sheet = getSpreadsheet().getSheetByName('AuditLog');
@@ -156,13 +187,17 @@ function nextMemberRecruitmentId(branchCode, recruitmentYear) {
     const data = sheet.getDataRange().getValues();
     const year = recruitmentYear.toString().slice(-2);
 
-    let serial = 0;
+    const usedSerials = {};
+    const prefix = `INT/${branchCode}/${year}/`;
     for (let i = 1; i < data.length; i++) {
-      if (data[i][13] === branchCode && data[i][22] === 'Active') {
-        serial++;
+      const recruitmentId = String(data[i][1] || '');
+      if (data[i][13] === branchCode && recruitmentId.startsWith(prefix)) {
+        const serial = parseInt(recruitmentId.substring(prefix.length), 10);
+        if (!isNaN(serial)) usedSerials[serial] = true;
       }
     }
-    serial++;
+    let serial = 1;
+    while (usedSerials[serial]) serial++;
     const padded = String(serial).padStart(3, '0');
     return `INT/${branchCode}/${year}/${padded}`;
   } finally {
@@ -179,11 +214,17 @@ function nextMasulRecruitmentId(branchCode, recruitmentYear) {
     const data = sheet.getDataRange().getValues();
     const year = recruitmentYear.toString().slice(-2);
 
-    let serial = 0;
+    const usedSerials = {};
+    const prefix = `IIM/${branchCode}/${year}/`;
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0]) serial++;
+      const recruitmentId = String(data[i][1] || '');
+      if (recruitmentId.startsWith(prefix)) {
+        const serial = parseInt(recruitmentId.substring(prefix.length), 10);
+        if (!isNaN(serial)) usedSerials[serial] = true;
+      }
     }
-    serial++;
+    let serial = 1;
+    while (usedSerials[serial]) serial++;
     const padded = String(serial).padStart(3, '0');
     return `IIM/${branchCode}/${year}/${padded}`;
   } finally {
@@ -369,8 +410,7 @@ function registerMember(data, user) {
       }
     }
 
-    let currentIntizar = parseInt(getConfigValue('global_intizar') || '0');
-    let nextIntizar = currentIntizar + 1;
+    const nextIntizar = getNextAvailableIntizarNumber();
     const intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
     
     const recruitmentId = nextMemberRecruitmentId(data.branch, data.year);
@@ -488,8 +528,7 @@ function registerMasul(data, user) {
     const lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
-      let currentIntizar = parseInt(getConfigValue('global_intizar') || '0');
-      let nextIntizar = currentIntizar + 1;
+      const nextIntizar = getNextAvailableIntizarNumber();
       intizarId = 'MTZR/' + nextIntizar.toString().padStart(5, '0');
       setConfig('global_intizar', nextIntizar.toString());
     } finally {
@@ -738,7 +777,7 @@ function promoteMasul(intizarId, user) {
 }
 
 // ==================== EXPORT CSV DATA ====================
-function exportData(type, user) {
+function exportData(type, user, search = '', filters = {}) {
   if (user.role !== 'Admin') throw new Error('Only Admin can export data');
   let sheetName = 'Members';
   if (type === 'masuls') sheetName = 'Masuls';
@@ -746,12 +785,28 @@ function exportData(type, user) {
   const sheet = getSpreadsheet().getSheetByName(sheetName);
   if (!sheet) throw new Error('Sheet not found: ' + sheetName);
 
-  let data = sheet.getDataRange().getValues();
-  if (type === 'graduates') {
-    const headers = data[0];
-    const gradRows = data.slice(1).filter(r => r[15] === 'Graduate' && r[22] === 'Active');
-    data = [headers, ...gradRows];
+  const rawData = sheet.getDataRange().getValues();
+  const headers = rawData[0];
+  let rows = rawData.slice(1).filter(row => row[0]);
+  const term = safeNormalize(search);
+
+  if (type === 'members' || type === 'graduates') {
+    rows = rows.filter(row => row[22] === 'Active');
   }
+  if (type === 'graduates') {
+    rows = rows.filter(row => row[15] === 'Graduate');
+  }
+  if (term) {
+    rows = rows.filter(row => [row[2], row[0], row[1], row[3], row[7]]
+      .some(value => safeNormalize(value).includes(term)));
+  }
+  if (filters.level) rows = rows.filter(row => row[15] === filters.level);
+  if (filters.rank) rows = rows.filter(row => row[15] === filters.rank);
+  if (filters.gender) rows = rows.filter(row => row[4] === filters.gender);
+  if (filters.branch) rows = rows.filter(row => row[13] === filters.branch);
+  if (filters.zone) rows = rows.filter(row => row[12] === filters.zone);
+
+  const data = [headers, ...rows];
 
   if (data.length <= 1) throw new Error('No data available to export');
 
@@ -766,10 +821,10 @@ function exportData(type, user) {
   );
 
   const csv = csvRows.join('\n');
-  const filename = `${sheetName}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+  const filename = `${sheetName}_filtered_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
 
   logAudit('Admin', 'EXPORT_' + type.toUpperCase(), `Exported ${sheetName} CSV (${data.length - 1} records)`);
-  return { success: true, csv, filename };
+  return { success: true, csv, filename, headers, rows };
 }
 
 // ==================== ADD MISSING FUNCTIONS (from Utils.js) ====================

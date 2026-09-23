@@ -139,7 +139,7 @@ function handleRequest(e) {
         break;
 
       case 'exportData':
-        result = exportData(params.type, user);
+        result = exportData(params.type, user, params.search, params.filters);
         break;
 
       case 'getMember':

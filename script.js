@@ -1,9 +1,5 @@
 /**
  * INTIZARUL IMAMUL MUNTAZAR – Frontend Logic & Application Engine (script.js)
- * Supports Google Apps Script live backend only.
- * Includes Graduate (Al-Mahdi) management, safe multi-field search,
- * collapsible sidebar navigation, and ID printing.
- *
  * VERSION: 2.1 – Fixed zone/branch loading, mobile sidebar, edit modal IDs.
  */
 
@@ -11,6 +7,7 @@
 const APPS_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbwC-EzbdFWSwdk6S9PBCe_fXe8PO_INWR6a3_8fNqgLtLT3D5gpDVOcfQvkOD59Fy9d/exec';
 const PAGE_SIZE = 50;
+const API_TIMEOUT_MS = 30000;
 
 // ==================== GLOBAL STATE ====================
 let currentUser = JSON.parse(sessionStorage.getItem('iim_user')) || null;
@@ -252,14 +249,27 @@ async function apiRequest(action, data = {}, user = null, options = {}) {
     const formBody = new URLSearchParams();
     formBody.append('payload', JSON.stringify(payload));
 
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
-      },
-      body: formBody.toString(),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: formBody.toString(),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('The server took too long to respond. Please try again.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
@@ -639,11 +649,13 @@ async function initializeDashboard() {
   }
 
   switchSection('overview');
-  await loadDashboardStats();
-  await loadMembersList(1, '');
-  await loadFilterOptions();
+  await Promise.all([
+    loadDashboardStats(),
+    loadMembersList(1, ''),
+    loadFilterOptions(),
+    loadZonesForDropdowns(),
+  ]);
   hideLoaderImmediately();
-  loadZonesForDropdowns();
 }
 
 // ==================== SECTION SWITCHING ====================
@@ -1911,9 +1923,30 @@ async function saveSystemConfig() {
 }
 
 // ==================== EXPORT (CSV) ====================
+function getExportCriteria(type) {
+  let search = '';
+  let filters = {};
+  if (type === 'members') {
+    search = memberSearchTerm;
+    filters = currentMemberFilters || {};
+  } else if (type === 'masuls') {
+    search = masulSearchTerm;
+    filters = currentMasulFilters || {};
+  } else if (type === 'graduates') {
+    search = document.getElementById('graduateSearchInput')?.value || '';
+    filters = {
+      gender: document.getElementById('gradFilterGender')?.value || '',
+      zone: document.getElementById('gradFilterZone')?.value || '',
+      branch: document.getElementById('gradFilterBranch')?.value || '',
+    };
+  }
+  return { search, filters };
+}
+
 async function exportData(type) {
   try {
-    const result = await apiRequest('exportData', { type }, currentUser);
+    const { search, filters } = getExportCriteria(type);
+    const result = await apiRequest('exportData', { type, search, filters }, currentUser);
     const blob = new Blob([result.csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1921,6 +1954,59 @@ async function exportData(type) {
     a.download = result.filename;
     a.click();
     window.URL.revokeObjectURL(url);
+  } catch (err) {
+    showMessage('Error', err.message);
+  }
+}
+
+function escapePrintHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function openDataPrintWindow(type, headers, rows) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showMessage('Popup Blocked', 'Please allow popups to print or save as PDF.');
+    return;
+  }
+
+  const title = type === 'masuls' ? "Mas'ulin Registry" : type === 'graduates' ? 'Graduate Registry' : 'Members Registry';
+  const headerHtml = headers.map(header => `<th>${escapePrintHtml(header)}</th>`).join('');
+  const rowHtml = rows.map(row => `<tr>${headers.map((_, index) => `<td>${escapePrintHtml(row[index])}</td>`).join('')}</tr>`).join('');
+
+  printWindow.document.write(`
+    <!doctype html>
+    <html><head><title>${escapePrintHtml(title)}</title>
+    <style>
+      @page { size: landscape; margin: 10mm; }
+      body { font-family: Arial, sans-serif; color: #17221a; margin: 0; }
+      h1 { color: #155B2F; font-size: 20px; margin: 0 0 4px; }
+      p { color: #64748B; font-size: 11px; margin: 0 0 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: 9px; }
+      th { background: #155B2F; color: white; text-align: left; }
+      th, td { border: 1px solid #CBD5E1; padding: 5px; vertical-align: top; }
+      tr:nth-child(even) { background: #F8FAFC; }
+      thead { display: table-header-group; }
+    </style></head>
+    <body><h1>${escapePrintHtml(title)}</h1>
+    <p>Generated ${escapePrintHtml(new Date().toLocaleString())} | ${rows.length} records</p>
+    <table><thead><tr>${headerHtml}</tr></thead><tbody>${rowHtml}</tbody></table>
+    <script>window.onload = function () { window.print(); window.onafterprint = function () { window.close(); }; };<\/script>
+    </body></html>
+  `);
+  printWindow.document.close();
+}
+
+async function printFilteredDataAsPdf(type) {
+  try {
+    const { search, filters } = getExportCriteria(type);
+    const result = await apiRequest('exportData', { type, search, filters }, currentUser);
+    openDataPrintWindow(type, result.headers, result.rows);
   } catch (err) {
     showMessage('Error', err.message);
   }
@@ -2504,6 +2590,7 @@ window.openSpreadsheet = openSpreadsheet;
 window.openLiveGoogleSheet = openSpreadsheet;
 window.triggerCSVExport = triggerCSVExport;
 window.exportData = exportData;
+window.printFilteredDataAsPdf = printFilteredDataAsPdf;
 window.loadMembersList = loadMembersList;
 window.loadMasuls = loadMasuls;
 window.loadGraduatesList = loadGraduatesList;
