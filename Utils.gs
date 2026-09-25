@@ -149,6 +149,7 @@ function setConfig(key, value) {
   sheet.appendRow([key, value]);
 }
 
+// ==================== INTIZAR ID (global serial, smallest gap wins) ====================
 function getNextAvailableIntizarNumber() {
   const usedNumbers = {};
   const spreadsheet = getSpreadsheet();
@@ -175,45 +176,57 @@ function logAudit(user, action, details) {
 }
 
 // ==================== MEMBER RECRUITMENT ID ====================
+// Format: INT/{BranchCode}/{YY}/{Serial}
+//   - Serial is scoped to the BRANCH only (year is a label, not part of the scope).
+//   - Reuse on delete: YES – the smallest unused serial in the branch is returned.
 function nextMemberRecruitmentId(branchCode, recruitmentYear) {
+  const year = recruitmentYear.toString().slice(-2);
+  const prefix = `INT/${branchCode}/`;
+
   const sheet = getSpreadsheet().getSheetByName('Members');
   const data = sheet.getDataRange().getValues();
-  const year = recruitmentYear.toString().slice(-2);
 
+  // Collect every serial ever used in this branch, regardless of the year in the ID.
   const usedSerials = {};
-  const prefix = `INT/${branchCode}/${year}/`;
   for (let i = 1; i < data.length; i++) {
-    const recruitmentId = String(data[i][1] || '');
-    if (data[i][13] === branchCode && recruitmentId.startsWith(prefix)) {
-      const serial = parseInt(recruitmentId.substring(prefix.length), 10);
-      if (!isNaN(serial)) usedSerials[serial] = true;
-    }
+    const rid = String(data[i][1] || '');
+    if (!rid.startsWith(prefix)) continue;         // different branch → ignore
+    const rest = rid.substring(prefix.length);     // e.g. "24/001"
+    const parts = rest.split('/');
+    if (parts.length !== 2) continue;
+    const serial = parseInt(parts[1], 10);
+    if (!isNaN(serial)) usedSerials[serial] = true;
   }
+
   let serial = 1;
-  while (usedSerials[serial]) serial++;
-  const padded = String(serial).padStart(3, '0');
-  return `INT/${branchCode}/${year}/${padded}`;
+  while (usedSerials[serial]) serial++;            // smallest gap wins
+  return `${prefix}${year}/${String(serial).padStart(3, '0')}`;
 }
 
 // ==================== MAS'UL RECRUITMENT ID ====================
+// Format: IIM/{BranchCode}/{YY}/{Serial}
+//   - Serial is GLOBAL across all Mas'ulin (branch and year are labels only).
+//   - Reuse on delete: YES – the smallest unused serial across all Mas'ulin is returned.
 function nextMasulRecruitmentId(branchCode, recruitmentYear) {
-  const sheet = getSpreadsheet().getSheetByName('Masuls');
-  const data = sheet.getDataRange().getValues();
   const year = recruitmentYear.toString().slice(-2);
 
+  const sheet = getSpreadsheet().getSheetByName('Masuls');
+  const data = sheet.getDataRange().getValues();
+
+  // Collect serials from every Mas'ul ID, no matter which branch or year.
   const usedSerials = {};
-  const prefix = `IIM/${branchCode}/${year}/`;
   for (let i = 1; i < data.length; i++) {
-    const recruitmentId = String(data[i][1] || '');
-    if (recruitmentId.startsWith(prefix)) {
-      const serial = parseInt(recruitmentId.substring(prefix.length), 10);
-      if (!isNaN(serial)) usedSerials[serial] = true;
-    }
+    const rid = String(data[i][1] || '');
+    // matches IIM/ANYBRANCH/YY/SERIAL
+    const m = rid.match(/^IIM\/[^/]+\/\d+\/(\d+)$/i);
+    if (!m) continue;
+    const serial = parseInt(m[1], 10);
+    if (!isNaN(serial)) usedSerials[serial] = true;
   }
+
   let serial = 1;
-  while (usedSerials[serial]) serial++;
-  const padded = String(serial).padStart(3, '0');
-  return `IIM/${branchCode}/${year}/${padded}`;
+  while (usedSerials[serial]) serial++;            // smallest gap wins
+  return `IIM/${branchCode}/${year}/${String(serial).padStart(3, '0')}`;
 }
 
 // ==================== VALIDATION HELPERS ====================
