@@ -37,6 +37,12 @@ let currentMasulFilters = {};
 let lastViewedMember = null;
 let lastViewedMasul = null;
 
+// ── Selection state for print-selected / print-filtered ──
+const selectedMemberIds = new Set();
+const selectedMasulIds = new Set();
+let currentMemberRows = [];
+let currentMasulRows = [];
+
 function getDataCacheKey(action, data, user) {
   return DATA_CACHE_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify({ action, data, user }))));
 }
@@ -230,7 +236,7 @@ function renderPromotionHistory(historyValue, type = 'member') {
 
         return `
                 <li>
-                    ${date ? `<strong>${date}:</strong> ` : ''}
+                    ${date ? `<strong>${date}:</strong>` : ''}
                     ${description}
                 </li>
             `;
@@ -1092,12 +1098,33 @@ function renderMemberListTable(members) {
   const tbody = document.querySelector('#membersTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
+  currentMemberRows = members || [];
+
+  // Drop any selected IDs that are no longer in the current dataset
+  const idSet = new Set(currentMemberRows.map((m) => m.IntizarID));
+  Array.from(selectedMemberIds).forEach((id) => { if (!idSet.has(id)) selectedMemberIds.delete(id); });
+  updateMemberSelectionInfo();
+
   if (!members || members.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;">No members found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;">No members found.</td></tr>';
     return;
   }
   members.forEach((member) => {
     const row = tbody.insertRow();
+
+    // ── Checkbox cell ──
+    const checkCell = row.insertCell();
+    checkCell.style.textAlign = 'center';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = selectedMemberIds.has(member.IntizarID);
+    cb.onchange = () => {
+      if (cb.checked) selectedMemberIds.add(member.IntizarID);
+      else selectedMemberIds.delete(member.IntizarID);
+      updateMemberSelectionInfo();
+    };
+    checkCell.appendChild(cb);
+
     row.insertCell().innerText = member.IntizarID || '';
     row.insertCell().innerText = member.RecruitmentID || '';
     row.insertCell().innerText = displayPersonName(member);
@@ -1371,12 +1398,32 @@ function renderMasulTable(masuls) {
   const tbody = document.querySelector('#masulsTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
+  currentMasulRows = masuls || [];
+
+  const idSet = new Set(currentMasulRows.map((m) => m.IntizarID));
+  Array.from(selectedMasulIds).forEach((id) => { if (!idSet.has(id)) selectedMasulIds.delete(id); });
+  updateMasulSelectionInfo();
+
   if (!masuls || masuls.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;">No Mas\'ulin found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;">No Mas\'ulin found.</td></tr>';
     return;
   }
   masuls.forEach((masul) => {
     const row = tbody.insertRow();
+
+    // ── Checkbox cell ──
+    const checkCell = row.insertCell();
+    checkCell.style.textAlign = 'center';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = selectedMasulIds.has(masul.IntizarID);
+    cb.onchange = () => {
+      if (cb.checked) selectedMasulIds.add(masul.IntizarID);
+      else selectedMasulIds.delete(masul.IntizarID);
+      updateMasulSelectionInfo();
+    };
+    checkCell.appendChild(cb);
+
     row.insertCell().innerText = masul.IntizarID || '';
     row.insertCell().innerText = masul.MasulRecruitmentID || '';
     row.insertCell().innerText = masul.OriginalMemberRecruitmentID || '';
@@ -1441,6 +1488,130 @@ function clearMasulListSearch() {
   const el = document.getElementById('masulSearchInput');
   if (el) el.value = '';
   loadMasuls(1, '', {});
+}
+
+// ==================== SELECTION HELPERS ====================
+function toggleSelectAllMembers(cb) {
+  selectedMemberIds.clear();
+  if (cb && cb.checked) {
+    currentMemberRows.forEach((m) => selectedMemberIds.add(m.IntizarID));
+  }
+  // Re-render the checkboxes' visual state
+  const tbody = document.querySelector('#membersTableBody');
+  if (tbody) {
+    Array.from(tbody.rows).forEach((tr, idx) => {
+      const box = tr.cells[0] ? tr.cells[0].querySelector('input[type="checkbox"]') : null;
+      if (box && currentMemberRows[idx]) box.checked = selectedMemberIds.has(currentMemberRows[idx].IntizarID);
+    });
+  }
+  updateMemberSelectionInfo();
+}
+
+function toggleSelectAllMasuls(cb) {
+  selectedMasulIds.clear();
+  if (cb && cb.checked) {
+    currentMasulRows.forEach((m) => selectedMasulIds.add(m.IntizarID));
+  }
+  const tbody = document.querySelector('#masulsTableBody');
+  if (tbody) {
+    Array.from(tbody.rows).forEach((tr, idx) => {
+      const box = tr.cells[0] ? tr.cells[0].querySelector('input[type="checkbox"]') : null;
+      if (box && currentMasulRows[idx]) box.checked = selectedMasulIds.has(currentMasulRows[idx].IntizarID);
+    });
+  }
+  updateMasulSelectionInfo();
+}
+
+function updateMemberSelectionInfo() {
+  const el = document.getElementById('memberSelectionInfo');
+  if (el) {
+    el.innerText = selectedMemberIds.size
+      ? `${selectedMemberIds.size} selected`
+      : '';
+  }
+  const master = document.getElementById('selectAllMembers');
+  if (master) master.checked = currentMemberRows.length > 0 && selectedMemberIds.size === currentMemberRows.length;
+}
+
+function updateMasulSelectionInfo() {
+  const el = document.getElementById('masulSelectionInfo');
+  if (el) {
+    el.innerText = selectedMasulIds.size
+      ? `${selectedMasulIds.size} selected`
+      : '';
+  }
+  const master = document.getElementById('selectAllMasuls');
+  if (master) master.checked = currentMasulRows.length > 0 && selectedMasulIds.size === currentMasulRows.length;
+}
+
+function clearMemberSelection() {
+  selectedMemberIds.clear();
+  const master = document.getElementById('selectAllMembers');
+  if (master) master.checked = false;
+  const tbody = document.querySelector('#membersTableBody');
+  if (tbody) Array.from(tbody.querySelectorAll('input[type="checkbox"]')).forEach((b) => (b.checked = false));
+  updateMemberSelectionInfo();
+}
+
+function clearMasulSelection() {
+  selectedMasulIds.clear();
+  const master = document.getElementById('selectAllMasuls');
+  if (master) master.checked = false;
+  const tbody = document.querySelector('#masulsTableBody');
+  if (tbody) Array.from(tbody.querySelectorAll('input[type="checkbox"]')).forEach((b) => (b.checked = false));
+  updateMasulSelectionInfo();
+}
+
+// ==================== PRINT FILTERED / SELECTED ====================
+function buildMemberPrintRows(list) {
+  return list.map((m) => [
+    m.IntizarID || '',
+    m.RecruitmentID || '',
+    m.FullName || '',
+    m.FatherName || '',
+    m.Gender || '',
+    m.Level || '',
+    m.Zone || '',
+    m.Branch || '',
+  ]);
+}
+
+function buildMasulPrintRows(list) {
+  return list.map((m) => [
+    m.IntizarID || '',
+    m.MasulRecruitmentID || '',
+    m.OriginalMemberRecruitmentID || '',
+    m.FullName || '',
+    m.CurrentRank || '',
+    m.Source || '',
+    m.Zone || '',
+    m.Branch || '',
+  ]);
+}
+
+const MEMBER_PRINT_HEADERS = ['Intizar ID', 'Recruitment ID', 'Full Name', 'Father Name', 'Gender', 'Level', 'Zone', 'Branch'];
+const MASUL_PRINT_HEADERS = ['Intizar ID', "Mas'ul Recruitment ID", 'Original Member ID', 'Full Name', 'Rank', 'Source', 'Zone', 'Branch'];
+
+function printFilteredMembers() {
+  if (!currentMemberRows.length) return showMessage('Nothing to Print', 'No member rows are currently loaded.');
+  openDataPrintWindow('members', MEMBER_PRINT_HEADERS, buildMemberPrintRows(currentMemberRows));
+}
+
+function printSelectedMembers() {
+  const selected = currentMemberRows.filter((m) => selectedMemberIds.has(m.IntizarID));
+  if (!selected.length) return showMessage('No Selection', 'Tick at least one member checkbox first.');
+  openDataPrintWindow('members', MEMBER_PRINT_HEADERS, buildMemberPrintRows(selected));
+}
+
+function printFilteredMasuls() {
+  if (!currentMasulRows.length) return showMessage('Nothing to Print', 'No Mas\'ul rows are currently loaded.');
+  openDataPrintWindow('masuls', MASUL_PRINT_HEADERS, buildMasulPrintRows(currentMasulRows));
+}
+
+function printSelectedMasuls() {
+  const selected = currentMasulRows.filter((m) => selectedMasulIds.has(m.IntizarID));
+  if (!selected.length) return showMessage('No Selection', 'Tick at least one Mas\'ul checkbox first.');
+  openDataPrintWindow('masuls', MASUL_PRINT_HEADERS, buildMasulPrintRows(selected));
 }
 
 // ==================== VIEW MEMBER ====================
@@ -2842,6 +3013,16 @@ window.toggleSidebar = toggleSidebar;
 window.handleRegZoneChange = handleRegZoneChange;
 window.saveSystemConfig = saveSystemConfig;
 window.logout = logout;
+
+// ── Print Selected / Filtered globals ──
+window.toggleSelectAllMembers = toggleSelectAllMembers;
+window.toggleSelectAllMasuls = toggleSelectAllMasuls;
+window.clearMemberSelection = clearMemberSelection;
+window.clearMasulSelection = clearMasulSelection;
+window.printFilteredMembers = printFilteredMembers;
+window.printSelectedMembers = printSelectedMembers;
+window.printFilteredMasuls = printFilteredMasuls;
+window.printSelectedMasuls = printSelectedMasuls;
 
 // Alias for print/screenshot from view modal
 window.printIdCardDirectly = function () {
