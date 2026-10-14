@@ -258,10 +258,19 @@
                     <button type="button" class="btn btn-sm btn-secondary" onclick="resetMemberFilters()">Reset Filters</button>
                 </div>
 
+                <!-- Print actions for Members -->
+                <div class="print-actions" style="margin-bottom:1rem; display:flex; gap:0.6rem; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-sm" onclick="printFilteredMembers()">🖨 Print Filtered</button>
+                    <button type="button" class="btn btn-sm" onclick="printSelectedMembers()">🖨 Print Selected</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearMemberSelection()">Clear Selection</button>
+                    <span id="memberSelectionInfo" style="align-self:center; margin-left:0.5rem; font-size:0.9rem; color:#64748B;"></span>
+                </div>
+
                 <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
+                                <th style="width:40px; text-align:center;"><input type="checkbox" id="selectAllMembers" onchange="toggleSelectAllMembers(this)"></th>
                                 <th>Intizar ID</th>
                                 <th>Recruitment ID</th>
                                 <th>Full Name</th>
@@ -274,7 +283,7 @@
                             </tr>
                         </thead>
                         <tbody id="membersTableBody">
-                            <tr><td colspan="9" style="text-align: center; padding: 2rem;">Loading members...</td></tr>
+                            <tr><td colspan="10" style="text-align: center; padding: 2rem;">Loading members...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -380,10 +389,19 @@
                     <button type="button" class="btn btn-sm btn-secondary" onclick="resetMasulFilters()">Reset Filters</button>
                 </div>
 
+                <!-- Print actions for Mas'ulin -->
+                <div class="print-actions" style="margin-bottom:1rem; display:flex; gap:0.6rem; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-sm" onclick="printFilteredMasuls()">🖨 Print Filtered</button>
+                    <button type="button" class="btn btn-sm" onclick="printSelectedMasuls()">🖨 Print Selected</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearMasulSelection()">Clear Selection</button>
+                    <span id="masulSelectionInfo" style="align-self:center; margin-left:0.5rem; font-size:0.9rem; color:#64748B;"></span>
+                </div>
+
                 <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
+                                <th style="width:40px; text-align:center;"><input type="checkbox" id="selectAllMasuls" onchange="toggleSelectAllMasuls(this)"></th>
                                 <th>Intizar ID</th>
                                 <th>Mas'ul Recruitment ID</th>
                                 <th>Original Member ID</th>
@@ -396,7 +414,7 @@
                             </tr>
                         </thead>
                         <tbody id="masulsTableBody">
-                            <tr><td colspan="9" style="text-align: center; padding: 2rem;">Loading Mas'ulin...</td></tr>
+                            <tr><td colspan="10" style="text-align: center; padding: 2rem;">Loading Mas'ulin...</td></tr>
                         </tbody>
                     </table>
                 </div>
